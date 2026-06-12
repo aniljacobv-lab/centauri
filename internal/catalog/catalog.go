@@ -141,6 +141,9 @@ func Entries() []Entry {
 		{"ops", "byref-note", "FACTS OF <pattern> WHERE ref = '<id>'", "FACTS OF item:* WHERE ref = 'sendnow:BATCH-00042'",
 			"Find facts by an outside-world reference",
 			[]string{"which batch", "job run", "trace the batch"}},
+		{"ops", "version", "VERSION", "VERSION",
+			"Server version, Go runtime, uptime, and the data file being served",
+			[]string{"version", "uptime", "how long has it been up", "what release", "which file"}},
 
 		// ---- CAUSALITY ----
 		{"graph", "why", "WHY <event-id> DEPTH <n>", "WHY 0193fa2e-77c1 DEPTH 6",

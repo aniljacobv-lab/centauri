@@ -306,6 +306,41 @@ func TestRetireAndCorrect(t *testing.T) {
 	}
 }
 
+func TestVersion(t *testing.T) {
+	st := newStore(t)
+
+	// Pin a known start time so uptime is deterministic: started one
+	// minute (60s) before "now".
+	saved := StartTime
+	StartTime = t1
+	t.Cleanup(func() { StartTime = saved })
+	now := t1 + 60_000_000 // +60s in micros
+
+	res := run(t, st, `VERSION`, now)
+	if res["kind"] != "version" {
+		t.Fatalf("kind = %v, want version", res["kind"])
+	}
+	if res["version"] != Version {
+		t.Fatalf("version = %v, want %v", res["version"], Version)
+	}
+	if up, _ := res["uptime_seconds"].(int64); up != 60 {
+		t.Fatalf("uptime_seconds = %v, want 60", res["uptime_seconds"])
+	}
+	if res["data_path"] != st.Path() {
+		t.Fatalf("data_path = %v, want %v", res["data_path"], st.Path())
+	}
+	if s, _ := res["go"].(string); s == "" {
+		t.Fatal("go runtime version is empty")
+	}
+
+	// With no known start time, uptime is reported as 0 (not negative).
+	StartTime = 0
+	res = run(t, st, `VERSION`, now)
+	if up, _ := res["uptime_seconds"].(int64); up != 0 {
+		t.Fatalf("uptime with unknown start = %v, want 0", res["uptime_seconds"])
+	}
+}
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"

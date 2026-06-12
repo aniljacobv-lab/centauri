@@ -301,6 +301,9 @@ func TranslateNL(text string, now int64) (*Translation, error) {
 	case has("how many", "count", "stats", "statistics"):
 		return mk("STATS", "store counters")
 
+	case has("version", "uptime", "what release", "how long has it been up"):
+		return mk("VERSION", "server version and uptime")
+
 	case has("list subjects", "show subjects", "what subjects", "which subjects"):
 		return mk("SUBJECTS LIMIT 100", "known subjects")
 

@@ -34,6 +34,7 @@ const (
 	KSimilar      Kind = "similar"
 	KContext      Kind = "context"
 	KStats        Kind = "stats"
+	KVersion      Kind = "version"
 	KSchemas      Kind = "schemas"
 	KSchema       Kind = "schema"
 	KDefineSchema Kind = "define_schema"
@@ -341,6 +342,8 @@ func (p *parser) statement() (*Query, error) {
 		return p.contextStmt()
 	case p.eat("STATS"):
 		return &Query{Kind: KStats}, nil
+	case p.eat("VERSION"):
+		return &Query{Kind: KVersion}, nil
 	case p.eat("SCHEMAS"):
 		return &Query{Kind: KSchemas}, nil
 	case p.eat("SCHEMA"):
