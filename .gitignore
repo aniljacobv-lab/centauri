@@ -1,6 +1,7 @@
-# build artifacts
-centauri.exe
-centauri
+# build artifacts (anchored to repo root — a bare "centauri" would also
+# ignore sdk/python/centauri, which is exactly what happened once)
+/centauri.exe
+/centauri
 dist/
 *.exe
 *.exe~

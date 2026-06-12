@@ -1,6 +1,7 @@
 package ceql
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -22,6 +23,17 @@ func newStore(t *testing.T) *store.Store {
 	}
 	t.Cleanup(func() { s.Close() })
 	return s
+}
+
+// ev builds a test event the same way the store package's tests do.
+func ev(subject, facet string, typ model.EventType, price int, eff int64) *model.Event {
+	return &model.Event{
+		Subject: subject, Facet: facet, Type: typ,
+		Value:         map[string]any{"price_cents": price},
+		EffectiveTime: eff,
+		Provenance:    model.SystemFeed, Confidence: 1.0,
+		SourceSystem: "TEST",
+	}
 }
 
 func run(t *testing.T, st *store.Store, q string, now int64) map[string]any {
@@ -126,9 +138,7 @@ func TestProjectionOrderLimitAggregate(t *testing.T) {
 }
 
 func TestHavingMedianStddevListaggRank(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "c.log")
-	s := openT(t, path)
-	defer s.Close()
+	s := newStore(t)
 	prices := []int{100, 200, 300, 400}
 	for i, p := range prices {
 		e := ev(fmt.Sprintf("box:%d/store:1", i), "source", model.Intent, p, t1+int64(i))
@@ -216,15 +226,15 @@ func TestWhySchemaPendingDisagreeExplain(t *testing.T) {
 	if ex["kind"] != "ast" {
 		t.Fatalf("explain kind = %v", ex["kind"])
 	}
-	if len(events(run(t, st, `HISTORY OF toy:car`, t3))) != 3 {
-		t.Fatal("EXPLAIN must not execute its inner statement")
+	// toy:car has exactly two committed PUTs; if EXPLAIN had executed its
+	// inner statement there would be a third.
+	if got := len(events(run(t, st, `HISTORY OF toy:car`, t3))); got != 2 {
+		t.Fatalf("EXPLAIN must not execute its inner statement (history = %d, want 2)", got)
 	}
 }
 
 func TestNamespaceAndMatches(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "c.log")
-	s := openT(t, path)
-	defer s.Close()
+	s := newStore(t)
 	mk := func(subject, kind string, price int) {
 		e := ev(subject, "source", model.Intent, price, t1)
 		e.Value["kind"] = kind

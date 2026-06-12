@@ -100,7 +100,7 @@ var domains = map[string]domainDef{
 var (
 	moneyWords     = []string{"price", "cost", "fee", "payment", "amount", "invoice", "salary", "cents", "dollar", "money", "charge", "billing"}
 	lifecycleWords = []string{"send", "sent", "distribute", "deliver", "dispatch", "ship", "fan out", "propagate", "sync", "push", "activate", "apply", "confirm"}
-	multiSrcWords  = []string{"systems", "register", "pos", "feed", "downstream", "upstream", "sources", "pipeline", "integrat", "sync"}
+	multiSrcWords  = []string{"systems", "system", "register", "pos", "feed", "downstream", "upstream", "sources", "pipeline", "integrat", "sync", "their own"}
 	tenancyWords   = []string{"client", "tenant", "customer account", "per customer", "multi-tenant", "saas", "organization"}
 	auditWords     = []string{"audit", "compliance", "regulat", "tamper", "legal", "dispute", "investigation", "prove"}
 	stopWords      = map[string]bool{
@@ -110,6 +110,8 @@ var (
 		"data": true, "database": true, "system": true, "systems": true, "about": true,
 		"also": true, "when": true, "what": true, "across": true, "manage": true, "managing": true,
 		"run": true, "runs": true, "running": true, "over": true, "time": true, "like": true,
+		"get": true, "gets": true, "getting": true, "sometimes": true, "often": true,
+		"never": true, "record": true, "records": true,
 	}
 )
 

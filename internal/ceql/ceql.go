@@ -1065,7 +1065,7 @@ func (p *parser) when() (int64, error) {
 		p.pos++
 		// "10 DAYS AGO" — a number followed by a unit and ago/before/back.
 		if p.peek().k == tWord {
-			unit := strings.ToLower(strings.TrimSuffix(p.peek().s, "s"))
+			unit := strings.TrimSuffix(strings.ToLower(p.peek().s), "s")
 			if us, ok := unitMicros[unit]; ok {
 				save := p.pos
 				p.pos++
