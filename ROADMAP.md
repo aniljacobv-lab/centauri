@@ -23,6 +23,15 @@ AI builds next. Keep items small enough for one PR.
    procedures validate that the referenced subject exists (docs/
    modeling-hierarchies.md explains today's procedure-gateway pattern).
 
+5¾. **Governance pack** — roles beyond the two token tiers; field-level
+   masking applied to read-token queries; PII classification tags (as
+   enrichments); scheduled data-quality checks (PROFILE thresholds +
+   WATCH alerts). The compliance story deserves first-class tooling.
+5⅞. **Derived facts (our Dynamic Tables)** — a declarative standing
+   transformation: `DERIVE summary:<x> AS FACTS ... GROUP BY ...`
+   incrementally maintained off the log, results written as ordinary
+   (supersedable, WHY-traceable) facts.
+
 6. Window frames in CeQL (`ROWS BETWEEN ... PRECEDING`).
 7. Spatial fields (lat/lon distance in WHERE).
 8. Stemming + ranking for MATCHES.

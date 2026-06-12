@@ -166,6 +166,9 @@
     <button class="ghost" onclick="openWhy('why')" title="What makes Centauri different + honest comparisons">★ Why Centauri</button>
     <button class="ghost" onclick="window.open('/ceql','_blank')" title="The CeQL textbook">📘 CeQL Book</button>
   </div>
+  <div class="tgroup"><span class="lbl">Community</span>
+    <button class="ghost" onclick="openSuggest()" title="Suggest a feature or report a bug — stored as facts here, one click to send upstream">💡 Suggest</button>
+  </div>
 </div>
 <main>
   <div id="left">
@@ -1530,6 +1533,90 @@ for e in db.watch(): ...         # live stream</pre></div>
   modal(tabs + body + `<div class="btnrow"><span class="spacer"></span>
     <button class="primary" onclick="closeModal()">Close</button></div>`);
   document.getElementById("modal").classList.add("wide");
+}
+
+// ---------------- community suggestions ----------------
+// Suggestions are facts (subject suggestion:* in the ceql-catalog
+// environment) — Centauri never phones home. The ⬆ button opens a
+// pre-filled GitHub issue: one click to send upstream, where @claude
+// and the dream cycle can build it.
+const REPO = "https://github.com/aniljacobv-lab/centauri";
+async function catalogFetch(method, path, body){
+  const q = new URLSearchParams();
+  if (TOKEN) q.set("token", TOKEN);
+  q.set("db", "ceql-catalog");
+  return handle(await fetch(path + "?" + q.toString(), {
+    method, headers: {"Content-Type": "application/json"},
+    body: body ? JSON.stringify(body) : undefined}));
+}
+async function openSuggest(){
+  let list = "";
+  try {
+    const r = await catalogFetch("POST", "/v1/query",
+      {q: "FACTS OF suggestion:* ORDER BY recorded DESC LIMIT 50"});
+    const evs = r.events || [];
+    if (evs.length) {
+      list = `<h3 style="color:var(--dim)">SAVED ON THIS MACHINE (${evs.length})</h3>` +
+        evs.map(e => `<div class="tourbox">
+          <b>${esc(e.value.title || "(untitled)")}</b>
+          <button class="ghost" style="float:right" title="Open a pre-filled GitHub issue"
+            onclick="sendSuggestion(${jsAttr(JSON.stringify(e.value))})">⬆ send to GitHub</button>
+          <div class="mini">${esc(e.value.problem || "")}</div>
+          <div class="mini" style="color:var(--accent)">${esc(e.value.proposal || "")}</div>
+        </div>`).join("");
+    }
+  } catch (err) { /* catalog env missing: form still works for GitHub path */ }
+  modal(`<h2>💡 Suggest a <b>feature</b> (or report a bug)</h2>
+    <p class="sub">Saved as facts on <i>your</i> machine — Centauri never phones home.
+       When you're ready, one click opens a pre-filled GitHub issue; accepted
+       suggestions get implemented by an AI and reviewed by a human. No
+       collaborator status needed — just a GitHub account.</p>
+    <div class="formrow"><label>Title</label>
+      <input id="sg_title" style="flex:1" placeholder="e.g. Add JSON path queries to WHERE"></div>
+    <div class="formrow"><label>Problem</label>
+      <textarea id="sg_problem" rows="2" style="flex:1" placeholder="What's painful or missing today?"></textarea></div>
+    <div class="formrow"><label>Proposal</label>
+      <textarea id="sg_proposal" rows="3" style="flex:1" placeholder="What should Centauri do? CeQL examples are gold."></textarea></div>
+    <div class="formrow"><label>Area</label>
+      <select id="sg_area"><option>CeQL language</option><option>CePL procedures</option>
+        <option>Storage engine</option><option>Dashboard</option><option>Genesis Engine</option>
+        <option>Python SDK</option><option>MCP / agents</option><option>Replication &amp; ops</option>
+        <option>Other</option></select></div>
+    <div class="btnrow">
+      <span class="mini">💾 saves locally · ⬆ saves locally <i>and</i> opens GitHub pre-filled</span>
+      <span class="spacer"></span>
+      <button onclick="closeModal()">Cancel</button>
+      <button onclick="saveSuggestion(false)">💾 Save</button>
+      <button class="primary" onclick="saveSuggestion(true)">⬆ Save &amp; send</button></div>
+    ${list}`);
+  document.getElementById("modal").classList.add("wide");
+  document.getElementById("sg_title").focus();
+}
+async function saveSuggestion(send){
+  const v = {
+    title: document.getElementById("sg_title").value.trim(),
+    problem: document.getElementById("sg_problem").value.trim(),
+    proposal: document.getElementById("sg_proposal").value.trim(),
+    area: document.getElementById("sg_area").value,
+  };
+  if (!v.title) return toast("Give it a title", true);
+  try {
+    await catalogFetch("POST", "/v1/append", {events: [{
+      subject: "suggestion:" + Date.now(), facet: "feedback", type: "OBSERVED",
+      value: v, provenance: "HUMAN_ENTRY", confidence: 1, source_system: "DASHBOARD"}]});
+    toast("Suggestion saved as a fact ✓");
+  } catch (e) { toast("Couldn't save locally (" + e.message + ")", true); }
+  if (send) sendSuggestion(JSON.stringify(v));
+  else openSuggest();
+}
+function sendSuggestion(json){
+  let v; try { v = JSON.parse(json); } catch { return; }
+  const u = REPO + "/issues/new?template=feature_request.yml" +
+    "&title=" + encodeURIComponent(v.title || "") +
+    "&problem=" + encodeURIComponent(v.problem || "") +
+    "&proposal=" + encodeURIComponent(v.proposal || "") +
+    "&area=" + encodeURIComponent(v.area || "Other");
+  window.open(u, "_blank");
 }
 
 // ---------------- the Genesis Engine ----------------
