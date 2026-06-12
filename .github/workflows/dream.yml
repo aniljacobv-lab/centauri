@@ -1,0 +1,61 @@
+# The dream cycle: on a schedule, Claude reviews the codebase, picks ONE
+# item from ROADMAP.md (or one real bug it finds), implements it with
+# tests, and opens a PR. CI gates it; a human merges — always.
+#
+# Manual trigger: Actions tab -> Dream -> Run workflow.
+# Cost note: each run spends API tokens; the schedule below is
+# three nights a week. Adjust the cron to taste.
+name: Dream
+on:
+  schedule:
+    - cron: "0 6 * * 1,3,5" # Mon/Wed/Fri 06:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: dream
+  cancel-in-progress: false
+
+jobs:
+  dream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Dream
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are Centauri's nightly autonomous contributor. Work alone,
+            end with ONE pull request. Rules:
+
+            1. Read CLAUDE.md (conventions + invariants) and ROADMAP.md.
+            2. Choose exactly ONE piece of work, in this priority order:
+               a. A real bug you can find and prove with a failing test
+                  (check recent commits, scan for the failure modes listed
+                  in CLAUDE.md).
+               b. The highest item in ROADMAP.md "Now" that fits in one
+                  focused PR. If the item is marked as needing a design
+                  doc first, write the design doc as the PR.
+               c. Something from "Always welcome".
+               Respect "Explicitly out of scope" absolutely.
+            3. Implement it completely per the CLAUDE.md feature checklist
+               (parser+executor+tests+textbook+catalog+dashboard surface
+               where applicable). Small, reviewable diff. No new deps.
+            4. Run: go vet ./... && go test ./... — everything must pass.
+            5. Open a PR titled "dream: <what>" whose description explains
+               WHAT you chose, WHY (which roadmap/bug reasoning), and what
+               you deliberately did NOT do. Reference any related issue.
+            6. If nothing worthwhile fits the rules tonight, open no PR;
+               instead open or comment on an issue explaining what you
+               inspected and what you'd recommend a human decide.
