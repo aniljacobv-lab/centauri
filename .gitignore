@@ -1,0 +1,26 @@
+# build artifacts
+centauri.exe
+centauri
+dist/
+*.exe
+*.exe~
+*~
+*.zip
+
+# databases & runtime files (never commit data)
+*.log
+*.log.checkpoint
+*.checkpoint
+
+# python
+__pycache__/
+*.pyc
+sdk/python/*.egg-info/
+sample_prices.csv
+tutorial.log
+
+# editors/os
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

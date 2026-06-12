@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The CeQL Book — Centauri Query Language</title>
+<style>
+  :root{--bg:#0b0e14;--panel:#121826;--panel2:#0e1420;--line:#1f2a3d;--text:#dbe4f3;
+        --dim:#7e8ca3;--accent:#5eb0ff;--accent2:#9a7bff;--good:#46d39a;--warn:#ffb454;
+        --bad:#ff6b81;--mono:ui-monospace,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:15px/1.65 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:30px 24px 120px}
+  h1{font-size:34px;margin:10px 0 4px} h1 b{color:var(--accent)}
+  .subtitle{color:var(--dim);font-size:16px;margin-bottom:30px}
+  h2{font-size:22px;margin:46px 0 8px;color:var(--accent);border-bottom:1px solid var(--line);
+     padding-bottom:6px}
+  h3{font-size:16px;margin:26px 0 6px;color:var(--accent2)}
+  p{margin:8px 0}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+      padding:12px 14px;font-family:var(--mono);font-size:13px;overflow:auto;line-height:1.5}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+       padding:1px 6px;font-family:var(--mono);font-size:13px}
+  pre code{border:none;background:none;padding:0}
+  .kw{color:var(--accent);font-weight:600} .lit{color:var(--good)} .cm{color:var(--dim)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th{color:var(--dim);text-align:left;border-bottom:1px solid var(--line);padding:7px 9px;font-weight:600}
+  td{border-bottom:1px solid #161e2e;padding:7px 9px;vertical-align:top}
+  td code{white-space:pre}
+  .box{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+       border-radius:10px;padding:12px 16px;margin:14px 0}
+  .box.warn{border-left-color:var(--warn)}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 22px;
+       columns:2;column-gap:30px}
+  .toc a{display:block;color:var(--text);text-decoration:none;padding:2px 0;font-size:14px}
+  .toc a:hover{color:var(--accent)}
+  .toc b{color:var(--dim);font-size:12px;letter-spacing:1px}
+  a{color:var(--accent)}
+  .back{position:fixed;top:14px;right:18px;background:var(--panel);border:1px solid var(--line);
+        border-radius:8px;padding:6px 12px;text-decoration:none;font-size:13px}
+</style>
+</head>
+<body>
+<a class="back" href="/">← dashboard</a>
+<div class="wrap">
+
+<h1>The <b>CeQL</b> Book</h1>
+<div class="subtitle">Centauri Query Language — where time, cause, and trust are syntax.<br>
+One language. Three speakers: humans, AI agents, and legacy systems.</div>
+
+<div class="toc">
+<b>CONTENTS</b>
+<a href="#why">1. Why a new language</a>
+<a href="#model">2. The mental model</a>
+<a href="#quick">3. Ten queries in two minutes</a>
+<a href="#facts">4. Reading: FACTS</a>
+<a href="#time">5. Time travel</a>
+<a href="#why-op">6. Causality: WHY &amp; EFFECTS</a>
+<a href="#writing">7. Writing: PUT, CORRECT, RETIRE</a>
+<a href="#agg">8. Aggregation</a>
+<a href="#schemas">9. Schemas</a>
+<a href="#live">10. Standing queries: WATCH</a>
+<a href="#ai">11. AI: SIMILAR &amp; CONTEXT</a>
+<a href="#ops">12. Operations: PENDING, DISAGREE…</a>
+<a href="#rosetta">13. The Rosetta Stone</a>
+<a href="#agents">14. For agents: the JSON AST</a>
+<a href="#grammar">15. Grammar reference</a>
+<a href="#cepl">16½. Procedures (CePL)</a>
+<a href="#practice">16. Best practices</a>
+</div>
+
+<h2 id="why">1. Why a new language</h2>
+<p>SQL was invented for a world where data is a grid of current values and the
+asker is a human. Both assumptions broke. Today the askers are humans <i>and</i>
+AI agents <i>and</i> other programs — and the questions that matter are about
+<b>time</b> (“what was true on March 1?”), <b>belief</b> (“what did we <i>know</i>
+on March 1?”), <b>cause</b> (“why did this change?”), and <b>trust</b>
+(“who says so, and how confident are we?”). In SQL those are heroic JOINs over
+audit tables. In CeQL they are single clauses.</p>
+<div class="box">CeQL's design rule: <b>one semantics, three surfaces.</b>
+Humans write text. Agents send the same query as a typed JSON AST (no string
+parsing, no injection — see <a href="#agents">chapter 14</a>). Legacy systems call
+a plain REST endpoint and get JSON back. Nobody translates for anybody.</div>
+
+<h2 id="model">2. The mental model (read this once)</h2>
+<p>Centauri has no tables, rows, or documents. It has three things:</p>
+<table>
+<tr><th>Thing</th><th>What it is</th><th>Example</th></tr>
+<tr><td><b>Subject</b></td><td>Something facts can be about. Created automatically the first time a fact mentions it.</td><td><code>item:100001/store:4001</code>, <code>toy:robot</code></td></tr>
+<tr><td><b>Fact</b> (event)</td><td>An immutable statement: <i>“about this subject, these values are true from this moment.”</i> Each fact carries two clocks (when it became true / when we learned it), a provenance, a confidence, and causal links.</td><td><code>price_cents: 763</code></td></tr>
+<tr><td><b>Facet</b></td><td>Which view of reality the fact belongs to — different systems can hold different beliefs about the same subject.</td><td><code>source</code>, <code>register</code>, <code>pdt</code>, <code>shelf</code></td></tr>
+</table>
+<p>Writing a new fact about the same subject+facet <b>supersedes</b> the old
+one — but the old one is kept forever. That is the whole trick: current state
+is just the newest layer of an ever-growing history.</p>
+
+<h2 id="quick">3. Ten queries in two minutes</h2>
+<pre><code><span class="cm">-- 1. What's true right now?</span>
+<span class="kw">FACTS OF</span> toy:robot
+
+<span class="cm">-- 2. Save a fact (insert and update are the same thing)</span>
+<span class="kw">PUT</span> toy:robot <span class="kw">SET</span> price_cents=500, color=<span class="lit">'silver'</span>
+
+<span class="cm">-- 3. The whole story</span>
+<span class="kw">HISTORY OF</span> toy:robot
+
+<span class="cm">-- 4. Time travel</span>
+<span class="kw">FACTS OF</span> toy:robot <span class="kw">AS OF</span> <span class="lit">'2026-03-15'</span>
+
+<span class="cm">-- 5. Double time travel (what did we BELIEVE then?)</span>
+<span class="kw">FACTS OF</span> toy:robot <span class="kw">AS OF</span> <span class="lit">'2026-03-15'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span>
+
+<span class="cm">-- 6. Why did it change?</span>
+<span class="kw">FACTS OF</span> toy:robot <span class="kw">WHY DEPTH</span> 3
+
+<span class="cm">-- 7. Filter with trust</span>
+<span class="kw">FACTS OF</span> item:*/store:4001 <span class="kw">WHERE</span> trust >= 0.8 <span class="kw">AND</span> price_cents > 700
+
+<span class="cm">-- 8. Find work that never finished</span>
+<span class="kw">PENDING</span> pdt <span class="kw">OLDER THAN</span> 21 <span class="kw">DAYS</span>
+
+<span class="cm">-- 9. Where do systems disagree?</span>
+<span class="kw">DISAGREE ON</span> price_cents
+
+<span class="cm">-- 10. Everything an AI needs, one call</span>
+<span class="kw">CONTEXT FOR</span> toy:robot</code></pre>
+
+<h2 id="facts">4. Reading: FACTS</h2>
+<pre><code><span class="kw">FACTS</span> [fields] <span class="kw">OF</span> subject-pattern
+  [<span class="kw">FACET</span> f] [<span class="kw">AS OF</span> t] [<span class="kw">AS KNOWN AT</span> t] [<span class="kw">WHERE</span> expr]
+  [<span class="kw">GROUP BY</span> key] [<span class="kw">ORDER BY</span> key [<span class="kw">DESC</span>]] [<span class="kw">LIMIT</span> n] [<span class="kw">OFFSET</span> n]
+  [<span class="kw">WHY</span> [<span class="kw">DEPTH</span> n]]</code></pre>
+<p><b>Subject patterns</b> use <code>*</code>:
+<code>item:*/store:4001</code> = every item in store 4001. <b>Projection</b> is
+optional — omit it (or use <code>*</code>) for full facts, or list fields:</p>
+<pre><code><span class="kw">FACTS</span> subject, price_cents, trust <span class="kw">OF</span> item:*/store:4001 <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10</code></pre>
+<p><b>WHERE</b> sees both your value fields (<code>price_cents</code>,
+<code>color</code>…) and the built-in metadata:</p>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>subject, facet, type, provenance</code></td><td>what/where/how the fact entered</td></tr>
+<tr><td><code>namespace</code></td><td>the subject's first segment (<code>acme:order/42</code> → <code>acme</code>) — shared-schema multitenancy: <code>WHERE namespace = 'acme'</code>, <code>GROUP BY namespace</code></td></tr>
+<tr><td><code>trust</code> (alias <code>confidence</code>)</td><td>0..1</td></tr>
+<tr><td><code>effective, recorded</code></td><td>the two clocks (UnixMicro)</td></tr>
+<tr><td><code>pending</code></td><td>true if distributed but never activated</td></tr>
+<tr><td><code>superseded</code></td><td>true if a newer fact replaced this one</td></tr>
+</table>
+<p>Operators: <code>= != &gt; &gt;= &lt; &lt;= IN (a, b) LIKE 'pat*tern' MATCHES 'text' AND OR NOT ( )</code></p>
+<p><code>MATCHES</code> is case-insensitive text search; <code>any MATCHES 'penny'</code>
+scans the subject and every text value on the fact.</p>
+
+<h2 id="time">5. Time travel</h2>
+<p>Two independent clauses, because Centauri keeps two clocks per fact:</p>
+<table>
+<tr><th>Clause</th><th>Question it answers</th></tr>
+<tr><td><code>AS OF t</code></td><td><b>What was true at t?</b> (effective-time travel)</td></tr>
+<tr><td><code>AS KNOWN AT t</code></td><td><b>What did the database believe at t?</b> Facts learned after t are invisible — even if they describe times before t.</td></tr>
+<tr><td>both together</td><td><b>The audit query:</b> “on March 1 (knowledge), what did we think March 15 (reality) would be?”</td></tr>
+</table>
+<pre><code><span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">AS OF</span> <span class="lit">'2026-03-15'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span></code></pre>
+<p>Times are deliberately forgiving. All of these work anywhere a time is expected:</p>
+<pre><code><span class="kw">AS OF</span> YESTERDAY                  <span class="kw">AS OF</span> TODAY        <span class="kw">AS OF</span> NOW-7d
+<span class="kw">AS OF</span> 10 DAYS AGO                <span class="kw">AS OF</span> 3 hours before
+<span class="kw">AS OF</span> <span class="lit">'yesterday 2pm CST'</span>      <span class="kw">AS OF</span> <span class="lit">'today at noon'</span>
+<span class="kw">AS OF</span> <span class="lit">'Mar 15 2026 9:15am EST'</span> <span class="kw">AS OF</span> <span class="lit">'2026-03-15'</span>
+<span class="kw">AS OF</span> <span class="lit">'2026-03-15T10:00:00Z'</span>   <span class="kw">AS OF</span> 1773532800000000  <span class="cm">-- UnixMicro</span></code></pre>
+<p>Multi-word phrases with clock times or timezones go in quotes. Timezone
+abbreviations follow the common North-American readings (CST = UTC-6, EST,
+PST, …) plus UTC/GMT, IST, BST, CET, JST, AEST.</p>
+<div class="box">💬 <b>Or skip the syntax entirely.</b> The dashboard's query bar accepts
+plain English — <i>“what was the price of item:100001/store:4001 yesterday at
+2pm CST”</i> — and the ✨ Helper translates it to CeQL (deterministic rules,
+no model, no API key; it shows you the CeQL so you learn as you go). When a
+query doesn't parse, the same helper offers a “did you mean” suggestion.
+The same endpoint is <code>POST /v1/assist {"text": "..."}</code>.</div>
+
+<h2 id="why-op">6. Causality: WHY and EFFECTS</h2>
+<p>Add <code>WHY</code> to any FACTS query and every result carries its causal
+chain (what triggered it, what it superseded). Or trace one event directly:</p>
+<pre><code><span class="kw">WHY</span> 0193fa2e-77c1… <span class="kw">DEPTH</span> 6      <span class="cm">-- what led to this event</span>
+<span class="kw">EFFECTS</span> 0193fa2e-77c1…           <span class="cm">-- what this event led to</span></code></pre>
+<div class="box">No other query language has this operator, because no other
+database stores causes. In SQL, “why is the price wrong?” is a war room.
+Here it's seven characters.</div>
+
+<h2 id="writing">7. Writing: PUT, CORRECT, RETIRE</h2>
+<pre><code><span class="kw">PUT</span> subject [<span class="kw">FACET</span> f] [<span class="kw">TYPE</span> t] <span class="kw">SET</span> k=v, k=v, …
+  [<span class="kw">EFFECTIVE</span> t] [<span class="kw">CONFIDENCE</span> c] [<span class="kw">SCHEMA</span> id] [<span class="kw">PROVENANCE</span> p] [<span class="kw">REF</span> r]</code></pre>
+<pre><code><span class="kw">PUT</span> toy:robot <span class="kw">SET</span> price_cents=450, color=<span class="lit">'red'</span>
+<span class="kw">PUT</span> toy:robot <span class="kw">SET</span> price_cents=400 <span class="kw">EFFECTIVE</span> <span class="lit">'2026-07-01'</span>  <span class="cm">-- future-dated</span>
+<span class="kw">CORRECT</span> toy:robot <span class="kw">SET</span> price_cents=445   <span class="cm">-- same, but typed CORRECTION (audit-friendly)</span>
+<span class="kw">RETIRE</span> toy:robot                          <span class="cm">-- supersedes with {retired: true}</span></code></pre>
+<div class="box warn"><b>There is no DELETE, on purpose.</b> An immutable
+database can't pretend the past didn't happen. <code>RETIRE</code> marks the
+current fact as no longer applicable — but history stays auditable. (For legal
+PII erasure, crypto-erasure is the planned v0.3 mechanism — that destroys a
+decryption key, not history.)</div>
+
+<h2 id="agg">8. Aggregation</h2>
+<pre><code><span class="kw">FACTS</span> facet, <span class="kw">COUNT</span>(*), <span class="kw">AVG</span>(price_cents), <span class="kw">MAX</span>(price_cents)
+  <span class="kw">OF</span> item:*/store:4001 <span class="kw">GROUP BY</span> facet
+  <span class="kw">HAVING COUNT</span>(*) > 5 <span class="kw">AND AVG</span>(price_cents) > 300</code></pre>
+<p>Aggregates: <code>COUNT(*) COUNT(field) SUM AVG MIN MAX MEDIAN STDDEV
+LISTAGG</code>. Group by any metadata or value field; <code>HAVING</code>
+filters the groups by their aggregates. Aggregation respects time travel —
+“average price per facet <i>as known last Tuesday</i>” is just
+<code>… AS KNOWN AT NOW-2d GROUP BY facet</code>.</p>
+<p>Ranked lists: project the built-in <code>rank</code> column —</p>
+<pre><code><span class="kw">FACTS</span> rank, subject, price_cents <span class="kw">OF</span> item:*/store:4001
+  <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10</code></pre>
+
+<h2 id="schemas">9. Schemas</h2>
+<pre><code><span class="kw">DEFINE SCHEMA</span> price (
+  price_cents number <span class="kw">REQUIRED MIN</span> 1 <span class="kw">UNIT</span> <span class="lit">'cents'</span>,
+  kind string
+) <span class="kw">TITLE</span> <span class="lit">'A retail price'</span>
+
+<span class="kw">PUT</span> toy:car <span class="kw">SET</span> price_cents=300 <span class="kw">SCHEMA</span> price   <span class="cm">-- validated!</span>
+<span class="kw">SCHEMAS</span>            <span class="cm">-- list all (latest versions)</span>
+<span class="kw">SCHEMA</span> price       <span class="cm">-- every version of one</span></code></pre>
+<p>Schemas are optional, versioned, and append-only: redefining creates v2,
+and facts written under v1 stay valid against v1. Types:
+<code>number string bool any</code>; constraints: <code>REQUIRED MIN MAX UNIT</code>.</p>
+
+<h2 id="live">10. Standing queries: WATCH</h2>
+<pre><code><span class="kw">WATCH ALL</span>
+<span class="kw">WATCH</span> toy:robot
+<span class="kw">WATCH ALL FACET</span> pdt <span class="kw">TYPE</span> DISTRIBUTED</code></pre>
+<p>A WATCH is a query that never finishes: it streams every matching fact the
+moment it commits (in the dashboard it feeds the LIVE panel; over the API it's
+the <code>/v1/watch</code> SSE stream; in the Python SDK it's
+<code>for e in db.watch(...)</code>). Agents subscribe instead of polling.</p>
+
+<h2 id="ai">11. AI: SIMILAR and CONTEXT</h2>
+<pre><code><span class="kw">SIMILAR TO</span> 0193fa2e-77c1… <span class="kw">TOP</span> 5 <span class="kw">MIN</span> 0.7   <span class="cm">-- embedding search</span>
+<span class="kw">CONTEXT FOR</span> toy:robot                       <span class="cm">-- the reasoning bundle</span>
+<span class="kw">CONTEXT FOR</span> toy:robot <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span>  <span class="cm">-- decision replay</span></code></pre>
+<p><code>CONTEXT</code> returns in one call what an agent needs to reason:
+current facts, recent history, causal chains, cross-facet disagreements with a
+trust-ranked winner, pending wedges, AI enrichments, schemas, and a confidence
+summary. With <code>AS KNOWN AT</code> it reconstructs the bundle as it stood at
+any past moment — the fair way to audit a past (human or AI) decision.</p>
+
+<h2 id="ops">12. Operations</h2>
+<pre><code><span class="kw">PENDING</span> pdt <span class="kw">OLDER THAN</span> 21 <span class="kw">DAYS</span>  <span class="cm">-- distributed, never activated (wedges)</span>
+<span class="kw">DISAGREE ON</span> price_cents          <span class="cm">-- subjects whose facets disagree</span>
+<span class="kw">SUBJECTS LIKE</span> item:*4001 <span class="kw">LIMIT</span> 50
+<span class="kw">STATS</span>
+<span class="kw">EXPLAIN</span> FACTS OF toy:robot WHY   <span class="cm">-- shows the JSON AST instead of running</span></code></pre>
+
+<h2 id="rosetta">13. The Rosetta Stone — every language you know, in CeQL</h2>
+<h3>From SQL</h3>
+<table>
+<tr><th>SQL</th><th>CeQL</th><th>Notes</th></tr>
+<tr><td><code>SELECT * FROM t WHERE …</code></td><td><code>FACTS OF subj WHERE …</code></td><td>subjects+facets replace tables</td></tr>
+<tr><td><code>SELECT a, b FROM t</code></td><td><code>FACTS a, b OF subj</code></td><td>projection</td></tr>
+<tr><td><code>ORDER BY / LIMIT / OFFSET</code></td><td>same words</td><td>—</td></tr>
+<tr><td><code>GROUP BY + COUNT/SUM/AVG/MIN/MAX</code></td><td>same words</td><td><a href="#agg">ch. 8</a></td></tr>
+<tr><td><code>HAVING</code></td><td><code>… GROUP BY facet HAVING COUNT(*) > 5 AND AVG(price_cents) > 300</code></td><td>—</td></tr>
+<tr><td><code>INSERT INTO</code></td><td><code>PUT subj SET …</code></td><td>no table to create first</td></tr>
+<tr><td><code>UPDATE … SET</code></td><td><code>PUT subj SET …</code></td><td>same verb! old value kept in history</td></tr>
+<tr><td><code>DELETE FROM</code></td><td><code>RETIRE subj</code></td><td>supersede, never erase (<a href="#writing">ch. 7</a>)</td></tr>
+<tr><td><code>MERGE / UPSERT</code></td><td><code>PUT</code></td><td>insert-vs-update doesn't exist here</td></tr>
+<tr><td><code>CREATE TABLE / ALTER / DROP</code></td><td>nothing — subjects appear on first write</td><td><code>DEFINE SCHEMA</code> is optional validation, not structure</td></tr>
+<tr><td><code>CREATE INDEX</code></td><td>nothing — the engine indexes subjects/facets/refs automatically</td><td>—</td></tr>
+<tr><td><code>BEGIN…COMMIT</code></td><td>one PUT is atomic; multi-event batches via the API/SDK (<code>add_many</code>)</td><td>batch = transaction</td></tr>
+<tr><td><code>JOIN</code></td><td><code>CONTEXT FOR subj</code> (everything about one subject) or <code>WHY</code> (the causal join)</td><td>cross-subject analytical joins: export or v0.4</td></tr>
+<tr><td><code>CREATE VIEW</code></td><td>save the CeQL text; or a <code>WATCH</code> for live views</td><td>—</td></tr>
+<tr><td><code>CREATE TRIGGER</code></td><td><code>WATCH</code> + an agent acting on the stream</td><td>triggers become subscribers</td></tr>
+<tr><td><code>GRANT</code></td><td>server token; roles come with v0.3 auth</td><td>honest gap</td></tr>
+<tr><td>temporal <code>AS OF SYSTEM TIME</code> (SQL:2011)</td><td><code>AS OF / AS KNOWN AT</code></td><td>CeQL has both clocks, not one</td></tr>
+</table>
+<h3>Oracle — the full catalogue</h3>
+<p>Everything beyond core SQL that Oracle people actually use, honestly mapped.
+✓ = direct CeQL, ⟳ = different (often better) mechanism, ⚙ = SDK/agent layer, ✗ = gap.</p>
+<table>
+<tr><th>Oracle</th><th></th><th>In CeQL / Centauri</th></tr>
+<tr><td colspan="3" style="color:var(--dim)"><b>ANALYTIC / WINDOW FUNCTIONS</b></td></tr>
+<tr><td><code>RANK() OVER (ORDER BY x)</code></td><td>✓</td><td><code>FACTS rank, subject, x OF … ORDER BY x DESC</code> — <code>rank</code> is a built-in column that numbers the ordered result (OFFSET-aware for paging)</td></tr>
+<tr><td><code>OVER (PARTITION BY facet)</code></td><td>⟳</td><td><code>GROUP BY facet</code> for aggregates per partition; per-row partition windows are client-side</td></tr>
+<tr><td><code>DENSE_RANK, ROW_NUMBER, NTILE</code></td><td>⚙</td><td>client-side over an ORDER BY result — Centauri returns ordered rows, the SDK numbers them</td></tr>
+<tr><td><code>LAG / LEAD (value, 1)</code></td><td>⟳</td><td>built into the data model: the “previous value” IS the superseded fact — <code>HISTORY OF subj</code> is the whole LAG chain, and <code>WHY</code> links each fact to its predecessor</td></tr>
+<tr><td><code>FIRST_VALUE / LAST_VALUE</code> over time</td><td>⟳</td><td><code>FACTS … AS OF t</code> at the window's two ends</td></tr>
+<tr><td><code>ROWS / RANGE BETWEEN … PRECEDING</code></td><td>⚙</td><td>fetch <code>HISTORY</code>, window client-side; time-range windows are natural because every fact carries its effective time</td></tr>
+<tr><td colspan="3" style="color:var(--dim)"><b>HIERARCHY &amp; PATTERNS</b></td></tr>
+<tr><td><code>CONNECT BY PRIOR / START WITH</code></td><td>✓</td><td><code>WHY event DEPTH n</code> / <code>EFFECTS event DEPTH n</code> — the graph is first-class, no self-join gymnastics</td></tr>
+<tr><td><code>MATCH_RECOGNIZE</code> (row patterns)</td><td>⚙</td><td><code>WATCH</code> + an agent recognizing the pattern on the stream (which can then write its finding back as an AI_INFERRED fact with lineage); fuzzy “moments like this one” → <code>SIMILAR TO</code></td></tr>
+<tr><td><code>MODEL</code> clause (spreadsheet rules)</td><td>⚙</td><td>compute in the SDK/agent, <code>PUT</code> results back as facts — unlike MODEL, every computed cell then knows its inputs (<code>WHY</code>)</td></tr>
+<tr><td><code>PIVOT / UNPIVOT</code></td><td>⚙</td><td>reshape client-side; facets already are the long format</td></tr>
+<tr><td colspan="3" style="color:var(--dim)"><b>TIME TRAVEL (Oracle Flashback)</b></td></tr>
+<tr><td><code>AS OF TIMESTAMP</code> (Flashback Query)</td><td>✓</td><td><code>AS OF</code> — but unlimited retention, not undo-segment lottery</td></tr>
+<tr><td><code>VERSIONS BETWEEN</code></td><td>✓</td><td><code>HISTORY OF subj</code> (optionally WHERE on effective/recorded)</td></tr>
+<tr><td>Flashback can't ask “as we believed then”</td><td>✓</td><td><code>AS KNOWN AT</code> — Centauri's second clock; Oracle has no equivalent</td></tr>
+<tr><td colspan="3" style="color:var(--dim)"><b>DML &amp; SET OPERATIONS</b></td></tr>
+<tr><td><code>MERGE … WHEN MATCHED THEN UPDATE WHEN NOT MATCHED THEN INSERT</code></td><td>✓</td><td>the entire statement collapses to <code>PUT</code> — matched/not-matched is meaningless when insert and update are the same act</td></tr>
+<tr><td><code>TRUNCATE</code></td><td>⟳</td><td>create a fresh environment (＋ in the dashboard); truncating history contradicts the database's purpose</td></tr>
+<tr><td><code>UNION / UNION ALL</code></td><td>⟳</td><td>wildcard subjects (<code>OF item:*</code>) cover the common case; otherwise two queries, concat client-side</td></tr>
+<tr><td><code>INTERSECT / MINUS</code></td><td>⚙</td><td>client-side set ops on event ids</td></tr>
+<tr><td><code>EXISTS / IN / ANY / ALL</code> subqueries</td><td>⟳</td><td><code>IN (list)</code> is native; correlated subqueries become two queries (agents chain them naturally)</td></tr>
+<tr><td><code>WITH</code> (CTE)</td><td>⚙</td><td>agents/SDK hold intermediate results; no monolithic statement needed</td></tr>
+<tr><td colspan="3" style="color:var(--dim)"><b>FUNCTIONS &amp; ODDITIES</b></td></tr>
+<tr><td><code>DECODE / NVL / NVL2 / COALESCE / CASE</code></td><td>⚙</td><td>value transforms live client-side; <code>WHERE</code> handles the filtering forms</td></tr>
+<tr><td><code>ROWNUM</code> / <code>FETCH FIRST n ROWS ONLY</code></td><td>✓</td><td><code>LIMIT n OFFSET m</code></td></tr>
+<tr><td><code>DUAL</code></td><td>⟳</td><td>not needed — nothing requires a FROM</td></tr>
+<tr><td><code>SEQUENCE.NEXTVAL</code></td><td>⟳</td><td>event ids are time-ordered and auto-assigned; no sequences to manage</td></tr>
+<tr><td><code>LISTAGG, MEDIAN, STDDEV</code></td><td>✓</td><td>same names: <code>FACTS facet, MEDIAN(price_cents), STDDEV(price_cents), LISTAGG(kind) OF … GROUP BY facet</code></td></tr>
+<tr><td>optimizer hints <code>/*+ … */</code></td><td>⟳</td><td>none; the v0.3 intent contract (freshness/confidence/budget) replaces hinting with negotiation</td></tr>
+<tr><td colspan="3" style="color:var(--dim)"><b>PL/SQL (the procedural half)</b></td></tr>
+<tr><td><code>IF / WHILE / FOR / LOOP / EXIT</code></td><td>⚙</td><td>deliberately not in CeQL — same split as SQL vs PL/SQL. The Python SDK or an agent is the procedural layer</td></tr>
+<tr><td><code>CURSOR open/fetch/close, %NOTFOUND</code></td><td>⟳</td><td>queries return complete results; streaming = <code>WATCH</code>. The boilerplate simply disappears</td></tr>
+<tr><td><code>EXCEPTION WHEN OTHERS, RAISE</code></td><td>⟳</td><td>typed errors over the API; SDK exceptions explain the fix</td></tr>
+<tr><td><code>PACKAGE / PROCEDURE / FUNCTION</code></td><td>⚙</td><td>SDK modules or MCP agents calling CeQL (see the duty-calc conversion pattern)</td></tr>
+<tr><td><code>TRIGGER</code></td><td>✓</td><td><code>WATCH</code> + subscriber — and unlike triggers, watchers are visible, auditable facts</td></tr>
+<tr><td><code>%TYPE / %ROWTYPE</code></td><td>⟳</td><td><code>SCHEMAS</code> are introspectable; <code>EXPLAIN</code> returns typed ASTs</td></tr>
+</table>
+
+<h3>From IBM DB2 — including its bi-temporal tables</h3>
+<p>DB2 is the most honest comparison: it's the flagship implementation of
+SQL:2011 temporal tables — the closest any mainstream database gets to
+Centauri's two clocks.</p>
+<table>
+<tr><th>DB2</th><th></th><th>In CeQL / Centauri</th></tr>
+<tr><td><code>FOR BUSINESS_TIME AS OF t</code> (application period)</td><td>✓</td><td><code>AS OF t</code></td></tr>
+<tr><td><code>FOR SYSTEM_TIME AS OF t</code> (system period)</td><td>✓</td><td><code>AS KNOWN AT t</code></td></tr>
+<tr><td>bitemporal = both clauses combined</td><td>✓</td><td><code>AS OF t1 AS KNOWN AT t2</code> — same power, two words</td></tr>
+<tr><td>the setup: <code>PERIOD SYSTEM_TIME</code>, <code>PERIOD BUSINESS_TIME</code>, separate history table, <code>ADD VERSIONING USE HISTORY TABLE …</code>, per-table opt-in DDL</td><td>⟳</td><td><b>nothing</b> — every fact in Centauri is bi-temporal automatically, no DDL, no history-table plumbing, no opt-in</td></tr>
+<tr><td><code>UPDATE … FOR PORTION OF BUSINESS_TIME</code></td><td>⟳</td><td><code>PUT … EFFECTIVE t</code> writes a fact valid from t; supersession closes the prior period (mid-period splits: two PUTs)</td></tr>
+<tr><td>what DB2 temporal still can't do</td><td>✓</td><td>causality (<code>WHY</code>), provenance/trust, cross-facet <code>DISAGREE</code>, wedges (<code>PENDING</code>) — temporal tables version rows, they don't explain them</td></tr>
+<tr><td><code>MERGE … WHEN MATCHED / NOT MATCHED</code></td><td>✓</td><td><code>PUT</code></td></tr>
+<tr><td><code>SELECT FROM FINAL TABLE (INSERT …)</code></td><td>✓</td><td><code>PUT</code> returns the stored event (with id) directly</td></tr>
+<tr><td><code>FETCH FIRST n ROWS ONLY / OFFSET</code></td><td>✓</td><td><code>LIMIT / OFFSET</code></td></tr>
+<tr><td><code>DECLARE GLOBAL TEMPORARY TABLE</code></td><td>⟳</td><td>scratch environments (one click, one file) or client memory</td></tr>
+<tr><td>isolation: <code>WITH UR / CS / RS / RR</code></td><td>⟳</td><td>readers always see a consistent committed snapshot; writers serialize per store — no isolation-level matrix to reason about</td></tr>
+<tr><td><code>CALL procedure</code></td><td>⚙</td><td>SDK functions / MCP tools</td></tr>
+<tr><td><code>LOAD / IMPORT / EXPORT</code> utilities</td><td>✓</td><td><code>db.pump(...)</code> (CSV/JSON/JSONL) in; the API/log out; <code>/v1/log</code> for byte-exact replication</td></tr>
+<tr><td><code>RUNSTATS / REORG</code></td><td>⟳</td><td>checkpoints happen on shutdown automatically; no stats to gather, no reorgs</td></tr>
+<tr><td><code>CREATE TABLESPACE / bufferpools</code></td><td>⟳</td><td>one log file per environment; the OS page cache is the bufferpool</td></tr>
+<tr><td>XML/JSON functions (<code>XMLQUERY</code>, <code>JSON_VALUE</code>)</td><td>⟳</td><td>values are JSON natively; nested access is client-side today</td></tr>
+</table>
+
+<h3>From PostgreSQL</h3>
+<table>
+<tr><th>PostgreSQL</th><th></th><th>In CeQL / Centauri</th></tr>
+<tr><td>schemas (shared-schema multitenancy)</td><td>✓</td><td>the <code>namespace</code> field: prefix subjects per tenant (<code>acme:…</code>), then <code>WHERE namespace='acme'</code> / <code>GROUP BY namespace</code> — cross-tenant analytics stay one query</td></tr>
+<tr><td>database-per-tenant</td><td>✓</td><td>environments — one file each, created/cloned from the dashboard (no pg_dump+restore dance)</td></tr>
+<tr><td><code>JSONB</code></td><td>✓</td><td>fact values are JSON natively; fields query directly in WHERE</td></tr>
+<tr><td><code>pgvector</code></td><td>✓</td><td><code>SIMILAR TO</code> over embedding enrichments</td></tr>
+<tr><td><code>LISTEN / NOTIFY</code></td><td>✓</td><td><code>WATCH</code> — with filters, and the notifications are full facts</td></tr>
+<tr><td><code>tsvector / tsquery</code> full-text</td><td>✓ <span style="color:var(--dim)">(basic)</span></td><td><code>WHERE any MATCHES 'penny'</code> — case-insensitive scan, no index yet (honest: no stemming/ranking)</td></tr>
+<tr><td><code>pg_dump / pg_restore</code></td><td>✓</td><td><code>centauri backup -data x.log -to backup.log</code> — consistent snapshot, chain-verified; restore = point the server at the file</td></tr>
+<tr><td>logical replication</td><td>✓</td><td><code>centauri follow</code> — byte-exact log shipping with integrity chain</td></tr>
+<tr><td>extensions (PostGIS, etc.)</td><td>⚙</td><td>the extension surface is MCP + the SDK; spatial is an honest gap</td></tr>
+<tr><td><code>CREATE ROLE / GRANT</code></td><td>±</td><td>two tiers today (admin token, read-only token); full roles are v0.4</td></tr>
+<tr><td>window functions, CTEs</td><td>±</td><td>rank/aggregates/HAVING native; frames and CTEs client-side</td></tr>
+</table>
+
+<h3>From MongoDB</h3>
+<table>
+<tr><th>Mongo</th><th>CeQL</th></tr>
+<tr><td><code>db.c.find({price: {$gt: 700}})</code></td><td><code>FACTS OF subjpat WHERE price &gt; 700</code></td></tr>
+<tr><td><code>insertOne / updateOne / replaceOne</code></td><td><code>PUT subj SET …</code></td></tr>
+<tr><td><code>deleteOne</code></td><td><code>RETIRE subj</code></td></tr>
+<tr><td><code>aggregate([$group])</code></td><td><code>FACTS key, COUNT(*) OF … GROUP BY key</code></td></tr>
+<tr><td><code>$lookup</code></td><td><code>CONTEXT FOR subj</code> / <code>WHY</code></td></tr>
+<tr><td><code>watch()</code> change streams</td><td><code>WATCH …</code></td></tr>
+<tr><td><code>$vectorSearch</code></td><td><code>SIMILAR TO event TOP k</code></td></tr>
+</table>
+<h3>From Cypher / graph databases</h3>
+<table>
+<tr><th>Cypher</th><th>CeQL</th></tr>
+<tr><td><code>MATCH (a)-[:CAUSED]->(b)</code></td><td><code>WHY event</code> / <code>EFFECTS event</code> — the graph is built in</td></tr>
+<tr><td>variable-length paths <code>[*1..6]</code></td><td><code>DEPTH 6</code></td></tr>
+</table>
+<h3>From KSQL / streaming SQL</h3>
+<table>
+<tr><th>KSQL</th><th>CeQL</th></tr>
+<tr><td><code>CREATE STREAM s AS SELECT … EMIT CHANGES</code></td><td><code>WATCH … [FACET f] [TYPE t]</code></td></tr>
+<tr><td>stream/table duality</td><td>native: HISTORY is the stream, FACTS is the table</td></tr>
+</table>
+<h3>From GraphQL</h3>
+<table>
+<tr><th>GraphQL</th><th>CeQL</th></tr>
+<tr><td>one query, a shaped object graph</td><td><code>CONTEXT FOR subj</code> — one call, the whole bundle</td></tr>
+<tr><td>typed schema introspection</td><td><code>SCHEMAS</code>, <code>EXPLAIN</code> (returns the typed AST)</td></tr>
+</table>
+<h3>From vector databases</h3>
+<table>
+<tr><th>Pinecone-style</th><th>CeQL</th></tr>
+<tr><td><code>index.query(vector, top_k=5)</code></td><td><code>SIMILAR TO event TOP 5</code> (vectors stored as enrichments via API/SDK)</td></tr>
+</table>
+
+<h2 id="agents">14. For agents: the JSON AST</h2>
+<p>Agents shouldn't build strings. Every CeQL statement has a canonical JSON
+form — the same structure <code>EXPLAIN</code> prints. POST either form to
+<code>/v1/query</code>:</p>
+<pre><code>POST /v1/query
+{"q": "FACTS OF toy:robot AS OF '2026-03-15' WHY"}
+
+<span class="cm">-- or, exactly equivalent, no parsing involved:</span>
+POST /v1/query
+{"ast": {"kind":"facts", "subject":"toy:robot",
+         "as_of": 1773532800000000, "why": true}}</code></pre>
+<p>Responses always carry a <code>"kind"</code> field to switch on:
+<code>events</code>, <code>rows</code>, <code>trace</code>, <code>context</code>,
+<code>put</code>, <code>watch</code>… Through MCP, the <code>centauri_ceql</code>
+tool takes <code>{"q": "…"}</code> — so any MCP-speaking agent (Claude included)
+can query Centauri natively. The workflow that makes this future-proof:
+call <code>EXPLAIN &lt;query&gt;</code> once to learn the AST shape, then emit
+ASTs directly.</p>
+
+<h2 id="grammar">15. Grammar reference (EBNF-ish)</h2>
+<pre><code>statement   = facts | history | subjects | put | correct | retire | pending
+            | disagree | why | effects | similar | context | stats
+            | schemas | schema | define | watch | explain ;
+facts       = "FACTS" [proj] "OF" pattern tail ;
+history     = "HISTORY" "OF" pattern tail ;
+tail        = { "FACET" name | "AS" "OF" time | "AS" "KNOWN" "AT" time
+              | "WHERE" expr | "GROUP" "BY" name
+              | "HAVING" havingcond { "AND" havingcond }
+              | "ORDER" "BY" name ["DESC"|"ASC"]
+              | "LIMIT" int | "OFFSET" int | "WHY" ["DEPTH" int] } ;
+havingcond  = agg "(" (name | "*") ")" compareop number ;
+proj        = field { "," field } ;     (* "rank" projects result position *)
+field       = name | agg "(" (name | "*") ")" ;
+agg         = "COUNT" | "SUM" | "AVG" | "MIN" | "MAX" | "MEDIAN" | "STDDEV" | "LISTAGG" ;
+put         = ("PUT"|"CORRECT"|"RETIRE") subject [opts] ["SET" kv {"," kv}] [opts] ;
+opts        = { "FACET" name | "TYPE" name | "EFFECTIVE" time | "CONFIDENCE" num
+              | "SCHEMA" name | "PROVENANCE" name | "REF" name } ;
+pending     = "PENDING" facet ["OLDER" "THAN" int ["DAYS"|"D"]] ;
+disagree    = "DISAGREE" "ON" name ;
+why         = "WHY" event_id ["DEPTH" int] ;          effects = "EFFECTS" … ;
+similar     = "SIMILAR" "TO" event_id ["TOP" int] ["MIN" num] ;
+context     = "CONTEXT" "FOR" subject ["AS" "KNOWN" "AT" time] ["LIMIT" int] ;
+define      = "DEFINE" "SCHEMA" id "(" fielddef {"," fielddef} ")" ["TITLE" str] ;
+fielddef    = name type ["REQUIRED"] ["MIN" num] ["MAX" num] ["UNIT" str] ;
+watch       = "WATCH" ("ALL" | subject) { "FACET" name | "TYPE" name } ;
+explain     = "EXPLAIN" statement ;
+expr        = and { "OR" and } ;     and = unary { "AND" unary } ;
+unary       = "NOT" unary | "(" expr ")" | comparison ;
+comparison  = name ( ("="|"!="|"&gt;"|"&gt;="|"&lt;"|"&lt;=") value
+                   | "IN" "(" value {"," value} ")" | "LIKE" str ) ;
+time        = "'date'" | "'rfc3339'" | unixmicro | "NOW" | "NOW-"n("d"|"h"|"m") ;
+pattern     = subject with optional "*" wildcards ;</code></pre>
+
+<h2 id="cepl">16½. Procedures: CePL — PL/SQL for the agent era</h2>
+<p>When a few steps belong together — look up, guard, compute, write,
+return — store them as a <b>procedure</b>. CePL is deliberately tiny and
+reads like instructions to a careful intern:</p>
+<pre><code><span class="kw">PROCEDURE</span> duty_estimate(item, units)
+  <span class="kw">LET</span> rate = <span class="kw">FIRST FACTS OF</span> hts:${item} <span class="kw">FACET</span> assess
+  <span class="kw">WHEN</span> rate <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> <span class="lit">'no duty rate on file for ${item}'</span>
+  <span class="kw">LET</span> cost = <span class="kw">FIRST FACTS OF</span> cost:${item}
+  <span class="kw">WHEN</span> cost <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> <span class="lit">'no average cost for ${item}'</span>
+  <span class="kw">LET</span> duty = cost.av_cost * units * rate.comp_rate
+  <span class="kw">PUT</span> duty:${item} <span class="kw">SET</span> duty_amt=${duty}, units=${units} <span class="kw">REF</span> <span class="lit">'proc:duty_estimate'</span>
+  <span class="kw">RETURN</span> duty
+<span class="kw">END</span></code></pre>
+<p>Define it once (<code>POST /v1/proc</code>, <code>db.define_procedure(...)</code>,
+or the <code>centauri_define_procedure</code> MCP tool), then call it from anywhere —
+including the query bar:</p>
+<pre><code><span class="kw">RUN</span> duty_estimate <span class="kw">WITH</span> item=<span class="lit">'100001'</span>, units=3</code></pre>
+<p><b>The steps:</b> <code>LET x = &lt;CeQL query&gt;</code> binds results
+(<code>FIRST</code> takes the first fact as a record: <code>x.price_cents</code>,
+<code>x.confidence</code>…); <code>LET y = &lt;arithmetic&gt;</code> computes
+(<code>+ - * / ( )</code>, comparisons, <code>AND/OR</code>);
+<code>WHEN cond: action</code> guards (<code>IS MISSING / IS PRESENT</code>);
+<code>PUT/CORRECT/RETIRE</code> write (with <code>${var}</code> holes);
+<code>RETURN</code> and <code>FAIL 'msg'</code> finish. No loops, no nesting —
+that's the point. Heavier logic belongs in Python (the SDK) or an agent.</p>
+<div class="box">Three things PL/SQL never had: <b>procedures are facts</b>
+(<code>HISTORY OF proc:duty_estimate</code> shows every version ever deployed,
+and <code>AS KNOWN AT</code> tells you which version ran last March);
+<b>every run returns a step-by-step trace</b> — procedures explain themselves;
+and the writes they make carry <code>REF</code> lineage back to the procedure.
+The 1,600-line Oracle duty package this was modeled on becomes ~10 lines plus
+the engine doing the bookkeeping.</div>
+
+<h2 id="practice">16. Best practices</h2>
+<p><b>Name subjects like paths:</b> <code>kind:id</code> or
+<code>kind:id/kind:id</code> (<code>item:100001/store:4001</code>) — wildcards
+then work like directories. <b>Let facets carry perspective:</b> don't store
+“system X's belief” as a field; make X a facet, and <code>DISAGREE</code>
+becomes free. <b>Backdate honestly:</b> use <code>EFFECTIVE</code> for when it
+was true in the world; the database stamps when it learned it, and the gap
+between the two clocks is where the interesting questions live.
+<b>Prefer CORRECT over PUT for fixing mistakes</b> — same effect, but the
+CORRECTION type makes audits self-explanatory. <b>Agents: EXPLAIN once,
+then send ASTs.</b> <b>Humans: when lost, ask the dashboard</b> — every error
+message links back to this book.</p>
+
+<div class="box" style="margin-top:40px">That's the whole language. Open the
+<a href="/">dashboard</a>, type a query in the <b>CeQL›</b> bar, and press Run.
+The fastest way to learn is to break things — which, in a database that never
+erases anything, is impressively safe.</div>
+
+</div>
+</body>
+</html>

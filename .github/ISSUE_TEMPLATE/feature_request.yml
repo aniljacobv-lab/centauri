@@ -1,0 +1,36 @@
+name: 💡 Feature request
+description: Suggest a feature — accepted ones are implemented automatically by Claude
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Be concrete — accepted suggestions go straight to an AI
+        implementer, and it builds exactly what's described here.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The scenario or pain, in plain language.
+      placeholder: "When I query across two subjects I have to run two queries and join by hand…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should Centauri do?
+      description: Describe the behavior you want. CeQL examples are gold.
+      placeholder: "FACTS OF a:* JOIN b:* ON a.x = b.y …"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Centauri?
+      options: [CeQL language, CePL procedures, Storage engine, Dashboard, Genesis Engine, Python SDK, MCP / agents, Replication & ops, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you use today (optional)

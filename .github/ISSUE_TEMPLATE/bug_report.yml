@@ -1,0 +1,34 @@
+name: 🐞 Bug report
+description: Something broke — accepted reports are fixed automatically by Claude
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      placeholder: "Ran X, expected Y, got Z (error message below)…"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Exact steps to reproduce
+      description: Commands, CeQL queries, or dashboard clicks — in order.
+      placeholder: |
+        1. centauri serve -data fresh.log
+        2. PUT toy:robot SET price_cents=500
+        3. FACTS OF toy:robot AS OF 'yesterday 2pm CST'
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / platform
+      placeholder: "v0.3.0, Windows arm64"
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Error output (paste verbatim)
+      render: text

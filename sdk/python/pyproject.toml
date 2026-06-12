@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "centauri-sdk"
+version = "0.2.0"
+description = "The friendly Python SDK for Centauri, the bi-temporal, causal, AI-first event database."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Proprietary" }
+authors = [{ name = "Proxima360" }]
+keywords = ["centauri", "database", "bi-temporal", "event-sourcing", "ai"]
+dependencies = []  # zero dependencies, on purpose — installs never fight you
+
+[project.urls]
+Homepage = "https://github.com/proxima360/centauri"
+
+[tool.setuptools.packages.find]
+include = ["centauri*"]

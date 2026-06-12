@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri — every fact knows its time, cause, and source</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121826; --panel2:#0e1420; --line:#1f2a3d;
+    --text:#dbe4f3; --dim:#7e8ca3; --accent:#5eb0ff; --accent2:#9a7bff;
+    --good:#46d39a; --warn:#ffb454; --bad:#ff6b81; --mono:ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:10px;padding:10px 18px;
+         border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;letter-spacing:.5px}
+  header h1 b{color:var(--accent)}
+  header .tag{color:var(--dim);font-size:12px}
+  #stats{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:20px;
+        padding:2px 12px;font-size:12px;color:var(--dim)}
+  .chip b{color:var(--text)}
+  #tokenbox{display:none;gap:6px;align-items:center}
+  input,select,button,textarea{background:var(--panel);color:var(--text);border:1px solid var(--line);
+        border-radius:8px;padding:6px 10px;font-size:13px;outline:none;font-family:inherit}
+  input:focus,select:focus{border-color:var(--accent)}
+  button{cursor:pointer} button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:600}
+  button.ghost{background:transparent}
+  main{display:flex;flex:1;min-height:0}
+  #left{width:270px;border-right:1px solid var(--line);display:flex;flex-direction:column;
+        background:var(--panel2)}
+  #left .pad{padding:10px}
+  #subjects{flex:1;overflow:auto;padding:0 6px 10px}
+  .subj{padding:6px 10px;border-radius:8px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim)}
+  .subj:hover{background:var(--panel);color:var(--text)}
+  .subj.sel{background:#16243c;color:var(--accent)}
+  #center{flex:1;overflow:auto;padding:16px 20px;min-width:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:14px 16px;margin-bottom:14px}
+  .card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+  #timebar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  #timebar label{color:var(--dim);font-size:12.5px}
+  .facets{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .facet{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .facet .fname{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
+  .facet .val{font-family:var(--mono);font-size:15px;margin:6px 0;word-break:break-word}
+  .facet .meta{font-size:11px;color:var(--dim)}
+  .badge{display:inline-block;border-radius:6px;padding:1px 7px;font-size:10.5px;margin-right:4px}
+  .b-pend{background:#3a2b12;color:var(--warn)} .b-prov{background:#13283f;color:var(--accent)}
+  .b-type{background:#221a3a;color:var(--accent2)}
+  .confbar{height:4px;border-radius:2px;background:#1c2535;margin-top:8px}
+  .confbar i{display:block;height:100%;border-radius:2px;background:var(--good)}
+  .disagree{border-color:#5a2b35;background:#1d1016}
+  .disagree .who{font-family:var(--mono);font-size:12.5px;margin:2px 0}
+  .win{color:var(--good)} .lose{color:var(--dim)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{color:var(--dim);text-align:left;font-weight:500;border-bottom:1px solid var(--line);padding:6px 8px}
+  td{border-bottom:1px solid #161e2e;padding:6px 8px;font-family:var(--mono);vertical-align:top}
+  td.old{color:var(--dim)} tr:hover td{background:#0f1626}
+  .mini{font-size:11px;color:var(--dim)}
+  #right{width:300px;border-left:1px solid var(--line);background:var(--panel2);
+         display:flex;flex-direction:column}
+  #right .pad{padding:10px;display:flex;gap:8px;align-items:center}
+  #feed{flex:1;overflow:auto;padding:0 10px 10px;font-family:var(--mono);font-size:11.5px}
+  .ev{border-left:2px solid var(--accent);padding:4px 8px;margin-bottom:6px;background:var(--panel);
+      border-radius:0 8px 8px 0;word-break:break-all}
+  .ev .t{color:var(--dim)}
+  #empty{color:var(--dim)}
+  #empty h2{color:var(--text);font-weight:500}
+  svg text{fill:var(--dim);font-size:10px;font-family:var(--mono)}
+  .dot{cursor:pointer}
+  a{color:var(--accent)}
+  .pulse{animation:pulse 1s ease-out} @keyframes pulse{0%{background:#1d3050}100%{}}
+  /* modal framework */
+  #overlay{position:fixed;inset:0;background:rgba(4,8,16,.75);display:none;
+           align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px)}
+  #overlay.show{display:flex}
+  #modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:620px;
+         max-width:94vw;max-height:88vh;overflow:auto;padding:24px 28px;box-shadow:0 30px 80px #000}
+  #modal h2{margin:0 0 6px;font-size:20px} #modal h2 b{color:var(--accent)}
+  #modal .sub{color:var(--dim);margin-bottom:16px}
+  .kvrow{display:flex;gap:8px;margin-bottom:8px}
+  .kvrow input{flex:1}
+  .formrow{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .formrow label{width:96px;color:var(--dim);font-size:12.5px;flex-shrink:0}
+  .steps{display:flex;gap:6px;margin-bottom:18px}
+  .steps i{height:4px;flex:1;border-radius:2px;background:#1c2535}
+  .steps i.on{background:var(--accent)}
+  .bignum{font-size:34px}
+  .tourbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
+  .btnrow{display:flex;gap:10px;margin-top:18px;align-items:center}
+  .btnrow .spacer{flex:1}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#173225;
+         border:1px solid var(--good);color:var(--good);padding:8px 18px;border-radius:10px;
+         display:none;z-index:99;font-size:13px}
+  #toast.err{background:#321720;border-color:var(--bad);color:var(--bad)}
+  .schemafield{display:grid;grid-template-columns:1.3fr 1fr .6fr .7fr .7fr .8fr;gap:6px;margin-bottom:6px;align-items:center}
+  .schemafield .mini{text-align:center}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;
+       font-family:var(--mono);font-size:12px}
+  #modal.wide{width:920px}
+  .yes{color:var(--good);font-weight:600} .no{color:var(--bad)} .part{color:var(--warn)}
+  .tabrow{display:flex;gap:8px;margin-bottom:16px}
+  .tabrow button.active{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:600}
+  .cmp td,.cmp th{font-family:inherit;text-align:center;padding:5px 6px}
+  .cmp td:first-child,.cmp th:first-child{text-align:left}
+  .cmp th:last-child,.cmp td:last-child{background:#10202f}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;
+      font-family:var(--mono);font-size:12px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1><b>CENTAURI</b> <span class="tag">every fact knows its time, cause, and source</span></h1>
+  <select id="dbsel" title="Environment (database)" onchange="switchDb(this.value)"></select>
+  <button title="Create a new environment" onclick="openNewDb()">＋ environment</button>
+  <button class="ghost" title="Verify the tamper-evidence chain of this environment" onclick="verifyIntegrity()">🛡</button>
+  <button class="primary" style="background:var(--accent2);border-color:var(--accent2)"
+          onclick="openGenesis()" title="Describe your scenario — Genesis builds the whole database">🏗 Build my database</button>
+  <button class="primary" onclick="openAddFact()">＋ Add fact</button>
+  <button onclick="openSchemas()">Schemas</button>
+  <button onclick="openProcs()" title="CePL stored procedures">⚙ Procedures</button>
+  <button class="ghost" onclick="openTour(0)" title="The guided tour">❓ Learn</button>
+  <button class="ghost" onclick="openWhy('why')" title="What makes Centauri different, and how to use it">★ Why Centauri</button>
+  <div id="tokenbox">
+    <input id="token" placeholder="API token" size="14" type="password">
+    <button onclick="saveToken()">Unlock</button>
+  </div>
+  <div id="stats"></div>
+</header>
+<main>
+  <div id="left">
+    <div class="pad"><input id="search" placeholder="Search subjects…" style="width:100%"></div>
+    <div id="subjects"></div>
+  </div>
+  <div id="center">
+    <div class="card" style="position:relative">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="color:var(--accent);font-weight:700;font-family:var(--mono)">CeQL›</span>
+        <input id="qinput" style="flex:1;font-family:var(--mono)" autocomplete="off"
+               placeholder="CeQL or plain English — try: price of item:100001/store:4001 yesterday at 2pm CST">
+        <button class="primary" onclick="runQuery()">Run</button>
+        <button class="ghost" onclick="assistQuery()" title="Translate plain English to CeQL">✨</button>
+        <button class="ghost" onclick="toggleScript()" title="Script mode: many statements, &amp;variables (like SQL*Plus)">📜</button>
+        <button class="ghost" onclick="openBuilder()" title="Visual query builder">🧱</button>
+        <button class="ghost" onclick="openHistory()" title="Query history &amp; saved snippets">🕘</button>
+        <button class="ghost" onclick="openPalette()" title="Every command, searchable">⌘</button>
+        <button class="ghost" onclick="window.open('/ceql','_blank')" title="The CeQL textbook">📘</button>
+      </div>
+      <div id="scriptbox" style="display:none;margin-top:8px">
+        <textarea id="qscript" rows="7" style="width:100%;font-family:var(--mono);font-size:12.5px"
+          placeholder="-- one statement per line; &name prompts for a value (SQL*Plus-style)&#10;FACTS OF item:&item/store:&store&#10;HISTORY OF item:&item/store:&store"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <button class="primary" onclick="runScript()">▶ Run script</button>
+          <label class="mini" style="cursor:pointer"><input type="checkbox" id="contErr"> continue on error
+            <span class="mini">(default: stop, like WHENEVER SQLERROR EXIT)</span></label>
+          <span class="spacer" style="flex:1"></span>
+          <span class="mini">results stack below, newest first</span>
+        </div>
+      </div>
+      <div id="qsuggest" style="display:none;position:absolute;left:64px;right:230px;top:47px;
+           z-index:30;background:var(--panel2);border:1px solid var(--accent);border-radius:0 0 10px 10px;
+           font-family:var(--mono);font-size:12.5px;max-height:220px;overflow:auto"></div>
+    </div>
+    <div id="qres"></div>
+    <div id="empty">
+      <h2>Welcome to Centauri 👋</h2>
+      <p>Pick a subject on the left, press <b>＋ Add fact</b> to write your first one,
+         or hit <b>❓ Learn</b> for the two-minute guided tour. No tables to create —
+         in Centauri you just write facts. Wondering what makes this database special?
+         <a href="#" onclick="openWhy('why');return false">★ Why Centauri</a> has the
+         full story and an honest comparison with Oracle, MySQL &amp; MongoDB.</p>
+      <div class="card" style="text-align:left">
+        <h3>Pending wedges (distributed, never activated)</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <select id="wfacet"><option>pdt</option><option>register</option><option>shelf</option><option>storecentral</option></select>
+          <select id="wdays"><option value="">any age</option><option value="7">older than 7d</option><option value="21" selected>older than 21d</option><option value="45">older than 45d</option></select>
+          <button onclick="loadWedges()">Scan</button>
+        </div>
+        <div id="wedges" class="mini">—</div>
+      </div>
+      <div class="card" style="text-align:left">
+        <h3>Disagreements between facets</h3>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="dfield" value="price_cents" size="14">
+          <button onclick="loadDisagreements()">Find</button>
+        </div>
+        <div id="dlist" class="mini">—</div>
+      </div>
+    </div>
+    <div id="detail" style="display:none"></div>
+  </div>
+  <div id="right">
+    <div class="pad">
+      <b style="font-size:12px;letter-spacing:1px;color:var(--dim)">LIVE FEED</b>
+      <button id="livebtn" class="primary" style="margin-left:auto" onclick="toggleLive()">▶ Watch</button>
+    </div>
+    <div id="feed"><div class="mini" style="padding:10px">Press ▶ Watch to stream new facts as they are committed.</div></div>
+  </div>
+</main>
+<div id="overlay"><div id="modal"></div></div>
+<div id="toast"></div>
+<script>
+"use strict";
+let TOKEN = localStorage.getItem("centauri_token") || "";
+let DB = localStorage.getItem("centauri_db") || "";
+let SUBJECTS = [], SELECTED = null, ES = null;
+
+// ---------------- plumbing ----------------
+function qsFor(params){
+  const q = new URLSearchParams();
+  for (const k in (params || {})) {
+    if (params[k] !== "" && params[k] != null) q.set(k, params[k]);
+  }
+  if (TOKEN) q.set("token", TOKEN);
+  if (DB) q.set("db", DB);
+  return q.toString();
+}
+async function handle(resp){
+  if (resp.status === 401) { showToken(); throw new Error("token required"); }
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || resp.statusText);
+  return data;
+}
+async function api(path, params){
+  const qs = qsFor(params);
+  return handle(await fetch(path + (qs ? "?" + qs : "")));
+}
+async function apiPost(path, body){
+  const qs = qsFor({});
+  return handle(await fetch(path + (qs ? "?" + qs : ""), {
+    method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}));
+}
+function showToken(){ document.getElementById("tokenbox").style.display = "flex"; }
+function saveToken(){
+  TOKEN = document.getElementById("token").value.trim();
+  localStorage.setItem("centauri_token", TOKEN);
+  document.getElementById("tokenbox").style.display = "none";
+  boot();
+}
+function toast(msg, err){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3200);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+// jsAttr embeds a value as a JS string INSIDE an HTML attribute safely
+// (apostrophes in subjects, quotes in queries, entities — all survive).
+function jsAttr(s){ return esc(JSON.stringify(String(s))); }
+function loadJSON(key){
+  try { const v = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function fmtUS(us){ if (!us) return "—"; return new Date(us/1000).toISOString().replace("T"," ").slice(0,16) + "Z"; }
+function fmtVal(v){
+  const parts = [];
+  for (const k in v) parts.push(`<b>${esc(k)}</b>: ${esc(JSON.stringify(v[k]))}`);
+  return parts.join(" · ") || "<i class='mini'>(empty)</i>";
+}
+function localToMicros(s){ if (!s) return null; return Date.parse(s.length === 16 ? s + ":00Z" : s + "Z") * 1000; }
+function modal(html){
+  const m = document.getElementById("modal");
+  m.classList.remove("wide"); // openWhy re-adds it for its big table
+  m.innerHTML = html;
+  document.getElementById("overlay").classList.add("show");
+}
+function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
+document.getElementById("overlay").addEventListener("click", e => {
+  if (e.target.id === "overlay") closeModal();
+});
+
+// ---------------- environments (databases) ----------------
+async function loadDatabases(){
+  try {
+    const resp = await api("/v1/databases");
+    const dbs = resp.databases || [];
+    const sel = document.getElementById("dbsel");
+    if (DB && !dbs.some(d => d.name === DB && !d.default)) {
+      const isDefault = dbs.some(d => d.name === DB && d.default);
+      if (!isDefault) DB = "";
+    }
+    sel.innerHTML = dbs.map(d => {
+      const v = d.default ? "" : d.name;
+      const cur = (DB === v) ? "selected" : "";
+      return `<option value="${esc(v)}" ${cur}>🗄 ${esc(d.name)}${d.default ? " (default)" : ""}</option>`;
+    }).join("");
+  } catch (e) { console.warn(e); }
+}
+function switchDb(v){
+  DB = v; localStorage.setItem("centauri_db", DB);
+  SELECTED = null;
+  document.getElementById("detail").style.display = "none";
+  document.getElementById("empty").style.display = "block";
+  if (ES) toggleLive(); // old stream belongs to the old environment
+  boot();
+  toast("Switched environment");
+}
+function openNewDb(){
+  modal(`
+    <h2>Create a new <b>environment</b></h2>
+    <p class="sub">An environment is its own database — one file on disk, totally
+       separate facts. No tables to design, no setup: name it and start writing.</p>
+    <div class="formrow"><label>Name</label>
+      <input id="ndb" placeholder="e.g. my-first-db" style="flex:1" maxlength="40"></div>
+    <p class="mini">letters, numbers, - and _ only</p>
+    <div class="formrow"><label></label>
+      <label style="width:auto;cursor:pointer"><input type="checkbox" id="ndbclone">
+        start as a full copy (snapshot clone) of the current environment</label></div>
+    <div class="btnrow"><span class="spacer"></span>
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" onclick="createDb()">Create environment</button></div>`);
+  document.getElementById("ndb").focus();
+}
+async function createDb(){
+  const name = document.getElementById("ndb").value.trim();
+  if (!name) return toast("Give it a name first", true);
+  const body = {name};
+  if (document.getElementById("ndbclone")?.checked) body.from = DB || "default";
+  try {
+    await apiPost("/v1/databases", body);
+    closeModal();
+    DB = name; localStorage.setItem("centauri_db", DB);
+    await loadDatabases(); boot();
+    toast(`Environment “${name}” created — it's empty and all yours`);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function verifyIntegrity(){
+  try {
+    const r = await api("/v1/integrity", {deep: 1});
+    modal(`<h2>🛡 Integrity ${r.verified ? "<b style='color:var(--good)'>verified</b>" : "<b style='color:var(--bad)'>FAILED</b>"}</h2>
+      <p class="sub">${r.verified
+        ? "The bytes on disk are exactly the bytes that were committed — every record re-hashed cleanly."
+        : "The file on disk does NOT match the committed history. Someone or something altered it."}</p>
+      <div class="tourbox"><b>chain head</b><br><code style="word-break:break-all">${esc(r.chain_head)}</code><br>
+        <span class="mini">${r.records} records, ${r.log_bytes} bytes. Save this fingerprint somewhere
+        external — any future verify reproducing it proves history is intact.
+        Offline check: <code>centauri verify -data &lt;file&gt;.log</code></span></div>
+      <div class="btnrow"><span class="spacer"></span><button class="primary" onclick="closeModal()">Close</button></div>`);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------------- boot ----------------
+async function boot(){
+  try {
+    await loadDatabases();
+    const st = await api("/v1/stats");
+    document.getElementById("stats").innerHTML =
+      ["events","subjects","open","pending","links"]
+        .map(k => `<span class="chip">${k} <b>${st[k] ?? 0}</b></span>`).join("");
+    SUBJECTS = await api("/v1/subjects");
+    renderSubjects();
+    loadWedges(); loadDisagreements();
+    loadCatalog();
+  } catch (e) { console.warn(e); }
+}
+function renderSubjects(){
+  const f = document.getElementById("search").value.toLowerCase();
+  const list = SUBJECTS.filter(s => s.toLowerCase().includes(f)).slice(0, 400);
+  document.getElementById("subjects").innerHTML = list.map(s =>
+    `<div class="subj ${s===SELECTED?'sel':''}" onclick="select(${jsAttr(s)})">${esc(s)}</div>`).join("")
+    || `<div class='mini' style='padding:10px'>No subjects yet in this environment.<br><br>
+        Press <b>＋ Add fact</b> above to write the first one — subjects appear
+        automatically the moment a fact mentions them.</div>`;
+}
+document.getElementById("search").addEventListener("input", renderSubjects);
+
+// ---------------- system view ----------------
+async function loadWedges(){
+  const facet = document.getElementById("wfacet").value;
+  const days = document.getElementById("wdays").value;
+  try {
+    const evs = await api("/v1/pending", {facet, older_than_days: days});
+    document.getElementById("wedges").innerHTML = !evs.length ? "none 🎉" :
+      evs.slice(0,15).map(e =>
+        `<div>⚠️ <a href="#" onclick="select(${jsAttr(e.subject)});return false">${esc(e.subject)}</a>
+         <span class="mini">distributed ${fmtUS(e.recorded_time)}, never activated</span></div>`).join("")
+      + (evs.length > 15 ? `<div class="mini">…and ${evs.length-15} more</div>` : "");
+  } catch (e) { /* fresh empty db */ }
+}
+async function loadDisagreements(){
+  const field = document.getElementById("dfield").value || "price_cents";
+  try {
+    const map = await api("/v1/disagreements", {field});
+    const keys = Object.keys(map);
+    document.getElementById("dlist").innerHTML = !keys.length ? "none 🎉" :
+      keys.slice(0,15).map(s => {
+        const vals = [...new Set(map[s].map(e => JSON.stringify((e.value||{})[field])))].join(" vs ");
+        return `<div>⚡ <a href="#" onclick="select(${jsAttr(s)});return false">${esc(s)}</a>
+                <span class="mini">${esc(vals)}</span></div>`;
+      }).join("") + (keys.length > 15 ? `<div class="mini">…and ${keys.length-15} more</div>` : "");
+  } catch (e) { /* ignore */ }
+}
+
+// ---------------- subject view ----------------
+async function select(subject){
+  SELECTED = subject; renderSubjects();
+  document.getElementById("empty").style.display = "none";
+  const d = document.getElementById("detail");
+  d.style.display = "block";
+  d.innerHTML = `
+    <div class="card" id="timebar">
+      <b style="font-family:var(--mono)">${esc(subject)}</b>
+      <button onclick="openAddFact(${jsAttr(subject)})">＋ fact</button>
+      <span style="flex:1"></span>
+      <label>effective at</label><input type="datetime-local" id="t_at">
+      <label>as known at</label><input type="datetime-local" id="t_known">
+      <button class="primary" onclick="loadSubject()">Go</button>
+      <button onclick="resetTime()">Now</button>
+    </div>
+    <div class="card"><h3 id="factshead">Current facts</h3><div class="facets" id="facts"></div></div>
+    <div class="card disagreeWrap" id="disagree" style="display:none"></div>
+    <div class="card"><h3>Timeline</h3><div id="chart"></div></div>
+    <div class="card"><h3>History <span class="mini">(newest last — nothing is ever erased)</span></h3>
+      <div style="overflow:auto;max-height:340px"><table id="hist"></table></div></div>
+    <div class="card" id="tracecard" style="display:none"><h3>Causal trace</h3><div id="trace"></div></div>`;
+  loadSubject();
+}
+function resetTime(){
+  document.getElementById("t_at").value = "";
+  document.getElementById("t_known").value = "";
+  loadSubject();
+}
+async function loadSubject(){
+  const at = localToMicros(document.getElementById("t_at").value);
+  const known = localToMicros(document.getElementById("t_known").value);
+  const ctx = await api("/v1/context", {subject: SELECTED, known: known || (at || ""), history: 500});
+  let facts = ctx.facts || [];
+  if (at) facts = await api("/v1/asof", {subject: SELECTED, at, known: known || ""});
+  document.getElementById("factshead").textContent =
+    at || known ? `Facts ${at ? "effective " + fmtUS(at) : ""} ${known ? "· as known " + fmtUS(known) : ""}` : "Current facts";
+  renderFacts(facts);
+  renderDisagreements(ctx.disagreements || []);
+  renderChart(ctx.history || []);
+  renderHistory(ctx.history || []);
+}
+function renderFacts(facts){
+  document.getElementById("facts").innerHTML = !facts.length
+    ? "<div class='mini'>nothing was true at that moment</div>"
+    : facts.map(e => `
+      <div class="facet">
+        <div class="fname">${esc(e.facet)}</div>
+        <div class="val">${fmtVal(e.value || {})}</div>
+        <div class="meta">
+          <span class="badge b-type">${esc(e.type)}</span>
+          <span class="badge b-prov">${esc(e.provenance)}</span>
+          ${e.type === "DISTRIBUTED" && !e.activation_time ? '<span class="badge b-pend">PENDING</span>' : ""}
+        </div>
+        <div class="meta">effective ${fmtUS(e.effective_time)}<br>recorded ${fmtUS(e.recorded_time)}</div>
+        <div class="confbar" title="confidence ${e.confidence}"><i style="width:${(e.confidence*100)|0}%"></i></div>
+      </div>`).join("");
+}
+function renderDisagreements(ds){
+  const el = document.getElementById("disagree");
+  if (!ds.length) { el.style.display = "none"; return; }
+  el.style.display = "block"; el.className = "card disagree";
+  el.innerHTML = ds.map(d => `
+    <h3 style="color:var(--bad)">⚡ Facets disagree on “${esc(d.field)}”</h3>
+    ${d.claims.map(c => `
+      <div class="who ${c.event_id === d.resolved.event_id ? "win" : "lose"}">
+        ${c.event_id === d.resolved.event_id ? "✓" : "✗"} ${esc(c.facet)} says
+        <b>${esc(JSON.stringify(c.value))}</b>
+        <span class="mini">(${esc(c.provenance)}, conf ${c.confidence})</span>
+      </div>`).join("")}
+    <div class="mini">✓ = the claim Centauri trusts most (provenance, then confidence, then recency)</div>`).join("<hr style='border-color:var(--line)'>");
+}
+function renderHistory(hist){
+  const rows = [...hist].sort((a,b) => a.effective_time - b.effective_time);
+  document.getElementById("hist").innerHTML =
+    "<tr><th>effective</th><th>facet</th><th>type</th><th>value</th><th>recorded</th><th></th></tr>" +
+    rows.map(e => `
+      <tr>
+        <td class="${e.superseded_by ? "old" : ""}">${fmtUS(e.effective_time)}</td>
+        <td>${esc(e.facet)}</td><td>${esc(e.type)}</td>
+        <td class="${e.superseded_by ? "old" : ""}">${fmtVal(e.value || {})}</td>
+        <td class="mini">${fmtUS(e.recorded_time)}</td>
+        <td><a href="#" class="mini" onclick="trace('${esc(e.event_id)}');return false">why?</a></td>
+      </tr>`).join("");
+}
+async function trace(id){
+  const nodes = await api("/v1/trace", {event_id: id, direction: "cause", depth: 6});
+  const card = document.getElementById("tracecard");
+  card.style.display = "block";
+  document.getElementById("trace").innerHTML = nodes.map(n => `
+    <div style="margin-left:${n.depth*22}px" class="mini">
+      ${n.depth ? "↑ <span class='badge b-type'>" + esc(n.via || "") + "</span>" : "<b>this event</b>"}
+      <span style="font-family:var(--mono);color:var(--text)">${esc(n.event.facet)}/${esc(n.event.type)}</span>
+      ${fmtVal(n.event.value || {})}
+      <span>${fmtUS(n.event.effective_time)}</span>
+    </div>`).join("") || "<div class='mini'>no causes recorded</div>";
+  card.scrollIntoView({behavior:"smooth"});
+}
+
+// ---------------- timeline chart ----------------
+function renderChart(hist){
+  const el = document.getElementById("chart");
+  const events = hist.filter(e => e.type !== "ACTIVATED");
+  let field = "price_cents";
+  if (!events.some(e => typeof (e.value||{})[field] === "number")) {
+    field = null;
+    for (const e of events) for (const k in (e.value||{}))
+      if (typeof e.value[k] === "number") { field = k; break; }
+  }
+  if (!field) { el.innerHTML = "<div class='mini'>no numeric field to chart yet</div>"; return; }
+  const pts = events.filter(e => typeof (e.value||{})[field] === "number")
+                    .map(e => ({t: e.effective_time, v: e.value[field], f: e.facet, id: e.event_id}))
+                    .sort((a,b) => a.t - b.t);
+  if (pts.length < 2) { el.innerHTML = "<div class='mini'>add one more fact and a timeline appears here</div>"; return; }
+  const W = el.clientWidth || 760, H = 220, P = 42;
+  const t0 = pts[0].t, t1 = pts[pts.length-1].t || t0 + 1;
+  const vs = pts.map(p => p.v), v0 = Math.min(...vs), v1 = Math.max(...vs) || v0 + 1;
+  const X = t => P + (W - 2*P) * (t - t0) / Math.max(1, t1 - t0);
+  const Y = v => H - P + (P*2 - H) * (v - v0) / Math.max(1, v1 - v0);
+  const colors = {source:"#5eb0ff", register:"#46d39a", pdt:"#ffb454", shelf:"#ff6b81", storecentral:"#9a7bff"};
+  const byFacet = {};
+  pts.forEach(p => (byFacet[p.f] = byFacet[p.f] || []).push(p));
+  let svg = `<svg width="${W}" height="${H}">`;
+  svg += `<line x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}" stroke="#1f2a3d"/>`;
+  svg += `<text x="${P}" y="${H-P+14}">${fmtUS(t0).slice(0,10)}</text>`;
+  svg += `<text x="${W-P-60}" y="${H-P+14}">${fmtUS(t1).slice(0,10)}</text>`;
+  svg += `<text x="4" y="${Y(v1)+4}">${v1}</text><text x="4" y="${Y(v0)+4}">${v0}</text>`;
+  let lx = 0, ci = 0;
+  const fallback = ["#5eb0ff","#46d39a","#ffb454","#ff6b81","#9a7bff"];
+  for (const f in byFacet) {
+    const c = colors[f] || fallback[ci++ % fallback.length], ps = byFacet[f];
+    let dpath = "";
+    ps.forEach((p,i) => {
+      const x = X(p.t), y = Y(p.v);
+      dpath += i ? ` L ${x} ${Y(ps[i-1].v)} L ${x} ${y}` : `M ${x} ${y}`;
+    });
+    dpath += ` L ${W-P} ${Y(ps[ps.length-1].v)}`;
+    svg += `<path d="${dpath}" fill="none" stroke="${c}" stroke-width="1.6" opacity=".9"/>`;
+    ps.forEach(p => { svg += `<circle class="dot" cx="${X(p.t)}" cy="${Y(p.v)}" r="3.2" fill="${c}"
+      onclick="trace('${p.id}')"><title>${f}: ${p.v} @ ${fmtUS(p.t)} — click for cause</title></circle>`; });
+    svg += `<rect x="${P+lx}" y="6" width="9" height="9" fill="${c}" rx="2"/>
+            <text x="${P+lx+13}" y="14">${f}</text>`;
+    lx += 13 + f.length * 6.5 + 22;
+  }
+  el.innerHTML = svg + "</svg>";
+}
+
+// ---------------- live feed ----------------
+function toggleLive(){
+  const btn = document.getElementById("livebtn");
+  if (ES) { ES.close(); ES = null; btn.textContent = "▶ Watch"; btn.className = "primary"; return; }
+  const qs = qsFor({});
+  ES = new EventSource("/v1/watch" + (qs ? "?" + qs : ""));
+  btn.textContent = "■ Stop"; btn.className = "";
+  const feed = document.getElementById("feed");
+  feed.innerHTML = "<div class='mini' style='padding:10px'>listening…</div>";
+  ES.onmessage = m => {
+    let e; try { e = JSON.parse(m.data); } catch { return; }
+    const div = document.createElement("div");
+    div.className = "ev pulse";
+    div.innerHTML = `<span class="t">${fmtUS(e.recorded_time)}</span><br>
+      <a href="#" onclick="select(${jsAttr(e.subject)});return false">${esc(e.subject)}</a>
+      <span class="badge b-type">${esc(e.type)}</span> ${esc(e.facet)}<br>${fmtVal(e.value||{})}`;
+    feed.prepend(div);
+    while (feed.children.length > 80) feed.lastChild.remove();
+  };
+  ES.onerror = () => { /* EventSource auto-reconnects */ };
+}
+
+// ---------------- add fact ----------------
+function kvRow(k, v){
+  return `<div class="kvrow">
+    <input placeholder="field, e.g. price_cents" value="${esc(k||"")}" class="kv-k">
+    <input placeholder="value, e.g. 500 or &quot;red&quot;" value="${esc(v??"")}" class="kv-v">
+    <button class="ghost" onclick="this.parentElement.remove()" title="remove">✕</button></div>`;
+}
+async function openAddFact(prefSubject, pref){
+  let schemaOpts = "<option value=''>none (free-form)</option>";
+  try {
+    const scs = await api("/v1/schema");
+    for (const sc of (scs || []))
+      schemaOpts += `<option value="${esc(sc.schema_id)}">${esc(sc.schema_id)} v${sc.version}</option>`;
+  } catch (e) { /* fine */ }
+  modal(`
+    <h2>Add a <b>fact</b></h2>
+    <p class="sub">No tables needed. A fact says: <i>“about this <b>subject</b>,
+       these <b>values</b> are true from now (or a chosen time).”</i>
+       Writing about a new subject creates it automatically. Writing again
+       about the same subject <b>updates</b> it — and keeps the old fact in history.</p>
+    <div class="formrow"><label>Subject</label>
+      <input id="f_subject" style="flex:1" placeholder="e.g. toy:robot  or  customer:42"
+             value="${esc(prefSubject || "")}"></div>
+    <div class="formrow"><label>Values</label>
+      <div style="flex:1" id="kvs">${kvRow("price_cents","500")}</div></div>
+    <div class="formrow"><label></label>
+      <button class="ghost" onclick="document.getElementById('kvs').insertAdjacentHTML('beforeend', kvRow())">＋ another value</button></div>
+    <div class="formrow"><label>Effective</label>
+      <input type="datetime-local" id="f_eff"> <span class="mini">empty = now</span></div>
+    <div class="formrow"><label>Facet</label>
+      <input id="f_facet" value="source" list="facetlist" size="14">
+      <datalist id="facetlist"><option>source</option><option>register</option><option>pdt</option><option>shelf</option><option>storecentral</option></datalist>
+      <span class="mini">which view of reality this is</span></div>
+    <div class="formrow"><label>Type</label>
+      <select id="f_type"><option>OBSERVED</option><option>INTENT</option><option>DISTRIBUTED</option><option>CORRECTION</option></select>
+      <label style="width:auto">Schema</label><select id="f_schema">${schemaOpts}</select></div>
+    <div class="formrow"><label>Confidence</label>
+      <input type="range" id="f_conf" min="0" max="100" value="100" style="flex:1"
+             oninput="document.getElementById('confout').textContent=(this.value/100).toFixed(2)">
+      <span id="confout" class="mini">1.00</span></div>
+    <div class="btnrow"><span class="spacer"></span>
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" onclick="saveFact()">Save fact</button></div>`);
+  if (pref) {
+    // Point-and-click "edit": prefill from an existing fact; saving
+    // writes the new version (the old one stays in history, as always).
+    if (pref.facet) document.getElementById("f_facet").value = pref.facet;
+    if (pref.values && Object.keys(pref.values).length) {
+      document.getElementById("kvs").innerHTML = Object.entries(pref.values)
+        .map(([k, v]) => kvRow(k, typeof v === "string" ? JSON.stringify(v) : fmtCellSafe(v))).join("");
+    }
+  }
+  document.getElementById("f_subject").focus();
+}
+function fmtCellSafe(v){ return typeof v === "object" ? JSON.stringify(v) : String(v); }
+function parseValueInput(s){
+  s = s.trim();
+  if (s === "") return "";
+  if (s === "true") return true;
+  if (s === "false") return false;
+  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+  try { return JSON.parse(s); } catch { return s; }
+}
+async function saveFact(){
+  const subject = document.getElementById("f_subject").value.trim();
+  if (!subject) return toast("A fact needs a subject — what is it about?", true);
+  const value = {};
+  document.querySelectorAll("#kvs .kvrow").forEach(row => {
+    const k = row.querySelector(".kv-k").value.trim();
+    if (k) value[k] = parseValueInput(row.querySelector(".kv-v").value);
+  });
+  if (!Object.keys(value).length) return toast("Add at least one value (e.g. price_cents = 500)", true);
+  const ev = {
+    subject, value,
+    facet: document.getElementById("f_facet").value.trim() || "source",
+    type: document.getElementById("f_type").value,
+    provenance: "HUMAN_ENTRY",
+    confidence: Number(document.getElementById("f_conf").value) / 100,
+    source_system: "DASHBOARD",
+  };
+  const eff = localToMicros(document.getElementById("f_eff").value);
+  if (eff) ev.effective_time = eff;
+  const schema = document.getElementById("f_schema").value;
+  if (schema) ev.schema_id = schema;
+  try {
+    await apiPost("/v1/append", {events: [ev]});
+    closeModal();
+    toast(`Fact saved about ${subject} ✓`);
+    await boot();
+    if (window._tourAdvance) window._tourAdvance();
+    else select(subject);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------------- schema manager ----------------
+function schemaFieldRow(){
+  return `<div class="schemafield">
+    <input placeholder="field name" class="sf-name">
+    <select class="sf-type"><option>number</option><option>string</option><option>bool</option><option>any</option></select>
+    <label class="mini"><input type="checkbox" class="sf-req"> req</label>
+    <input placeholder="min" class="sf-min" size="4">
+    <input placeholder="max" class="sf-max" size="4">
+    <input placeholder="unit" class="sf-unit" size="6">
+  </div>`;
+}
+async function openSchemas(){
+  let list = "<div class='mini'>No schemas yet. Schemas are optional — they make the database reject bad data (like a negative price) automatically.</div>";
+  try {
+    const scs = await api("/v1/schema");
+    if (scs && scs.length) {
+      list = scs.map(sc => `
+        <div class="tourbox"><b>${esc(sc.schema_id)}</b> <span class="mini">v${sc.version} ${esc(sc.title||"")}</span><br>
+        ${Object.entries(sc.fields||{}).map(([n,f]) =>
+          `<span class="mini">• <b>${esc(n)}</b>: ${esc(f.type)}${f.required?" (required)":""}${f.min!=null?" min "+f.min:""}${f.max!=null?" max "+f.max:""}${f.unit?" ["+esc(f.unit)+"]":""}</span>`
+        ).join("<br>")}</div>`).join("");
+    }
+  } catch (e) { /* ignore */ }
+  modal(`
+    <h2>Data <b>schemas</b></h2>
+    <p class="sub">A schema teaches the database what good data looks like, so typos
+       and impossible values get rejected with a clear message. Versioned — updating
+       a schema never breaks old facts.</p>
+    ${list}
+    <h3 style="margin-top:18px;color:var(--dim)">CREATE A NEW SCHEMA</h3>
+    <div class="formrow"><label>Schema id</label><input id="sc_id" placeholder="e.g. price" style="flex:1"></div>
+    <div class="formrow"><label>Title</label><input id="sc_title" placeholder="optional description" style="flex:1"></div>
+    <div class="schemafield mini"><span>field</span><span>type</span><span>required</span><span>min</span><span>max</span><span>unit</span></div>
+    <div id="scfields">${schemaFieldRow()}</div>
+    <button class="ghost" onclick="document.getElementById('scfields').insertAdjacentHTML('beforeend', schemaFieldRow())">＋ another field</button>
+    <div class="btnrow"><span class="spacer"></span>
+      <button onclick="closeModal()">Close</button>
+      <button class="primary" onclick="saveSchema()">Create schema</button></div>`);
+}
+async function saveSchema(){
+  const id = document.getElementById("sc_id").value.trim();
+  if (!id) return toast("The schema needs an id (e.g. price)", true);
+  const fields = {};
+  document.querySelectorAll("#scfields .schemafield").forEach(row => {
+    const name = row.querySelector(".sf-name");
+    if (!name || !name.value.trim()) return;
+    const f = {type: row.querySelector(".sf-type").value};
+    if (row.querySelector(".sf-req").checked) f.required = true;
+    const mn = row.querySelector(".sf-min").value.trim();
+    const mx = row.querySelector(".sf-max").value.trim();
+    const un = row.querySelector(".sf-unit").value.trim();
+    if (mn !== "") f.min = Number(mn);
+    if (mx !== "") f.max = Number(mx);
+    if (un) f.unit = un;
+    fields[name.value.trim()] = f;
+  });
+  if (!Object.keys(fields).length) return toast("Add at least one field", true);
+  try {
+    const resp = await apiPost("/v1/schema", {schema_id: id,
+      title: document.getElementById("sc_title").value.trim(), fields});
+    toast(`Schema ${id} v${resp.version} created ✓`);
+    openSchemas();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------------- CeQL query bar: autocomplete + AI helper ----------------
+const KW_START = ["FACTS OF ", "HISTORY OF ", "PUT ", "CONTEXT FOR ", "PENDING pdt OLDER THAN 21 DAYS",
+  "DISAGREE ON price_cents", "WHY ", "SIMILAR TO ", "SUBJECTS LIKE ", "STATS", "SCHEMAS",
+  "DEFINE SCHEMA ", "WATCH ALL", "EXPLAIN "];
+const KW_CLAUSE = ["AS OF ", "AS KNOWN AT ", "WHERE ", "WHY DEPTH 3", "FACET ", "ORDER BY ",
+  "GROUP BY facet", "LIMIT 20", "SET "];
+const KW_TIME = ["YESTERDAY", "TODAY", "'10 days ago'", "'yesterday 2pm CST'", "'2026-03-15'", "NOW-7d"];
+const qin = document.getElementById("qinput");
+const qsg = document.getElementById("qsuggest");
+
+// The command catalog lives IN Centauri (database "ceql-catalog"),
+// seeded by the server. Suggestions are data — no AI calls, no tokens.
+let CATALOG = [];
+async function loadCatalog(){
+  if (CATALOG.length) return;
+  try {
+    const q = new URLSearchParams();
+    if (TOKEN) q.set("token", TOKEN);
+    q.set("db", "ceql-catalog");
+    const r = await handle(await fetch("/v1/query?" + q.toString(), {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({q: "FACTS OF ceql:* LIMIT 300"})}));
+    CATALOG = (r.events || []).map(e => e.value).filter(v => v && v.template);
+  } catch (e) { /* old server or missing catalog: built-ins still work */ }
+}
+function catalogMatches(text){
+  const t = text.toLowerCase().trim();
+  if (!CATALOG.length || !t) return [];
+  const scored = [];
+  for (const c of CATALOG) {
+    let s = 0;
+    if (c.template.toLowerCase().startsWith(t)) s = 100;
+    for (const p of (c.nl || [])) {
+      const pl = String(p).toLowerCase();
+      if (t.includes(pl)) s = Math.max(s, 50 + pl.length);
+      else if (pl.includes(t)) s = Math.max(s, 20 + t.length);
+    }
+    if (s === 0 && String(c.description).toLowerCase().includes(t)) s = 10;
+    if (s) scored.push([s, c]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  return scored.slice(0, 8).map(x =>
+    ({label: x[1].example + "   — " + x[1].description, apply: x[1].example + " "}));
+}
+async function openPalette(){
+  await loadCatalog();
+  const cats = [["read","🔎 Reading"],["time","⏰ Time travel"],["write","✏️ Writing"],
+    ["agg","Σ Aggregation"],["graph","🔗 Causality"],["ai","🤖 AI"],
+    ["ops","⚠️ Operations"],["schema","🧩 Schemas"],["proc","⚙ Procedures"],
+    ["live","📡 Live"],["meta","⚙️ Meta"]];
+  const row = c => `<div class="subj" style="white-space:normal;padding:8px 10px"
+      onclick="qin.value=${JSON.stringify(c.example).replace(/"/g,"&quot;")};closeModal();qin.focus()">
+      <span style="color:var(--accent)">${esc(c.template)}</span><br>
+      <span class="mini">${esc(c.description)} — e.g. <code>${esc(c.example)}</code></span></div>`;
+  const body = cats.map(([k, title]) => {
+    const items = CATALOG.filter(c => c.category === k);
+    if (!items.length) return "";
+    return `<h3 style="margin-top:14px;color:var(--dim)">${title}</h3>` + items.map(row).join("");
+  }).join("");
+  modal(`<h2>Every <b>CeQL</b> command</h2>
+    <p class="sub">${CATALOG.length || "—"} command templates, stored in Centauri itself
+       (environment <code>ceql-catalog</code> — query it: <code>FACTS OF ceql:*</code>).
+       Click any to load it into the query bar.</p>
+    <input id="palsearch" placeholder="filter commands…" style="width:100%"
+           oninput="filterPalette(this.value)">
+    <div id="pallist" style="max-height:50vh;overflow:auto;margin-top:8px">${body || "<div class='mini'>catalog not seeded yet — restart the server once</div>"}</div>
+    <div class="btnrow"><span class="spacer"></span><button class="primary" onclick="closeModal()">Close</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+function filterPalette(t){
+  t = t.toLowerCase();
+  document.querySelectorAll("#pallist .subj").forEach(d => {
+    d.style.display = d.textContent.toLowerCase().includes(t) ? "" : "none";
+  });
+  document.querySelectorAll("#pallist h3").forEach(h => {
+    let any = false, n = h.nextElementSibling;
+    while (n && n.tagName !== "H3") { if (n.style.display !== "none") any = true; n = n.nextElementSibling; }
+    h.style.display = any ? "" : "none";
+  });
+}
+
+function suggestions(text){
+  const up = text.toUpperCase();
+  // after OF / FOR / TO with a partial word: complete subjects
+  const m = up.match(/\b(OF|FOR)\s+(\S*)$/);
+  if (m) {
+    const frag = text.slice(text.length - m[2].length).toLowerCase();
+    return SUBJECTS.filter(s => s.toLowerCase().includes(frag)).slice(0, 12)
+      .map(s => ({label: s, apply: text.slice(0, text.length - m[2].length) + s + " "}));
+  }
+  if (/\bAS (OF|KNOWN AT)\s*$/.test(up))
+    return KW_TIME.map(k => ({label: k, apply: text + k + " "}));
+  if (text.trim() === "")
+    return CATALOG.length
+      ? CATALOG.slice(0, 14).map(c => ({label: c.example + "   — " + c.description, apply: c.example}))
+      : KW_START.map(k => ({label: k, apply: k}));
+  if (/^[A-Za-z]+$/.test(text.trim())) {
+    const kw = KW_START.filter(k => k.startsWith(up.trim())).map(k => ({label: k, apply: k}));
+    return kw.length ? kw : catalogMatches(text);
+  }
+  if (/\s$/.test(text) && /\bOF\s+\S+\s/.test(up))
+    return KW_CLAUSE.filter(k => !up.includes(k.trim().split(" ")[0]) || k.startsWith("AS"))
+      .slice(0, 9).map(k => ({label: "… " + k, apply: text + k}));
+  // plain-English fragment? surface matching commands from the catalog
+  return catalogMatches(text);
+}
+function showSuggest(){
+  const items = suggestions(qin.value);
+  if (!items.length) { qsg.style.display = "none"; return; }
+  qsg.innerHTML = items.map((it, i) =>
+    `<div class="subj" data-i="${i}" onmousedown="applySuggest(${i});event.preventDefault()">${esc(it.label)}</div>`).join("");
+  qsg.style.display = "block";
+  qsg._items = items;
+}
+function applySuggest(i){
+  qin.value = qsg._items[i].apply;
+  qin.focus();
+  showSuggest();
+}
+qin.addEventListener("input", showSuggest);
+qin.addEventListener("blur", () => setTimeout(() => qsg.style.display = "none", 150));
+qin.addEventListener("keydown", e => {
+  if (e.key === "Enter") { qsg.style.display = "none"; runQuery(); }
+  else if (e.key === "Tab" && qsg.style.display !== "none" && qsg._items?.length) {
+    e.preventDefault(); applySuggest(0);
+  } else if (e.key === "Escape") qsg.style.display = "none";
+});
+
+async function assistOnce(text){
+  const qs = qsFor({});
+  return handle(await fetch("/v1/assist" + (qs ? "?" + qs : ""), {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({text})}));
+}
+async function assistQuery(){
+  const text = qin.value.trim();
+  if (!text) { toast("Type a question first — e.g. “price of toy:robot yesterday”", true); return; }
+  try {
+    const a = await assistOnce(text);
+    qin.value = a.ceql;
+    if (!a.valid) toast("✨ " + (a.note || "translated to CeQL"));
+    runQuery();
+  } catch (e) { toast(e.message, true); }
+}
+async function execText(text){
+  const qs = qsFor({});
+  return handle(await fetch("/v1/query" + (qs ? "?" + qs : ""), {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({q: text})}));
+}
+function pushHist(q){
+  const h = [q, ...loadJSON("centauri_hist").filter(x => x !== q)].slice(0, 50);
+  localStorage.setItem("centauri_hist", JSON.stringify(h));
+}
+async function runQuery(){
+  const text = qin.value.trim();
+  if (!text) return;
+  const out = document.getElementById("qres");
+  const t0 = performance.now();
+  try {
+    const r = await execText(text);
+    pushHist(text);
+    GRIDS = {}; // previous results are gone from the DOM; free their data
+    renderQueryResult(r, out, {q: text, ms: performance.now() - t0});
+  } catch (e) {
+    // Not valid CeQL? Maybe it's plain English — ask the helper.
+    let didYouMean = "";
+    try {
+      const a = await assistOnce(text);
+      if (a.ceql && a.ceql !== text) {
+        window._dym = a.ceql;
+        didYouMean = `<div style="margin-top:8px">🤖 Did you mean:
+          <code>${esc(a.ceql)}</code>
+          <button class="primary" style="margin-left:8px"
+            onclick="document.getElementById('qinput').value=window._dym;runQuery()">Run it</button>
+          <span class="mini">${esc(a.note || "")}</span></div>`;
+      }
+    } catch (e2) { didYouMean = `<div class="mini" style="margin-top:8px">🤖 ${esc(e2.message)}</div>`; }
+    out.innerHTML = `<div class="card" style="border-color:#5a2b35">
+      <h3 style="color:var(--bad)">Query error</h3>
+      <div class="mini">${esc(e.message)}</div>${didYouMean}
+      <div class="mini" style="margin-top:6px">📘 <a href="/ceql" target="_blank">Learn CeQL</a></div></div>`;
+  }
+}
+
+// ---- script mode (SQL*Plus-style: many statements, &variables) ----
+function toggleScript(){
+  const b = document.getElementById("scriptbox");
+  b.style.display = b.style.display === "none" ? "block" : "none";
+}
+async function runScript(){
+  const text = document.getElementById("qscript").value;
+  const vars = [...new Set([...text.matchAll(/&(\w+)/g)].map(m => m[1]))];
+  if (vars.length) {
+    modal(`<h2>Script <b>variables</b></h2>
+      <p class="sub">SQL*Plus-style substitution: give each &amp;variable a value.</p>
+      ${vars.map(v => `<div class="formrow"><label>&amp;${esc(v)}</label>
+        <input class="subvar" data-name="${esc(v)}" style="flex:1"></div>`).join("")}
+      <div class="btnrow"><span class="spacer"></span>
+        <button onclick="closeModal()">Cancel</button>
+        <button class="primary" onclick="execScriptWithVars()">Run script</button></div>`);
+    return;
+  }
+  execScript(text);
+}
+function execScriptWithVars(){
+  const vals = {};
+  document.querySelectorAll(".subvar").forEach(i => { vals[i.dataset.name] = i.value; });
+  // single pass: overlapping names (&store vs &storename) stay intact,
+  // and substituted values are never re-substituted
+  const text = document.getElementById("qscript").value
+    .replace(/&(\w+)/g, (m, n) => (n in vals ? vals[n] : m));
+  closeModal();
+  execScript(text);
+}
+async function execScript(text){
+  const lines = text.split("\n").map(l => l.trim())
+    .filter(l => l && !l.startsWith("--"));
+  if (!lines.length) return toast("The script is empty", true);
+  const out = document.getElementById("qres");
+  out.innerHTML = "";
+  GRIDS = {};
+  let ok = 0, failed = 0;
+  for (const line of lines) {
+    const t0 = performance.now();
+    try {
+      const r = await execText(line);
+      pushHist(line);
+      renderQueryResult(r, out, {q: line, ms: performance.now() - t0, stack: true});
+      ok++;
+    } catch (e) {
+      failed++;
+      out.insertAdjacentHTML("afterbegin", `<div class="card" style="border-color:#5a2b35">
+        <div class="mini" style="font-family:var(--mono)">${esc(line)}</div>
+        <div style="color:var(--bad)">✗ ${esc(e.message)}</div></div>`);
+      if (!document.getElementById("contErr").checked) {
+        toast(`Script stopped at error (${ok} ok). Tick “continue on error” to keep going.`, true);
+        return;
+      }
+    }
+  }
+  toast(`Script done: ${ok} ok${failed ? ", " + failed + " failed" : ""}`);
+}
+
+// ---- history & snippets (Toad's SQL Recall) ----
+function openHistory(){
+  const hist = loadJSON("centauri_hist");
+  const snips = loadJSON("centauri_snips");
+  modal(`<h2>🕘 Query <b>history</b> &amp; snippets</h2>
+    ${snips.length ? `<h3 style="color:var(--dim)">★ SAVED SNIPPETS</h3>` +
+      snips.map((s, i) => `<div class="subj" style="white-space:normal">
+        <a href="#" onclick="qin.value=${JSON.stringify(s.q).replace(/"/g, "&quot;")};closeModal();runQuery();return false">
+          <b>${esc(s.name)}</b></a> <a href="#" class="mini" onclick="delSnip(${i});return false">✕</a><br>
+        <span class="mini" style="font-family:var(--mono)">${esc(s.q)}</span></div>`).join("") : ""}
+    <h3 style="color:var(--dim)">RECENT QUERIES <a href="#" class="mini"
+      onclick="localStorage.removeItem('centauri_hist');openHistory();return false">(clear)</a></h3>
+    ${hist.length ? hist.map((q, i) => `<div class="subj" style="white-space:normal;font-family:var(--mono);font-size:12px">
+        <a href="#" onclick="qin.value=${JSON.stringify(q).replace(/"/g, "&quot;")};closeModal();return false">${esc(q)}</a>
+        <a href="#" class="mini" onclick="saveSnip(${i});return false" title="save as snippet">★</a></div>`).join("")
+      : "<div class='mini'>nothing yet — run something!</div>"}
+    <div class="btnrow"><span class="spacer"></span><button class="primary" onclick="closeModal()">Close</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+function saveSnip(i){
+  const hist = loadJSON("centauri_hist");
+  const name = prompt("Name this snippet:", "");
+  if (!name) return;
+  const snips = loadJSON("centauri_snips");
+  snips.unshift({name, q: hist[i]});
+  localStorage.setItem("centauri_snips", JSON.stringify(snips.slice(0, 30)));
+  openHistory();
+}
+function delSnip(i){
+  const snips = loadJSON("centauri_snips");
+  snips.splice(i, 1);
+  localStorage.setItem("centauri_snips", JSON.stringify(snips));
+  openHistory();
+}
+
+// ---- visual query builder (Toad-style, minus the mouse mileage) ----
+function openBuilder(){
+  const whereRow = i => `<div class="formrow">
+    <label>${i ? "AND" : "WHERE"}</label>
+    <input class="qb-f" placeholder="field (price_cents, trust, namespace…)" style="width:200px">
+    <select class="qb-op"><option>=</option><option>!=</option><option>&gt;</option><option>&gt;=</option>
+      <option>&lt;</option><option>&lt;=</option><option>LIKE</option><option>MATCHES</option></select>
+    <input class="qb-v" placeholder="value" style="flex:1"></div>`;
+  modal(`<h2>🧱 Query <b>builder</b></h2>
+    <div class="formrow"><label>I want</label>
+      <select id="qb-act"><option value="FACTS">current facts</option>
+        <option value="HISTORY">the full history</option>
+        <option value="CONTEXT">the context bundle</option>
+        <option value="PENDING">pending wedges</option>
+        <option value="DISAGREE">disagreements</option></select></div>
+    <div class="formrow"><label>Subject</label>
+      <input id="qb-subj" list="subjlist" style="flex:1" placeholder="item:*/store:4001 (wildcards ok)">
+      <datalist id="subjlist">${SUBJECTS.slice(0, 100).map(s => `<option>${esc(s)}</option>`).join("")}</datalist></div>
+    <div class="formrow"><label>Facet</label>
+      <input id="qb-facet" list="qbfacetlist" size="14" placeholder="(all)">
+      <datalist id="qbfacetlist"><option>source</option><option>register</option><option>pdt</option><option>shelf</option><option>storecentral</option></datalist>
+      <label style="width:auto">as of</label><input id="qb-asof" size="16" placeholder="YESTERDAY, 2026-03-15…">
+      <label style="width:auto">as known at</label><input id="qb-known" size="16" placeholder="(now)"></div>
+    ${whereRow(0)}${whereRow(1)}
+    <div class="formrow"><label>Order by</label>
+      <input id="qb-order" size="16" placeholder="(none)">
+      <select id="qb-dir"><option>DESC</option><option>ASC</option></select>
+      <label style="width:auto">Limit</label><input id="qb-limit" size="5" value="50">
+      <label style="width:auto;cursor:pointer"><input type="checkbox" id="qb-why"> attach WHY chains</label></div>
+    <div class="btnrow"><span class="spacer"></span>
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" onclick="buildQuery()">Build &amp; run</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+function buildQuery(){
+  const act = document.getElementById("qb-act").value;
+  const subj = document.getElementById("qb-subj").value.trim();
+  if (!subj && act !== "PENDING" && act !== "DISAGREE") return toast("Pick a subject", true);
+  let q = "";
+  if (act === "PENDING") q = "PENDING " + (document.getElementById("qb-facet").value.trim() || "pdt");
+  else if (act === "DISAGREE") q = "DISAGREE ON " + (document.querySelector(".qb-f").value.trim() || "price_cents");
+  else if (act === "CONTEXT") q = "CONTEXT FOR " + subj;
+  else q = act + " OF " + subj;
+  if (act === "FACTS" || act === "HISTORY") {
+    const facet = document.getElementById("qb-facet").value.trim();
+    if (facet) q += " FACET " + facet;
+    const asof = document.getElementById("qb-asof").value.trim();
+    const bare = /^(now(-\w+)?|today|yesterday|tomorrow)$/i.test(asof);
+    if (asof && act === "FACTS") q += " AS OF " + (bare ? asof.toUpperCase() : "'" + asof.replace(/'/g, "") + "'");
+    const known = document.getElementById("qb-known").value.trim();
+    if (known && act === "FACTS") q += " AS KNOWN AT '" + known + "'";
+    const conds = [];
+    document.querySelectorAll("#modal .formrow").forEach(row => {
+      const f = row.querySelector(".qb-f"), op = row.querySelector(".qb-op"), v = row.querySelector(".qb-v");
+      if (f && f.value.trim() && v && v.value.trim()) {
+        const val = /^-?\d+(\.\d+)?$/.test(v.value.trim()) ? v.value.trim() : "'" + v.value.trim() + "'";
+        conds.push(f.value.trim() + " " + op.value + " " + val);
+      }
+    });
+    if (conds.length) q += " WHERE " + conds.join(" AND ");
+    const order = document.getElementById("qb-order").value.trim();
+    if (order) q += " ORDER BY " + order + " " + document.getElementById("qb-dir").value;
+    const lim = document.getElementById("qb-limit").value.trim();
+    if (lim) q += " LIMIT " + lim;
+    if (document.getElementById("qb-why").checked) q += " WHY";
+  }
+  closeModal();
+  qin.value = q;
+  runQuery();
+}
+// ---- interactive result grid: sort, filter, export, edit (Toad-style) ----
+let GRIDS = {}, gridSeq = 0;
+function makeGrid(spec){
+  spec.id = "grid" + (++gridSeq);
+  GRIDS[spec.id] = spec;
+  return `<div id="${spec.id}">${gridHTML(spec)}</div>`;
+}
+function gridView(spec){
+  let idx = spec.rows.map((_, i) => i);
+  if (spec.filter) {
+    const f = spec.filter.toLowerCase();
+    idx = idx.filter(i => spec.rows[i].some(c => fmtCell(c).toLowerCase().includes(f)));
+  }
+  if (spec.sortCol >= 0) {
+    idx.sort((a, b) => {
+      const x = spec.rows[a][spec.sortCol], y = spec.rows[b][spec.sortCol];
+      const xe = x == null || x === "", ye = y == null || y === "";
+      if (xe || ye) return xe && ye ? 0 : (xe ? 1 : -1); // blanks last, always
+      const nx = Number(x), ny = Number(y);
+      let c = (!isNaN(nx) && !isNaN(ny)) ? nx - ny : fmtCell(x).localeCompare(fmtCell(y));
+      return spec.sortDesc ? -c : c;
+    });
+  }
+  return idx;
+}
+function fmtCell(v){
+  if (v == null) return "";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+function gridHTML(spec){
+  const idx = gridView(spec);
+  let h = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    <input placeholder="filter rows…" value="${esc(spec.filter || "")}" style="width:180px"
+      oninput="GRIDS['${spec.id}'].filter=this.value;gridRefresh('${spec.id}',true)">
+    <span class="mini">${idx.length}${idx.length !== spec.rows.length ? " / " + spec.rows.length : ""} rows${spec.ms ? " · " + spec.ms.toFixed(0) + " ms" : ""}</span>
+    <span style="flex:1"></span>
+    <button class="ghost mini" onclick="gridExport('${spec.id}','csv')">⬇ CSV</button>
+    <button class="ghost mini" onclick="gridExport('${spec.id}','json')">⬇ JSON</button></div>
+    <div style="overflow:auto;max-height:420px"><table><tr>`;
+  spec.columns.forEach((c, j) => {
+    const arrow = spec.sortCol === j ? (spec.sortDesc ? " ▼" : " ▲") : "";
+    h += `<th style="cursor:pointer" title="click to sort"
+      onclick="gridSort('${spec.id}',${j})">${esc(c)}${arrow}</th>`;
+  });
+  if (spec.actions) h += "<th></th>";
+  h += "</tr>";
+  for (const i of idx) {
+    h += "<tr>" + spec.rows[i].map((c, j) =>
+      `<td class="${spec.dim && spec.dim[i] ? "old" : ""}">${spec.linkCol === j
+        ? `<a href="#" onclick="select(${jsAttr(fmtCell(c))});return false">${esc(fmtCell(c))}</a>`
+        : esc(fmtCell(c))}</td>`).join("");
+    if (spec.actions) h += `<td>${spec.actions(i)}</td>`;
+    h += "</tr>";
+    if (spec.extra && spec.extra[i]) {
+      h += `<tr><td colspan="${spec.columns.length + 1}" class="mini" style="padding-left:24px">${spec.extra[i]}</td></tr>`;
+    }
+  }
+  return h + "</table></div>";
+}
+function gridRefresh(id, keepFocus){
+  const el = document.getElementById(id);
+  el.innerHTML = gridHTML(GRIDS[id]);
+  if (keepFocus) { const f = el.querySelector("input"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+}
+function gridSort(id, col){
+  const g = GRIDS[id];
+  if (g.sortCol === col) g.sortDesc = !g.sortDesc; else { g.sortCol = col; g.sortDesc = false; }
+  gridRefresh(id);
+}
+function gridExport(id, kind){
+  const g = GRIDS[id], idx = gridView(g);
+  let content, type, name;
+  if (kind === "csv") {
+    const escCSV = v => `"${fmtCell(v).replace(/"/g, '""')}"`;
+    content = g.columns.map(escCSV).join(",") + "\n" +
+      idx.map(i => g.rows[i].map(escCSV).join(",")).join("\n");
+    type = "text/csv"; name = "centauri-result.csv";
+  } else {
+    content = JSON.stringify(idx.map(i => Object.fromEntries(
+      g.columns.map((c, j) => [c, g.rows[i][j]]))), null, 2);
+    type = "application/json"; name = "centauri-result.json";
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function gridEdit(id, i){
+  const m = GRIDS[id].meta[i];
+  openAddFact(m.subject, {facet: m.facet, values: m.value});
+}
+function eventsGrid(events, why, ms){
+  events = events || [];
+  const spec = {
+    columns: ["subject", "facet", "type", "value", "effective", "trust"],
+    rows: events.map(e => [e.subject, e.facet, e.type, e.value || {}, fmtUS(e.effective_time), e.confidence]),
+    meta: events.map(e => ({subject: e.subject, facet: e.facet, value: e.value || {}, event_id: e.event_id})),
+    dim: events.map(e => !!e.superseded_by),
+    linkCol: 0, sortCol: -1, ms,
+  };
+  // spec.id is assigned by makeGrid before gridHTML calls actions(), so
+  // the closure can reference it directly.
+  spec.actions = i => `<a href="#" class="mini" onclick="trace('${esc(spec.meta[i].event_id)}');return false">why?</a>
+    <a href="#" class="mini" title="write a new fact for this subject (point-and-click update)"
+       onclick="gridEdit('${spec.id}', ${i});return false">✎</a>`;
+  if (why) {
+    spec.extra = {};
+    events.forEach((e, i) => {
+      if (why[e.event_id]) {
+        spec.extra[i] = "↳ because: " + why[e.event_id].map(n =>
+          `<span class="badge b-type">${esc(n.via || "")}</span> ${esc(n.event.facet)}/${esc(n.event.type)} ${fmtVal(n.event.value || {})}`).join(" · ");
+      }
+    });
+  }
+  return makeGrid(spec);
+}
+function renderQueryResult(r, out, meta){
+  let h = "";
+  switch (r.kind) {
+    case "events":
+      h = `<h3>${(r.events || []).length} event(s)${r.note ? " — " + esc(r.note) : ""}</h3>` +
+          eventsGrid(r.events, r.why, meta && meta.ms);
+      break;
+    case "rows":
+      h = `<h3>${(r.rows || []).length} row(s)</h3>` +
+          makeGrid({columns: r.columns || [], rows: r.rows || [],
+                    sortCol: -1, linkCol: -1, ms: meta && meta.ms});
+      break;
+    case "put":
+      toast(`Fact saved about ${r.subject} ✓`);
+      h = `<h3>Saved</h3><div class="mini">event <code>${esc(r.event_id)}</code> on
+           <a href="#" onclick="select(${jsAttr(r.subject)});return false">${esc(r.subject)}</a> (${esc(r.facet)})</div>`;
+      boot();
+      break;
+    case "schema_defined":
+      toast(`Schema ${r.schema} created ✓`);
+      h = `<h3>Schema created</h3><div class="mini"><code>${esc(r.schema)}</code></div>`;
+      break;
+    case "proc": {
+      const ret = r.return === undefined ? "" : " → " + esc(JSON.stringify(r.return));
+      h = `<h3>⚙ ${esc(r.procedure || "procedure")}${ret}</h3>` +
+        (r.trace || []).map(s =>
+          `<div class="mini" style="margin:5px 0;border-left:2px solid var(--line);padding-left:8px">
+             <span style="font-family:var(--mono);color:var(--text)">${esc(s.step)}</span>
+             ${s.condition !== undefined ? `<br>condition: <b>${s.condition}</b>` : ""}
+             ${s.ceql ? `<br>↳ <code>${esc(s.ceql)}</code>` : ""}
+             ${s.bound !== undefined ? `<br>= ${esc(JSON.stringify(s.bound))}` : ""}
+             ${s.wrote ? `<br>wrote event <code>${esc(s.wrote)}</code>` : ""}
+             ${s.return !== undefined ? `<br>returns <b>${esc(JSON.stringify(s.return))}</b>` : ""}
+           </div>`).join("") +
+        (r.error ? `<div class="mini" style="color:var(--bad);margin-top:6px">✗ ${esc(r.error)}</div>` : "");
+      boot();
+      break;
+    }
+    case "trace":
+      h = `<h3>Causal ${esc(r.direction)} chain</h3>` + (r.trace || []).map(n => `
+        <div style="margin-left:${n.depth*22}px" class="mini">
+          ${n.depth ? "↑ <span class='badge b-type'>" + esc(n.via || "") + "</span>" : "<b>this event</b>"}
+          <span style="font-family:var(--mono);color:var(--text)">${esc(n.event.subject)} ${esc(n.event.facet)}/${esc(n.event.type)}</span>
+          ${fmtVal(n.event.value || {})} <span>${fmtUS(n.event.effective_time)}</span></div>`).join("");
+      break;
+    case "disagreements": {
+      const keys = Object.keys(r.disagreements || {});
+      h = `<h3>${keys.length} subject(s) disagree on “${esc(r.field)}”</h3>` +
+          keys.slice(0, 30).map(s => `<div class="mini">⚡ <a href="#" onclick="select(${jsAttr(s)});return false">${esc(s)}</a>: ` +
+            [...new Set(r.disagreements[s].map(e => JSON.stringify((e.value||{})[r.field])))].join(" vs ") + "</div>").join("");
+      break;
+    }
+    case "subjects":
+      h = `<h3>${(r.subjects || []).length} subject(s)</h3>` + (r.subjects || []).slice(0, 200).map(s =>
+        `<div class="mini"><a href="#" onclick="select(${jsAttr(s)});return false">${esc(s)}</a></div>`).join("");
+      break;
+    case "similar":
+      h = `<h3>${(r.hits || []).length} similar event(s)</h3>` +
+          eventsGrid((r.hits || []).map(x => x.event), null, meta && meta.ms) +
+          `<div class="mini">scores: ${(r.hits || []).map(x => x.score.toFixed(3)).join(", ")}</div>`;
+      break;
+    case "watch": {
+      h = `<h3>Standing query registered in your live feed →</h3>
+           <div class="mini">streaming ${r.subject ? "subject " + esc(r.subject) : "all subjects"}
+           ${r.facet ? ", facet " + esc(r.facet) : ""}${r.type ? ", type " + esc(r.type) : ""}</div>`;
+      if (ES) toggleLive();
+      const qs = qsFor({subject: r.subject, facet: r.facet, type: r.type});
+      ES = new EventSource("/v1/watch" + (qs ? "?" + qs : ""));
+      document.getElementById("livebtn").textContent = "■ Stop";
+      document.getElementById("livebtn").className = "";
+      const feed = document.getElementById("feed");
+      feed.innerHTML = "<div class='mini' style='padding:10px'>WATCH active…</div>";
+      ES.onmessage = m => {
+        let e; try { e = JSON.parse(m.data); } catch { return; }
+        const div = document.createElement("div");
+        div.className = "ev pulse";
+        div.innerHTML = `<span class="t">${fmtUS(e.recorded_time)}</span><br>
+          <a href="#" onclick="select(${jsAttr(e.subject)});return false">${esc(e.subject)}</a>
+          <span class="badge b-type">${esc(e.type)}</span> ${esc(e.facet)}<br>${fmtVal(e.value||{})}`;
+        feed.prepend(div);
+        while (feed.children.length > 80) feed.lastChild.remove();
+      };
+      break;
+    }
+    default:
+      h = `<h3>${esc(r.kind || "result")}</h3><pre>${esc(JSON.stringify(r, null, 2))}</pre>`;
+  }
+  const head = meta && meta.q
+    ? `<div class="mini" style="font-family:var(--mono);margin-bottom:4px">CeQL› ${esc(meta.q)}${meta.ms ? `  <span style="color:var(--good)">(${meta.ms.toFixed(0)} ms)</span>` : ""}</div>`
+    : "";
+  const card = `<div class="card">${head}${h}</div>`;
+  if (meta && meta.stack) out.insertAdjacentHTML("afterbegin", card);
+  else out.innerHTML = card;
+}
+
+// ---------------- why centauri / how to use ----------------
+function cmpTable(){
+  const Y = '<span class="yes">✓</span>', N = '<span class="no">✗</span>', P = '<span class="part">±</span>';
+  const rows = [
+    ["Nothing ever erased (immutability)",        N,N,N,Y,Y,`${Y}`],
+    ["Time travel: “what was true at T?”",        P,N,N,Y,P,`${Y}`],
+    ["Double time travel: “what did we KNOW at T?”",P,N,N,Y,N,`${Y} <b>core</b>`],
+    ["Causal lineage: “WHY did this change?”",    N,N,N,N,P,`${Y} <b>first-class</b>`],
+    ["Provenance + confidence on every fact",     N,N,N,N,N,Y],
+    ["Conflict detection between system views",   N,N,N,N,N,Y],
+    ["“Sent but never applied” detection (wedges)",N,N,N,N,N,Y],
+    ["AI context bundle in one query",            N,N,N,N,N,Y],
+    ["Built-in AI-agent interface (MCP)",         P,N,P,N,N,Y],
+    ["Vector / semantic search",                  Y,Y,Y,N,N,`${Y} <span class="mini">(exact)</span>`],
+    ["Rich query language",                       Y,Y,Y,Y,N,`${Y} <b>CeQL</b> <span class="mini">+ plain English</span>`],
+    ["Time/cause/trust as query syntax",          N,N,N,P,N,`${Y} <b>only CeQL</b>`],
+    ["Describe → working database (Genesis)",     N,N,N,N,N,`${Y} <b>only Centauri</b>`],
+    ["Database remembers WHY it was built",       N,N,N,N,N,`${Y} <span class="mini">genesis as facts</span>`],
+    ["Stored procedures",                         Y,Y,P,N,N,`${Y} <span class="mini">CePL, versioned+traced</span>`],
+    ["Tamper-evident history (blockchain tables)",Y,N,N,P,P,`${Y} <span class="mini">chain + verify</span>`],
+    ["Multitenant: isolated DBs, one server, cloning", Y,P,Y,N,N,`${Y} <span class="mini">environments</span>`],
+    ["Shared-schema tenancy + full-text search",  P,P,Y,N,N,`${Y} <span class="mini">namespace, MATCHES</span>`],
+    ["Readable standby (Active Data Guard)",      Y,Y,Y,Y,Y,`${Y} <span class="mini">follow</span>`],
+    ["Massive scale, clustering, HA",             Y,Y,Y,Y,Y,`${P} <span class="mini">replicas</span>`],
+    ["Decades of tooling & support",              Y,Y,Y,P,P,N],
+  ];
+  return `<div style="overflow:auto"><table class="cmp">
+    <tr><th>Capability</th><th>Oracle</th><th>MySQL</th><th>MongoDB</th><th>XTDB/<br>Datomic</th><th>Event<br>stores</th><th><b>CENTAURI</b></th></tr>
+    ${rows.map(r => `<tr>${r.map((c,i) => i ? `<td>${c}</td>` : `<td>${c}</td>`).join("")}</tr>`).join("")}
+  </table></div>`;
+}
+function openWhy(tab){
+  const tabs = `<div class="tabrow">
+    <button class="${tab==='why'?'active':''}" onclick="openWhy('why')">★ What makes it different</button>
+    <button class="${tab==='how'?'active':''}" onclick="openWhy('how')">🧭 How to use it</button>
+    <button class="${tab==='dev'?'active':''}" onclick="openWhy('dev')">⚙️ For coders & AI</button>
+  </div>`;
+  let body = "";
+  if (tab === "why") body = `
+    <p class="sub">Most databases remember only the <b>latest value</b>. Centauri remembers
+       the <b>whole story</b> — and can answer four questions no ordinary database can:</p>
+    <div class="tourbox">
+      <b>1. What was true at any moment?</b> <span class="mini">(every fact keeps its effective time)</span><br>
+      <b>2. What did we <i>believe</i> at any moment?</b> <span class="mini">(…and its recorded time — so past decisions can be audited fairly)</span><br>
+      <b>3. WHY did it change?</b> <span class="mini">(causes are stored as first-class links — click “why?” on any fact)</span><br>
+      <b>4. Can we trust it — and did it actually land?</b> <span class="mini">(provenance + confidence on every fact; wedges expose changes that were sent but never applied)</span>
+    </div>
+    ${cmpTable()}
+    <p class="mini" style="margin-top:10px">Honest positioning: Oracle/MySQL/MongoDB still win at scale,
+       clustering and cross-row transactions. Centauri is not a replacement — it is the
+       <b>flight recorder</b> that sits beside them: the system of record for
+       <i>what happened, when, why, and how much to trust it</i> — now with its own query language
+       (CeQL: SELECT-class reads, aggregates with GROUP BY/HAVING, plus AS OF, AS KNOWN AT, WHY,
+       DISAGREE that SQL doesn't have). Individual features exist elsewhere (XTDB is bi-temporal,
+       event stores are append-only, everyone has vectors) — no other database combines all four
+       questions in one engine. 📘 The <a href="/ceql" target="_blank">CeQL book</a> maps every
+       Oracle, DB2, MongoDB, Cypher and KSQL command to its CeQL equivalent.</p>`;
+  else if (tab === "how") body = `
+    <div class="tourbox"><b>🗄 Environments</b> — the dropdown (top-left) switches databases; <b>＋ environment</b>
+      creates a new one. Each is one file on disk. No tables, no migrations — ever.</div>
+    <div class="tourbox"><b>✏️ Writing</b> — <b>＋ Add fact</b>: pick a subject (e.g. <code>toy:robot</code>),
+      add field/value rows, save. Writing about a new subject <i>creates</i> it; writing again
+      <i>updates</i> it — the old fact stays in history forever. Insert and update are the same thing here.</div>
+    <div class="tourbox"><b>🔎 Reading</b> — click a subject on the left: current facts per facet,
+      timeline chart, and the full history table. Click <b>why?</b> on any row to see its causes.</div>
+    <div class="tourbox"><b>⏰ Time travel</b> — set “effective at” and press Go: facts as they were.
+      Add “as known at”: facts as you <i>believed</i> them then — the audit superpower.</div>
+    <div class="tourbox"><b>⚠️ Wedges & ⚡ disagreements</b> — the home screen scans for changes that were
+      distributed but never activated, and for facets that disagree on a value (with the claim
+      Centauri trusts most marked ✓).</div>
+    <div class="tourbox"><b>📡 Live</b> — ▶ Watch (top right) streams every new fact the moment it commits.</div>
+    <div class="tourbox"><b>🧩 Schemas</b> — optional guardrails: define fields, types, ranges; bad data
+      gets rejected with a clear message. Versioned, so updating never breaks old facts.</div>
+    <p class="mini">New here? The <b>❓ Learn</b> button runs the 2-minute hands-on tour.</p>`;
+  else body = `
+    <div class="tourbox"><b>REST API</b> — everything this dashboard does is plain JSON over HTTP:
+    <pre>curl "localhost:7771/v1/context?subject=toy:robot"
+curl "localhost:7771/v1/asof?subject=toy:robot&at=2026-03-15"
+curl -X POST localhost:7771/v1/append -d '{"events":[{"subject":"toy:robot",
+  "facet":"source","type":"OBSERVED","value":{"price_cents":500},
+  "provenance":"HUMAN_ENTRY","confidence":1,"source_system":"curl"}]}'</pre></div>
+    <div class="tourbox"><b>Python SDK</b> — <code>sdk/python</code> in the repo, zero dependencies:
+    <pre>from centauri import Centauri
+db = Centauri()                  # or Centauri.launch()
+db.add("toy:robot", {"price_cents": 500})
+db.at("toy:robot", "2026-03-01") # time travel
+db.pump("prices.csv")            # bulk load
+for e in db.watch(): ...         # live stream</pre></div>
+    <div class="tourbox"><b>AI agents (MCP)</b> — run <code>centauri mcp -data centauri.log</code> as an
+      MCP stdio server (e.g. in Claude Desktop) and agents get 16 tools: context, time travel,
+      causal trace, wedge scan, similarity search, append, enrich…</div>
+    <div class="tourbox"><b>Replication</b> — <code>centauri follow -primary http://host:7771</code>
+      creates a live read-only replica (port :7772) by shipping the log.</div>`;
+  modal(tabs + body + `<div class="btnrow"><span class="spacer"></span>
+    <button class="primary" onclick="closeModal()">Close</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+
+// ---------------- the Genesis Engine ----------------
+let GEN = {description: "", answers: {}};
+async function genesisPost(path){
+  const qs = qsFor({});
+  return handle(await fetch(path + (qs ? "?" + qs : ""), {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({description: GEN.description, answers: GEN.answers})}));
+}
+function openGenesis(){
+  GEN = {description: "", answers: {}};
+  modal(`<h2>🏗 <b>Genesis</b> — describe it, get a database</h2>
+    <p class="sub">Say what you're building in plain language. Genesis asks a few smart
+       questions, then creates everything: schemas, procedures, watches, starter queries,
+       sample data — and stores <i>this very conversation</i> as facts, so your database
+       will forever remember why it exists. No tokens, no AI calls — pure engine.</p>
+    <textarea id="gendesc" rows="4" style="width:100%"
+      placeholder="e.g.  I run a dental practice. We track patients, appointments and treatments, and bill fees. The front desk and the billing system each have their own records and they often disagree."></textarea>
+    <div class="btnrow"><span class="spacer"></span>
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" onclick="genesisStep()">Analyze →</button></div>`);
+  document.getElementById("gendesc").focus();
+}
+async function genesisStep(){
+  const d = document.getElementById("gendesc");
+  if (d) GEN.description = d.value.trim();
+  if (!GEN.description) return toast("Describe your scenario first", true);
+  document.querySelectorAll(".genans").forEach(i => {
+    GEN.answers[i.dataset.id] = i.type === "checkbox" ? (i.checked ? "yes" : "no") : i.value.trim();
+  });
+  try {
+    const r = await genesisPost("/v1/architect/plan");
+    if (r.questions) renderGenesisQuestions(r);
+    else renderGenesisPreview(r.blueprint);
+  } catch (e) { toast(e.message, true); }
+}
+function renderGenesisQuestions(r){
+  const sig = r.signals || {};
+  const detected = [];
+  if (sig.domain && sig.domain !== "generic") detected.push("domain: " + sig.domain);
+  if (sig.has_money) detected.push("money");
+  if (sig.has_lifecycle) detected.push("send-and-confirm lifecycle");
+  if (sig.has_multi_source) detected.push("multiple systems of record");
+  if (sig.has_tenancy) detected.push("multiple clients");
+  modal(`<h2>🏗 A few <b>questions</b></h2>
+    ${detected.length ? `<p class="sub">From your description I detected: <b>${esc(detected.join(" · "))}</b> — the questions below exist because of that.</p>` : ""}
+    ${r.questions.map(q => `
+      <div class="tourbox">
+        <b>${esc(q.text)}</b><br>
+        ${q.kind === "bool"
+          ? `<label style="cursor:pointer"><input type="checkbox" class="genans" data-id="${esc(q.id)}" ${q.default !== "no" ? "checked" : ""}> yes</label>`
+          : q.kind === "choice"
+          ? `<select class="genans" data-id="${esc(q.id)}">${(q.options || []).map(o =>
+              `<option ${o === q.default ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
+          : `<input class="genans" data-id="${esc(q.id)}" value="${esc(q.default || "")}" style="width:100%;margin-top:6px">`}
+        ${q.why ? `<div class="mini" style="margin-top:6px">💡 ${esc(q.why)}</div>` : ""}
+      </div>`).join("")}
+    <div class="btnrow">
+      <button class="ghost mini" onclick="openGenesis()">↺ start over</button>
+      <span class="spacer"></span>
+      <button class="primary" onclick="genesisStep()">Continue →</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+function renderGenesisPreview(bp){
+  window._bp = bp;
+  modal(`<h2>🏗 Ready to <b>build</b> “${esc(bp.env)}”</h2>
+    <p class="sub">Review what Genesis designed from your words. Nothing exists yet — Build makes it real.</p>
+    <div class="tourbox"><b>🧩 ${bp.schemas.length} schemas</b><br>${bp.schemas.map(s =>
+      `<span class="mini">• <b>${esc(s.id)}</b>: ${s.fields.map(f =>
+        esc(f.name) + " (" + f.type + (f.min != null ? " ≥" + f.min : "") + ")").join(", ")}</span>`).join("<br>")}</div>
+    <div class="tourbox"><b>⚙ ${bp.procedures.length} procedures</b>
+      <pre style="max-height:140px">${esc(bp.procedures[0] || "")}</pre>
+      <span class="mini">…and ${Math.max(0, bp.procedures.length - 1)} more (⚙ Procedures after build)</span></div>
+    <div class="tourbox"><b>🔍 ${bp.queries.length} starter queries</b><br>
+      ${bp.queries.slice(0, 6).map(q => `<code style="display:inline-block;margin:2px">${esc(q)}</code>`).join(" ")}</div>
+    ${bp.watches.length ? `<div class="tourbox"><b>📡 standing watch</b> <span class="mini">${esc(bp.watches.join("; "))}</span></div>` : ""}
+    ${bp.samples.length ? `<div class="tourbox"><b>🌱 ${bp.samples.length} sample facts</b> <span class="mini">so you can explore immediately</span></div>` : ""}
+    <div class="btnrow">
+      <button class="ghost mini" onclick="openGenesis()">↺ start over</button>
+      <span class="spacer"></span>
+      <button class="primary" onclick="genesisApply()">🏗 Build it</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+async function genesisApply(){
+  try {
+    const r = await genesisPost("/v1/architect/apply");
+    DB = r.env; localStorage.setItem("centauri_db", DB);
+    await loadDatabases(); await boot();
+    modal(`<h2>🎉 “${esc(r.env)}” is <b>alive</b></h2>
+      <pre style="white-space:pre-wrap">${esc(r.guide)}</pre>
+      <div class="tourbox"><b>Try a starter query:</b><br>${(r.queries || []).slice(0, 6).map(q =>
+        `<a href="#" style="display:block;font-family:var(--mono);font-size:12.5px;margin:2px 0"
+           onclick="qin.value=${jsAttr(q)};closeModal();runQuery();return false">${esc(q)}</a>`).join("")}</div>
+      <div class="btnrow"><span class="spacer"></span>
+        <button class="primary" onclick="closeModal()">Start exploring</button></div>`);
+    document.getElementById("modal").classList.add("wide");
+    toast(`Genesis built ${r.schemas} schemas and ${r.procedures} procedures ✓`);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------------- procedures (CePL) ----------------
+const PROC_TEMPLATE = `PROCEDURE reprice(item, pct)
+  LET cur = FIRST FACTS OF \${item}
+  WHEN cur IS MISSING: FAIL 'unknown item \${item}'
+  LET newp = cur.price_cents * pct / 100
+  PUT \${item} SET price_cents=\${newp} REF 'proc:reprice'
+  RETURN newp
+END`;
+async function openProcs(){
+  let list = "<div class='mini'>No procedures yet in this environment. Define your first below — the template works on any subject with a price_cents field.</div>";
+  try {
+    const qs = qsFor({});
+    const r = await handle(await fetch("/v1/query" + (qs ? "?" + qs : ""), {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({q: "FACTS OF proc:* FACET procedure LIMIT 100"})}));
+    const evs = r.events || [];
+    if (evs.length) {
+      list = evs.map(e => {
+        const name = e.subject.replace(/^proc:/, "");
+        const params = (e.value.params || []).join(", ");
+        return `<div class="tourbox">
+          <b style="font-family:var(--mono)">${esc(name)}(${esc(params)})</b>
+          <button class="primary" style="float:right" onclick="runProcForm('${esc(name)}', '${esc(params)}')">▶ Run</button>
+          <button class="ghost" style="float:right;margin-right:6px"
+            onclick="document.getElementById('procsrc').value=this.dataset.src;document.getElementById('procsrc').scrollIntoView()"
+            data-src="${esc(e.value.source || "")}">✎ Edit</button>
+          <pre style="margin-top:8px;max-height:140px">${esc(e.value.source || "")}</pre>
+          <span class="mini">version history: <code>HISTORY OF proc:${esc(name)}</code></span>
+        </div>`;
+      }).join("");
+    }
+  } catch (e) { /* empty env */ }
+  modal(`<h2>⚙ <b>Procedures</b> (CePL)</h2>
+    <p class="sub">Mini-programs stored IN the database — versioned, auditable, with a full
+       step trace on every run. Like PL/SQL, but the procedures themselves have history.
+       <a href="/ceql#cepl" target="_blank">Chapter 16½ of the book</a> explains the 6 step types.</p>
+    ${list}
+    <h3 style="margin-top:18px;color:var(--dim)">DEFINE (or update) A PROCEDURE</h3>
+    <textarea id="procsrc" rows="9" style="width:100%;font-family:var(--mono);font-size:12.5px">${esc(PROC_TEMPLATE)}</textarea>
+    <div class="btnrow">
+      <span class="mini">Saving an existing name creates a new version; old ones stay in history.</span>
+      <span class="spacer"></span>
+      <button onclick="closeModal()">Close</button>
+      <button class="primary" onclick="saveProc()">Save procedure</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+}
+async function saveProc(){
+  try {
+    const qs = qsFor({});
+    const r = await handle(await fetch("/v1/proc" + (qs ? "?" + qs : ""), {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({source: document.getElementById("procsrc").value})}));
+    toast(`Procedure ${r.procedure} saved ✓ (${r.steps} steps)`);
+    openProcs();
+  } catch (e) { toast(e.message, true); }
+}
+function runProcForm(name, params){
+  const ps = params ? params.split(",").map(s => s.trim()).filter(Boolean) : [];
+  modal(`<h2>▶ Run <b>${esc(name)}</b></h2>
+    ${ps.map(p => `<div class="formrow"><label>${esc(p)}</label>
+       <input class="procarg" data-name="${esc(p)}" style="flex:1"
+              placeholder="number, text, or subject like toy:robot"></div>`).join("")
+      || "<p class='sub'>No arguments needed.</p>"}
+    <div class="btnrow"><span class="spacer"></span>
+      <button onclick="openProcs()">← Back</button>
+      <button class="primary" onclick="execProc('${esc(name)}')">Run it</button></div>`);
+}
+async function execProc(name){
+  const args = {};
+  document.querySelectorAll(".procarg").forEach(i => {
+    args[i.dataset.name] = parseValueInput(i.value);
+  });
+  try {
+    const qs = qsFor({});
+    const r = await handle(await fetch("/v1/proc/run" + (qs ? "?" + qs : ""), {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name, args})}));
+    closeModal();
+    renderQueryResult(r, document.getElementById("qres"));
+    toast(`${name} returned ${JSON.stringify(r.return)}`);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---------------- the guided tour ----------------
+const TOUR = [
+  {
+    title: `Meet <b>Centauri</b>`,
+    body: `
+      <div class="tourbox"><span class="bignum">📓</span><br>
+        Centauri is <b>a notebook that never erases</b>. When something changes,
+        you don't overwrite the old value — you write a new line. So it can
+        always answer:<br><br>
+        <b>1.</b> “What's true <i>now</i>?” &nbsp; <b>2.</b> “What was true <i>then</i>?” &nbsp;
+        <b>3.</b> “What did we <i>believe</i> then?”<br><br>
+        And every fact remembers <b>what caused it</b>, <b>where it came from</b>,
+        and <b>how much to trust it</b>.</div>
+      <div class="tourbox">🚫🗂️ <b>No tables. No migrations. Ever.</b><br>
+        In Centauri you don't design tables first. You just write a
+        <b>fact</b> about a <b>subject</b>:<br>
+        <code>toy:robot → price_cents: 500</code><br>
+        The subject springs into existence the moment you mention it.</div>`,
+    btn: "Show me →",
+  },
+  {
+    title: `Create your own <b>environment</b>`,
+    body: `
+      <div class="tourbox">🗄 An <b>environment</b> is your own separate database —
+        one file on disk. The seeded demo data stays untouched; you get a clean
+        sandbox.</div>
+      <div class="formrow"><label>Name it</label>
+        <input id="tour_db" value="my-first-db" maxlength="40" style="flex:1"></div>`,
+    btn: "Create it →",
+    action: async () => {
+      const name = document.getElementById("tour_db").value.trim();
+      if (!name) { toast("Give it a name first", true); return false; }
+      try {
+        await apiPost("/v1/databases", {name});
+      } catch (e) {
+        if (!String(e.message).includes("exists")) { toast(e.message, true); return false; }
+      }
+      DB = name; localStorage.setItem("centauri_db", DB);
+      await loadDatabases(); await boot();
+      toast(`You're now inside “${name}” — empty and all yours`);
+      return true;
+    },
+  },
+  {
+    title: `Write your <b>first fact</b>`,
+    body: `
+      <div class="tourbox">✏️ Let's record that your bike is blue and worth $120.
+        Press the button — the same <b>＋ Add fact</b> form you'll use every day
+        opens, pre-filled. Just hit <b>Save fact</b>.</div>`,
+    btn: "Open the form →",
+    action: async () => {
+      window._tourAdvance = () => { window._tourAdvance = null; openTour(3); };
+      await openAddFact("my-things:bike");
+      const kvs = document.getElementById("kvs");
+      if (kvs) kvs.innerHTML = kvRow("color", '"blue"') + kvRow("worth_cents", "12000");
+      return null; // the form's Save advances the tour
+    },
+  },
+  {
+    title: `Change it — and see <b>the magic</b>`,
+    body: `
+      <div class="tourbox">🔁 You repainted the bike red. In a normal database the
+        blue would be gone forever. Here: press the button, change
+        <code>color</code> to <code>"red"</code>, save — then look at the
+        <b>History</b> table. Both facts. Nothing lost.</div>`,
+    btn: "Update the bike →",
+    action: async () => {
+      window._tourAdvance = () => { window._tourAdvance = null; openTour(4); };
+      await openAddFact("my-things:bike");
+      const kvs = document.getElementById("kvs");
+      if (kvs) kvs.innerHTML = kvRow("color", '"red"') + kvRow("worth_cents", "12000");
+      return null;
+    },
+  },
+  {
+    title: `You know <b>Centauri</b> now`,
+    body: `
+      <div class="tourbox">🧭 From here, explore:<br><br>
+        ⏰ <b>Time travel</b> — on any subject, set “effective at” and press Go.<br>
+        📈 <b>Timeline</b> — appears automatically once a number changes twice.<br>
+        ❓ <b>why?</b> — every fact in History can explain its cause.<br>
+        📡 <b>▶ Watch</b> — see facts stream in live (top right).<br>
+        🧩 <b>Schemas</b> — make the database reject bad data for you.<br>
+        🗄 <b>Environments</b> — the dropdown up top switches databases; the
+           seeded retail demo is still there.</div>
+      <div class="tourbox mini">For coders: everything you just did is also three lines of
+        Python (<code>sdk/python</code>), a REST API, and an MCP server for AI agents.
+        But you never need to leave this screen.</div>`,
+    btn: "Start exploring ✓",
+    action: async () => {
+      localStorage.setItem("centauri_seen", "1");
+      closeModal();
+      if (SUBJECTS.length || DB) select("my-things:bike");
+      return null;
+    },
+  },
+];
+function openTour(step){
+  const t = TOUR[step];
+  if (!t) { closeModal(); return; }
+  modal(`
+    <div class="steps">${TOUR.map((_,i) => `<i class="${i<=step?'on':''}"></i>`).join("")}</div>
+    <h2>${t.title}</h2>
+    ${t.body}
+    <div class="btnrow">
+      <button class="ghost mini" onclick="localStorage.setItem('centauri_seen','1');closeModal()">skip tour</button>
+      <span class="spacer"></span>
+      ${step > 0 ? `<button onclick="openTour(${step-1})">← Back</button>` : ""}
+      <button class="primary" id="tourNext">${t.btn}</button>
+    </div>`);
+  document.getElementById("tourNext").onclick = async () => {
+    if (t.action) {
+      const ok = await t.action();
+      if (ok === false) return;     // validation failed, stay
+      if (ok === null) return;      // action manages its own advance
+    }
+    openTour(step + 1);
+  };
+}
+
+boot().then(() => {
+  if (!localStorage.getItem("centauri_seen")) openTour(0);
+});
+setInterval(() => { if (ES) boot(); }, 15000);
+</script>
+</body>
+</html>
