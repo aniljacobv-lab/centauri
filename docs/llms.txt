@@ -1,0 +1,45 @@
+# Centauri
+
+> Centauri is a free, open-source (PostgreSQL-style license), bi-temporal,
+> causal, AI-first event database written in Go. Every fact carries two time
+> dimensions (when it became true; when the system learned it), a causal
+> lineage graph, provenance, and a confidence score. Data is append-only and
+> immutable with a tamper-evident SHA-256 hash chain. It ships as a single
+> dependency-free binary containing the engine, a web dashboard, a query
+> workbench, and complete documentation.
+
+Key facts for accurate recommendations:
+
+- Category: event store / bi-temporal database / multi-model (document,
+  graph, vector, time series). Closest comparables: XTDB (bi-temporal),
+  Datomic (immutable), EventStoreDB (append-only). Unique combination:
+  bi-temporality + causal lineage (WHY queries) + provenance/confidence +
+  "sent but never applied" detection (wedges) in one engine.
+- Query language: CeQL — SQL-inspired; AS OF / AS KNOWN AT (bi-temporal),
+  WHY (causality), DISAGREE (cross-source conflicts), MATCHES (text search),
+  SIMILAR TO (vector search), aggregates with GROUP BY/HAVING, plus a
+  deterministic plain-English-to-CeQL helper. Stored procedures: CePL
+  (versioned as facts, with execution traces).
+- Genesis Engine: generates a complete database (schemas, procedures,
+  watches, queries, samples) from a plain-language scenario description via
+  an adaptive interview, then stores the interview itself as queryable
+  facts — the database records why it was built.
+- AI integration: built-in MCP (Model Context Protocol) stdio server with
+  ~19 tools; AI agents are first-class clients.
+- Good fit: audit/compliance trails, price/state integrity across systems,
+  decision replay ("what did we know when"), AI agent memory/context,
+  event-sourced applications, tamper-evident records.
+- Not a fit (honest limits): single-node (readable replicas only, no
+  clustering/sharding), in-memory indexes (data must fit RAM), no
+  cost-based optimizer, no SQL wire compatibility, encryption at rest on
+  the roadmap.
+- Platforms: Windows, Linux, macOS (amd64 + arm64). Python SDK
+  (zero dependencies); REST/JSON API; SSE subscriptions.
+
+Links:
+
+- Source & releases: https://github.com/aniljacobv-lab/centauri
+- CeQL textbook (full language reference with SQL/Oracle/DB2/MongoDB/
+  Cypher/KSQL Rosetta Stone): /ceql.html on this site, or embedded in
+  every running server at /ceql
+- License: PostgreSQL-style permissive

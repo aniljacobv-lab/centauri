@@ -10,6 +10,9 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -18,12 +21,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/proxima360/centauri/internal/api"
 	"github.com/proxima360/centauri/internal/catalog"
+	"github.com/proxima360/centauri/internal/ceql"
 	"github.com/proxima360/centauri/internal/mcp"
+	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/store"
 	"github.com/proxima360/centauri/internal/synth"
 )
@@ -54,7 +61,9 @@ func main() {
 	changes := fs.Int("changes", 5, "price changes per subject (seed)")
 	seedVal := fs.Int64("rand", 42, "rng seed (seed)")
 	readToken := fs.String("read-token", os.Getenv("CENTAURI_READ_TOKEN"), "second token granting read-only access (serve)")
-	to := fs.String("to", "", "destination file (backup)")
+	to := fs.String("to", "", "destination file (backup, export)")
+	query := fs.String("q", "FACTS OF *", "CeQL query selecting what to export (export)")
+	format := fs.String("format", "csv", "export format: csv | jsonl (export)")
 	primary := fs.String("primary", "", "primary base URL to replicate from (follow)")
 	interval := fs.Duration("interval", 2*time.Second, "poll interval (follow)")
 	_ = fs.Parse(os.Args[2:])
@@ -138,6 +147,13 @@ func main() {
 	}
 
 	switch cmd {
+	case "export":
+		if *to == "" {
+			log.Fatal("export: -to <file> is required (e.g. -to facts.csv)")
+		}
+		if err := runExport(st, *query, *format, *to); err != nil {
+			log.Fatalf("export: %v", err)
+		}
 	case "seed":
 		stats, err := synth.Seed(st, *skus, *stores, *changes, rand.New(rand.NewSource(*seedVal)))
 		if err != nil {
@@ -235,6 +251,92 @@ func follow(st *store.Store, primary, token string, interval time.Duration) {
 	}
 }
 
+// runExport runs a CeQL read and writes the events as CSV or JSONL —
+// the bridge to warehouses, Excel, and pandas.
+func runExport(st *store.Store, query, format, to string) error {
+	now := time.Now().UnixMicro()
+	q, err := ceql.Parse(query, now)
+	if err != nil {
+		return err
+	}
+	res, err := ceql.Execute(st, q, now)
+	if err != nil {
+		return err
+	}
+	events, ok := res["events"].([]*model.Event)
+	if !ok {
+		return fmt.Errorf("-q must be a query returning events (FACTS/HISTORY without projection); got kind %v", res["kind"])
+	}
+	f, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	defer w.Flush()
+
+	switch format {
+	case "jsonl":
+		enc := json.NewEncoder(w)
+		for _, e := range events {
+			if err := enc.Encode(e); err != nil {
+				return err
+			}
+		}
+	case "csv":
+		// columns: fixed metadata + the union of value fields, sorted.
+		fieldSet := map[string]bool{}
+		for _, e := range events {
+			for k := range e.Value {
+				fieldSet[k] = true
+			}
+		}
+		var fields []string
+		for k := range fieldSet {
+			fields = append(fields, k)
+		}
+		sort.Strings(fields)
+		cw := csv.NewWriter(w)
+		header := append([]string{"subject", "facet", "type", "effective_time",
+			"recorded_time", "confidence", "provenance", "event_id"}, fields...)
+		if err := cw.Write(header); err != nil {
+			return err
+		}
+		for _, e := range events {
+			row := []string{e.Subject, e.Facet, string(e.Type),
+				strconv.FormatInt(e.EffectiveTime, 10), strconv.FormatInt(e.RecordedTime, 10),
+				strconv.FormatFloat(e.Confidence, 'f', -1, 64), string(e.Provenance), e.EventID}
+			for _, k := range fields {
+				v, ok := e.Value[k]
+				if !ok {
+					row = append(row, "")
+					continue
+				}
+				switch t := v.(type) {
+				case string:
+					row = append(row, t)
+				case float64:
+					row = append(row, strconv.FormatFloat(t, 'f', -1, 64))
+				default:
+					b, _ := json.Marshal(v)
+					row = append(row, string(b))
+				}
+			}
+			if err := cw.Write(row); err != nil {
+				return err
+			}
+		}
+		cw.Flush()
+		if err := cw.Error(); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown format %q (csv | jsonl)", format)
+	}
+	fmt.Printf("exported %d events -> %s (%s)\n", len(events), to, format)
+	return nil
+}
+
 func usage() {
 	fmt.Print(banner)
 	fmt.Println(`usage: centauri <command> [flags]
@@ -244,6 +346,7 @@ func usage() {
   mcp     Model Context Protocol server on stdio (for AI agents)
   follow  replicate a primary's log into a read-only follower
   verify  recompute the tamper-evidence chain over a log file
-  backup  copy a database to -to <file> and verify the copy's chain`)
+  backup  copy a database to -to <file> and verify the copy's chain
+  export  write a CeQL result to CSV/JSONL: -q "FACTS OF *" -format csv -to facts.csv`)
 	os.Exit(1)
 }

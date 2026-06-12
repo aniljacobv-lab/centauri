@@ -39,7 +39,8 @@ const (
 	KDefineSchema Kind = "define_schema"
 	KWatch        Kind = "watch"
 	KExplain      Kind = "explain"
-	KRun          Kind = "run" // CePL procedure call; executed by the API layer
+	KRun          Kind = "run"     // CePL procedure call; executed by the API layer
+	KProfile      Kind = "profile" // data-shape summary: "what does my data look like?"
 )
 
 // Field is one projection item: a value/meta field or an aggregate.
@@ -302,6 +303,20 @@ func (p *parser) statement() (*Query, error) {
 		return &Query{Kind: KExplain, Inner: inner}, nil
 	case p.eat("FACTS"):
 		return p.factsStmt()
+	case p.eat("PROFILE"):
+		q := &Query{Kind: KProfile}
+		if err := p.expect("OF"); err != nil {
+			return nil, err
+		}
+		subj, err := p.word("a subject pattern (e.g. item:* or just *)")
+		if err != nil {
+			return nil, err
+		}
+		q.Subject = subj
+		if err := p.tail(q); err != nil {
+			return nil, err
+		}
+		return q, nil
 	case p.eat("HISTORY"):
 		return p.historyStmt()
 	case p.eat("SUBJECTS"):

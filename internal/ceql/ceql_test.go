@@ -272,6 +272,48 @@ func TestNamespaceAndMatches(t *testing.T) {
 	}
 }
 
+func TestProfile(t *testing.T) {
+	s := newStore(t)
+	for i, p := range []int{100, 200, 300} {
+		e := ev(fmt.Sprintf("shop:item%d", i), "source", model.Intent, p, t1+int64(i))
+		if i < 2 {
+			e.Value["kind"] = "REGULAR"
+		} else {
+			e.Value["kind"] = "PENNY"
+		}
+		if err := s.Append(t1+int64(i), []*model.Event{e}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res := run(t, s, `PROFILE OF shop:*`, t3)
+	if res["kind"] != "profile" || res["events"] != 3 || res["subjects"] != 3 {
+		t.Fatalf("profile header = %v", res)
+	}
+	fields, _ := res["fields"].([]FieldProfile)
+	if len(fields) != 2 {
+		t.Fatalf("fields = %v", fields)
+	}
+	byName := map[string]FieldProfile{}
+	for _, f := range fields {
+		byName[f.Name] = f
+	}
+	pc := byName["price_cents"]
+	if pc.Type != "number" || pc.Coverage != 1 || pc.Min == nil || *pc.Min != 100 ||
+		*pc.Max != 300 || *pc.Avg != 200 {
+		t.Fatalf("price_cents profile = %+v", pc)
+	}
+	kind := byName["kind"]
+	if kind.Type != "string" || kind.Distinct != 2 || len(kind.Top) != 2 ||
+		kind.Top[0].Value != "REGULAR" || kind.Top[0].Count != 2 {
+		t.Fatalf("kind profile = %+v", kind)
+	}
+	// WHERE narrows the profile.
+	res = run(t, s, `PROFILE OF shop:* WHERE price_cents > 150`, t3)
+	if res["events"] != 2 {
+		t.Fatalf("filtered profile events = %v", res["events"])
+	}
+}
+
 func TestParseErrorsAreFriendly(t *testing.T) {
 	bad := []string{
 		`SELECT * FROM t`,           // wrong language

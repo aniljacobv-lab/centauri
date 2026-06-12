@@ -104,6 +104,8 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		// Procedures live a layer above the query engine (internal/proc);
 		// the API and MCP layers intercept KRun before calling Execute.
 		return nil, fmt.Errorf("RUN is handled by the server layer — POST the query to /v1/query")
+	case KProfile:
+		return execProfile(st, q)
 	case KFacts, KHistory:
 		return execRead(st, q)
 	}
@@ -142,10 +144,9 @@ func execPut(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		"subject": e.Subject, "facet": e.Facet}, nil
 }
 
-// execRead handles FACTS and HISTORY: gather, filter, project/aggregate,
-// order, paginate, and optionally attach causal chains.
-func execRead(st *store.Store, q *Query) (map[string]any, error) {
-	// 1. Gather candidate events.
+// gatherEvents collects and WHERE-filters the candidate events for
+// FACTS / HISTORY / PROFILE, honoring wildcards and time travel.
+func gatherEvents(st *store.Store, q *Query) ([]*model.Event, error) {
 	var events []*model.Event
 	subjects := []string{q.Subject}
 	if strings.ContainsRune(q.Subject, '*') {
@@ -171,8 +172,6 @@ func execRead(st *store.Store, q *Query) (map[string]any, error) {
 			events = append(events, st.Current(subj, q.Facet)...)
 		}
 	}
-
-	// 2. Filter.
 	if q.Where != nil {
 		kept := events[:0]
 		for _, e := range events {
@@ -185,6 +184,16 @@ func execRead(st *store.Store, q *Query) (map[string]any, error) {
 			}
 		}
 		events = kept
+	}
+	return events, nil
+}
+
+// execRead handles FACTS and HISTORY: gather, filter, project/aggregate,
+// order, paginate, and optionally attach causal chains.
+func execRead(st *store.Store, q *Query) (map[string]any, error) {
+	events, err := gatherEvents(st, q)
+	if err != nil {
+		return nil, err
 	}
 
 	// 3. Aggregate?

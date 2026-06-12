@@ -42,7 +42,7 @@
 </style>
 </head>
 <body>
-<a class="back" href="/">← dashboard</a>
+<a class="back" href="index.html">← centauri</a>
 <div class="wrap">
 
 <h1>The <b>CeQL</b> Book</h1>
@@ -243,10 +243,7 @@ summary. With <code>AS KNOWN AT</code> it reconstructs the bundle as it stood at
 any past moment — the fair way to audit a past (human or AI) decision.</p>
 
 <h2 id="ops">12. Operations</h2>
-<pre><code><span class="kw">PROFILE OF</span> item:*                <span class="cm">-- what does my data look like? fields, types,</span>
-                                 <span class="cm">-- coverage, ranges, top values, distributions</span>
-<span class="kw">PROFILE OF</span> item:* <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span>  <span class="cm">-- the shape we believed then</span>
-<span class="kw">PENDING</span> pdt <span class="kw">OLDER THAN</span> 21 <span class="kw">DAYS</span>  <span class="cm">-- distributed, never activated (wedges)</span>
+<pre><code><span class="kw">PENDING</span> pdt <span class="kw">OLDER THAN</span> 21 <span class="kw">DAYS</span>  <span class="cm">-- distributed, never activated (wedges)</span>
 <span class="kw">DISAGREE ON</span> price_cents          <span class="cm">-- subjects whose facets disagree</span>
 <span class="kw">SUBJECTS LIKE</span> item:*4001 <span class="kw">LIMIT</span> 50
 <span class="kw">STATS</span>

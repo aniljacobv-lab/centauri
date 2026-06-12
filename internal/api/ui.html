@@ -1229,6 +1229,28 @@ function renderQueryResult(r, out, meta){
       boot();
       break;
     }
+    case "profile": {
+      const bar = (n, max, color) => `<div style="background:#1c2535;border-radius:3px;height:10px;width:140px;display:inline-block;vertical-align:middle">
+        <div style="background:${color};height:10px;border-radius:3px;width:${max ? Math.max(2, 100*n/max) : 0}%"></div></div>`;
+      const dist = (title, obj) => {
+        const entries = Object.entries(obj || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const max = entries.length ? entries[0][1] : 0;
+        return `<div class="tourbox"><b>${title}</b><br>` + (entries.map(([k, n]) =>
+          `<div class="mini" style="margin:3px 0">${bar(n, max, "var(--accent)")} ${esc(k)} <b>${n}</b></div>`).join("") || "<span class='mini'>—</span>") + "</div>";
+      };
+      h = `<h3>📊 Profile of ${esc(r.pattern)} — ${r.events} facts, ${r.subjects} subjects</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${dist("By facet", r.facets)}${dist("By namespace", r.namespaces)}</div>
+        <table><tr><th>field</th><th>type</th><th>coverage</th><th>distinct</th><th>min / avg / max</th><th>top values</th></tr>` +
+        (r.fields || []).map(f => `<tr>
+          <td><b>${esc(f.name)}</b></td><td>${esc(f.type)}</td>
+          <td>${bar(f.coverage, 1, "var(--good)")} <span class="mini">${(100*f.coverage).toFixed(0)}%</span></td>
+          <td>${f.distinct >= 1000 ? "1000+" : f.distinct}</td>
+          <td class="mini">${f.min != null ? `${f.min} / ${(+f.avg).toFixed(1)} / ${f.max}` : "—"}</td>
+          <td class="mini">${(f.top || []).map(t => `${esc(t.value)} (${t.count})`).join(", ") || "—"}</td>
+        </tr>`).join("") + "</table>";
+      break;
+    }
     case "trace":
       h = `<h3>Causal ${esc(r.direction)} chain</h3>` + (r.trace || []).map(n => `
         <div style="margin-left:${n.depth*22}px" class="mini">

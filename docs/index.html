@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri — the database that never forgets</title>
+<meta name="description" content="Centauri is an open-source, bi-temporal, causal, AI-first event database. Every fact knows its time, cause, source, and trustworthiness. One binary, zero dependencies, PostgreSQL-style free license.">
+<meta property="og:title" content="Centauri — the database that never forgets">
+<meta property="og:description" content="Bi-temporal, causal, AI-first event database. Describe your scenario; the Genesis Engine builds the schema, procedures, and queries. One binary, zero dependencies, free.">
+<meta property="og:type" content="website">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Centauri",
+ "applicationCategory":"DeveloperApplication","operatingSystem":"Windows, Linux, macOS",
+ "description":"Open-source bi-temporal, causal, AI-first event database with the CeQL query language, CePL stored procedures, vector search, MCP server for AI agents, and the Genesis Engine that builds databases from plain-language descriptions.",
+ "license":"https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE",
+ "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+ "url":"https://github.com/aniljacobv-lab/centauri"}
+</script>
+<style>
+  :root{--bg:#0b0e14;--panel:#121826;--panel2:#0e1420;--line:#1f2a3d;--text:#dbe4f3;
+        --dim:#7e8ca3;--accent:#5eb0ff;--accent2:#9a7bff;--good:#46d39a;--warn:#ffb454;
+        --bad:#ff6b81;--mono:ui-monospace,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:16px/1.65 system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px 100px}
+  header{padding:80px 0 40px;text-align:center}
+  h1{font-size:54px;margin:0;letter-spacing:1px}
+  h1 b{color:var(--accent)}
+  .tag{font-size:22px;color:var(--dim);margin:14px 0 6px}
+  .punch{font-size:17px;color:var(--text);font-style:italic;margin:18px auto;max-width:640px}
+  .cta{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+  .btn{display:inline-block;padding:12px 26px;border-radius:10px;text-decoration:none;
+       font-weight:600;font-size:16px}
+  .btn.primary{background:var(--accent);color:#06121f}
+  .btn.alt{background:var(--accent2);color:#0d0618}
+  .btn.ghost{border:1px solid var(--line);color:var(--text)}
+  h2{font-size:28px;margin:70px 0 16px;color:var(--accent)}
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .q{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .q b{display:block;font-size:17px;margin-bottom:6px}
+  .q .mini{color:var(--dim);font-size:13.5px}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+      padding:16px 18px;font-family:var(--mono);font-size:14px;overflow:auto;line-height:1.6}
+  .kw{color:var(--accent);font-weight:600} .cm{color:var(--dim)} .lit{color:var(--good)}
+  .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .f{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .f b{color:var(--accent2)}
+  .f p{margin:6px 0 0;color:var(--dim);font-size:14.5px}
+  .honest{background:#1a1410;border:1px solid #3a2b12;border-left:4px solid var(--warn);
+          border-radius:10px;padding:16px 20px;color:var(--dim);font-size:15px}
+  .honest b{color:var(--warn)}
+  footer{margin-top:80px;border-top:1px solid var(--line);padding-top:24px;
+         color:var(--dim);font-size:14px;text-align:center}
+  a{color:var(--accent)}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+       padding:1px 7px;font-family:var(--mono);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1><b>CENTAURI</b></h1>
+  <div class="tag">The database that never forgets.</div>
+  <div class="punch">"Every other database starts empty. A Centauri database starts
+    with a reason — and never forgets it."</div>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/aniljacobv-lab/centauri/releases">⬇ Download (one file)</a>
+    <a class="btn alt" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
+    <a class="btn ghost" href="ceql.html">📘 The CeQL Book</a>
+  </div>
+</header>
+
+<h2>Four questions no ordinary database can answer</h2>
+<div class="qgrid">
+  <div class="q"><b>1. What was true at any moment?</b>
+    <span class="mini">Every fact carries its effective time. <code>AS OF '2026-03-15'</code> — or just <code>YESTERDAY</code>.</span></div>
+  <div class="q"><b>2. What did we believe at any moment?</b>
+    <span class="mini">A second clock records when you <i>learned</i> each fact. <code>AS KNOWN AT</code> replays past decisions fairly.</span></div>
+  <div class="q"><b>3. Why did it change?</b>
+    <span class="mini">Causes are stored as first-class links. <code>WHY</code> walks the chain. No war room required.</span></div>
+  <div class="q"><b>4. Can we trust it — and did it land?</b>
+    <span class="mini">Provenance and confidence on every fact. <code>PENDING</code> finds changes that were sent but never applied.</span></div>
+</div>
+
+<h2>CeQL — a query language for time, cause, and trust</h2>
+<pre><code><span class="cm">-- what did the register believe the price was, last Tuesday at 2pm Central?</span>
+<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">FACET</span> register
+  <span class="kw">AS OF</span> <span class="lit">'last week 2pm CST'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span> <span class="kw">WHY</span>
+
+<span class="cm">-- where do our systems disagree about price, right now?</span>
+<span class="kw">DISAGREE ON</span> price_cents
+
+<span class="cm">-- average per facet, only groups with enough data</span>
+<span class="kw">FACTS</span> facet, <span class="kw">COUNT</span>(*), <span class="kw">AVG</span>(price_cents) <span class="kw">OF</span> item:*
+  <span class="kw">GROUP BY</span> facet <span class="kw">HAVING COUNT</span>(*) > 5</code></pre>
+<p>Or skip the syntax: the dashboard translates plain English — <i>"price of
+item X yesterday at 2pm CST"</i> — into CeQL, deterministically, no AI tokens.
+The <a href="ceql.html">full textbook</a> includes a Rosetta Stone mapping
+every Oracle, DB2, PostgreSQL, MongoDB, Cypher, and KSQL idiom to CeQL.</p>
+
+<h2>🏗 The Genesis Engine</h2>
+<p><b>Describe your scenario in plain language.</b> Centauri detects the domain,
+asks a short adaptive interview, then builds everything: validated schemas,
+stored procedures, standing watches, starter queries, sample data. Then it does
+the thing no other database has ever done: <b>it stores that conversation as
+facts inside the database it created.</b> Forever after, <code>FACTS OF blueprint:*</code>
+tells you why your database is shaped the way it is — bi-temporally.</p>
+<p>Databases with birth certificates.</p>
+
+<h2>Everything ships in one file</h2>
+<div class="feat">
+  <div class="f"><b>Zero-install dashboard</b><p>Query workbench (scripts, history, visual builder, exportable grids), guided tour, schema &amp; procedure editors — embedded in the binary.</p></div>
+  <div class="f"><b>CePL stored procedures</b><p>Near-English procedures stored as versioned facts, with step-by-step execution traces. PL/SQL, redesigned for auditability.</p></div>
+  <div class="f"><b>AI agents are first-class</b><p>Built-in MCP server: 19 tools for querying, writing, vector search, and Genesis. Your agent speaks CeQL natively.</p></div>
+  <div class="f"><b>Tamper-evident history</b><p>A SHA-256 chain seals every record. <code>centauri verify</code> proves your history is byte-for-byte intact.</p></div>
+  <div class="f"><b>Multitenant environments</b><p>Many isolated databases per server, snapshot cloning, namespaces for shared-schema tenancy, two-tier access tokens.</p></div>
+  <div class="f"><b>Replication &amp; backup</b><p>Readable replicas via log shipping; chain-verified one-command backups.</p></div>
+  <div class="f"><b>Vector search</b><p>Embeddings stored as supersedable, model-attributed enrichments. Re-embed with a better model and search upgrades itself.</p></div>
+  <div class="f"><b>Python SDK</b><p>Zero dependencies. <code>db.add(...)</code>, <code>db.at(..., "yesterday")</code>, <code>db.pump("data.csv")</code>, <code>db.watch()</code>.</p></div>
+</div>
+
+<h2>Quickstart</h2>
+<pre><code><span class="cm"># download one file from Releases, then:</span>
+centauri serve
+<span class="cm"># open http://localhost:7771 — click 🏗 Build my database</span></code></pre>
+
+<h2>Honest limits</h2>
+<div class="honest"><b>What Centauri is not (yet):</b> it's a single-node engine
+with read replicas — no clustering or sharding. Indexes live in memory, so your
+data must fit in RAM. There's no cost-based optimizer. Encryption at rest with
+crypto-erasure is on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/ROADMAP.md">roadmap</a>.
+Centauri isn't a Postgres replacement — it's the <b>flight recorder</b> beside
+your operational stores: the system of record for what happened, when, why,
+and how much to trust it.</div>
+
+<footer>
+  Free and open source under a <a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">PostgreSQL-style license</a>
+  · <a href="https://github.com/aniljacobv-lab/centauri">Source</a>
+  · <a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a> (an AI implements accepted ones)
+  · Built by Proxima360 and contributors — human and otherwise
+</footer>
+
+</div>
+</body>
+</html>
