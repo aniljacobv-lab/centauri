@@ -247,7 +247,15 @@ any past moment — the fair way to audit a past (human or AI) decision.</p>
 <span class="kw">DISAGREE ON</span> price_cents          <span class="cm">-- subjects whose facets disagree</span>
 <span class="kw">SUBJECTS LIKE</span> item:*4001 <span class="kw">LIMIT</span> 50
 <span class="kw">STATS</span>
+<span class="kw">VERSION</span>                          <span class="cm">-- server version, Go runtime, uptime, data file</span>
 <span class="kw">EXPLAIN</span> FACTS OF toy:robot WHY   <span class="cm">-- shows the JSON AST instead of running</span></code></pre>
+<p><code>VERSION</code> is the flight recorder's own black box: when you file a bug,
+run it first. It returns
+<code>{"kind":"version","version":"0.3.0","go":"go1.22","uptime_seconds":12345,"data_path":"centauri.log"}</code>
+— the release, the Go toolchain it was built with, how long this server has
+been up, and which log file it is serving. Like Oracle's <code>v$version</code>
+or Postgres' <code>SELECT version()</code>, but it also tells you the uptime and
+the exact file on disk.</p>
 
 <h2 id="rosetta">13. The Rosetta Stone — every language you know, in CeQL</h2>
 <h3>From SQL</h3>
@@ -411,7 +419,7 @@ ASTs directly.</p>
 
 <h2 id="grammar">15. Grammar reference (EBNF-ish)</h2>
 <pre><code>statement   = facts | history | subjects | put | correct | retire | pending
-            | disagree | why | effects | similar | context | stats
+            | disagree | why | effects | similar | context | stats | version
             | schemas | schema | define | watch | explain ;
 facts       = "FACTS" [proj] "OF" pattern tail ;
 history     = "HISTORY" "OF" pattern tail ;

@@ -71,6 +71,11 @@ func New(st *store.Store) *Server { return NewWithOptions(st, Options{}) }
 
 // NewWithOptions creates a server with auth / read-only / multi-db behavior.
 func NewWithOptions(st *store.Store, opts Options) *Server {
+	// Record when this server came up so the VERSION statement can report
+	// uptime. Set only once, on the first server boot in the process.
+	if ceql.StartTime == 0 {
+		ceql.StartTime = time.Now().UnixMicro()
+	}
 	return &Server{st: st, opts: opts, dbs: map[string]*store.Store{}}
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +12,15 @@ import (
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/store"
 )
+
+// Version is the Centauri release the binary reports via the VERSION
+// statement. Bump it on every release.
+const Version = "0.3.0"
+
+// StartTime is the server start instant in UnixMicro, injected by the
+// process that boots the server (see internal/api). VERSION measures
+// uptime from it. Zero means "unknown" — uptime is reported as 0.
+var StartTime int64
 
 // IsWrite reports whether executing q mutates the database (used by the
 // API to enforce read-only follower mode).
@@ -29,6 +39,18 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		return map[string]any{"kind": "ast", "ast": q.Inner}, nil
 	case KStats:
 		return map[string]any{"kind": "stats", "stats": st.Stats()}, nil
+	case KVersion:
+		var uptime int64
+		if StartTime > 0 && now > StartTime {
+			uptime = (now - StartTime) / 1_000_000
+		}
+		return map[string]any{
+			"kind":           "version",
+			"version":        Version,
+			"go":             runtime.Version(),
+			"uptime_seconds": uptime,
+			"data_path":      st.Path(),
+		}, nil
 	case KSubjects:
 		subs := st.Subjects()
 		if q.Subject != "" {

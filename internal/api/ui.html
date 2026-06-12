@@ -1275,6 +1275,19 @@ function renderQueryResult(r, out, meta){
       };
       break;
     }
+    case "version": {
+      const days = Math.floor((r.uptime_seconds || 0) / 86400);
+      const hrs = Math.floor(((r.uptime_seconds || 0) % 86400) / 3600);
+      const mins = Math.floor(((r.uptime_seconds || 0) % 3600) / 60);
+      const up = `${days}d ${hrs}h ${mins}m`;
+      h = `<h3>Centauri v${esc(r.version || "?")}</h3>
+           <div class="mini">
+             <span class="chip">go <b>${esc(r.go || "?")}</b></span>
+             <span class="chip">uptime <b>${esc(up)}</b></span>
+             <span class="chip">data <b>${esc(r.data_path || "?")}</b></span>
+           </div>`;
+      break;
+    }
     default:
       h = `<h3>${esc(r.kind || "result")}</h3><pre>${esc(JSON.stringify(r, null, 2))}</pre>`;
   }

@@ -816,6 +816,10 @@ func (s *Store) Subjects() []string {
 }
 
 // Stats returns basic counters.
+// Path returns the log file this store is backed by (the file VERSION
+// reports as data_path). It is fixed at Open time, so no lock is needed.
+func (s *Store) Path() string { return s.path }
+
 func (s *Store) Stats() map[string]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
