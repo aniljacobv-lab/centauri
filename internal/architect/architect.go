@@ -338,8 +338,9 @@ type Blueprint struct {
 	Procedures  []string     `json:"procedures"` // CePL sources
 	Watches     []string     `json:"watches"`    // CeQL WATCH statements
 	Queries     []string     `json:"queries"`    // starter CeQL, saved + shown
-	Samples     []SampleFact `json:"samples"`
-	Guide       string       `json:"guide"` // markdown-ish quickstart
+	Samples     []SampleFact  `json:"samples"`
+	Guide       string        `json:"guide"`           // markdown-ish quickstart
+	Notes       []MappingNote `json:"notes,omitempty"` // RDBMS→Centauri mapping report (DDL imports)
 }
 
 // SampleFact is one example fact to seed.

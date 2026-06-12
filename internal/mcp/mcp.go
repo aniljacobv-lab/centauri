@@ -198,9 +198,10 @@ func toolDefs() []map[string]any {
 		{"name": "centauri_genesis", "description": "The Genesis Engine: describe a scenario in plain language and get a complete database design — schemas, CePL procedures, watches, starter queries. Call without answers first to get the adaptive interview questions; answer them (answers: {id: value}); when no questions remain you get the blueprint; pass apply=true to build it into the current database (the genesis is stored as blueprint:* facts).",
 			"inputSchema": obj(map[string]any{
 				"description": str("the scenario in plain language"),
+				"ddl":         str("alternative path: paste CREATE TABLE statements to translate an existing relational model (returns a full RDBMS→Centauri mapping report)"),
 				"answers":     map[string]any{"type": "object", "description": "question id -> answer (string; bools as yes/no)"},
 				"apply":       map[string]any{"type": "boolean", "description": "build the blueprint into the current database"},
-			}, "description")},
+			})},
 		{"name": "centauri_subjects", "description": "List all known subjects.", "inputSchema": obj(map[string]any{})},
 		{"name": "centauri_stats", "description": "Store counters: events, subjects, open facts, pending wedges, links.", "inputSchema": obj(map[string]any{})},
 	}
@@ -362,6 +363,22 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 			for k, v := range raw {
 				answers[k] = fmt.Sprint(v)
 			}
+		}
+		if ddl := strArg(args, "ddl"); ddl != "" {
+			if qs := architect.DDLQuestions(answers); len(qs) > 0 {
+				return asJSON(map[string]any{"questions": qs})
+			}
+			bp, _, err := architect.GenerateFromDDL(ddl, answers)
+			if err != nil {
+				return "", err
+			}
+			if apply, _ := args["apply"].(bool); apply {
+				if err := architect.Apply(s.st, bp, answers, time.Now().UnixMicro()); err != nil {
+					return "", err
+				}
+				return asJSON(map[string]any{"built": true, "guide": bp.Guide, "notes": bp.Notes})
+			}
+			return asJSON(map[string]any{"blueprint": bp})
 		}
 		sig := architect.Analyze(desc)
 		if qs := architect.NextQuestions(sig, answers); len(qs) > 0 {

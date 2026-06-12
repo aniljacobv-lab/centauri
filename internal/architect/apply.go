@@ -67,6 +67,13 @@ func Apply(st *store.Store, bp *Blueprint, answers map[string]string, now int64)
 		qv[i] = q
 	}
 	events = append(events, mk("blueprint:starter-queries", map[string]any{"queries": qv}))
+	if len(bp.Notes) > 0 {
+		nv := make([]any, len(bp.Notes))
+		for i, n := range bp.Notes {
+			nv[i] = map[string]any{"kind": n.Kind, "from": n.From, "to": n.To, "why": n.Why}
+		}
+		events = append(events, mk("blueprint:rdbms-mapping", map[string]any{"notes": nv}))
+	}
 
 	if err := st.Append(now, events, nil); err != nil {
 		return fmt.Errorf("genesis facts: %w", err)

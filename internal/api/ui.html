@@ -1412,26 +1412,43 @@ async function genesisPost(path){
   const qs = qsFor({});
   return handle(await fetch(path + (qs ? "?" + qs : ""), {
     method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({description: GEN.description, answers: GEN.answers})}));
+    body: JSON.stringify({description: GEN.description, ddl: GEN.ddl || "", answers: GEN.answers})}));
 }
-function openGenesis(){
-  GEN = {description: "", answers: {}};
-  modal(`<h2>🏗 <b>Genesis</b> — describe it, get a database</h2>
+function openGenesis(mode){
+  GEN = {description: "", ddl: "", answers: {}};
+  const isDDL = mode === "ddl";
+  modal(`<h2>🏗 <b>Genesis</b> — ${isDDL ? "bring your tables with you" : "describe it, get a database"}</h2>
+    <div class="tabrow">
+      <button class="${isDDL ? "" : "active"}" onclick="openGenesis()">📝 Describe a scenario</button>
+      <button class="${isDDL ? "active" : ""}" onclick="openGenesis('ddl')">🗄 I have SQL tables (RDBMS)</button>
+    </div>
+    ${isDDL ? `
+    <p class="sub">Coming from Oracle, Postgres, MySQL, SQL Server? Paste your
+       <code>CREATE TABLE</code> statements. Genesis translates the whole model —
+       tables→subjects, foreign keys→guarded procedures, audit columns→built-ins —
+       and shows you a <b>mapping report explaining every decision in RDBMS terms</b>.
+       Your schema becomes the textbook.</p>
+    <textarea id="genddl" rows="10" style="width:100%;font-family:var(--mono);font-size:12.5px"
+      placeholder="CREATE TABLE item (&#10;  item        NUMBER(8) PRIMARY KEY,&#10;  description VARCHAR2(120) NOT NULL,&#10;  dept        NUMBER(4) REFERENCES dept(dept),&#10;  unit_cost   NUMBER(10,2),&#10;  created_by  VARCHAR2(30),&#10;  create_date DATE&#10;);&#10;&#10;CREATE TABLE item_loc ( ... );"></textarea>`
+    : `
     <p class="sub">Say what you're building in plain language. Genesis asks a few smart
        questions, then creates everything: schemas, procedures, watches, starter queries,
        sample data — and stores <i>this very conversation</i> as facts, so your database
        will forever remember why it exists. No tokens, no AI calls — pure engine.</p>
     <textarea id="gendesc" rows="4" style="width:100%"
-      placeholder="e.g.  I run a dental practice. We track patients, appointments and treatments, and bill fees. The front desk and the billing system each have their own records and they often disagree."></textarea>
+      placeholder="e.g.  I run a dental practice. We track patients, appointments and treatments, and bill fees. The front desk and the billing system each have their own records and they often disagree."></textarea>`}
     <div class="btnrow"><span class="spacer"></span>
       <button onclick="closeModal()">Cancel</button>
-      <button class="primary" onclick="genesisStep()">Analyze →</button></div>`);
-  document.getElementById("gendesc").focus();
+      <button class="primary" onclick="genesisStep()">${isDDL ? "Translate →" : "Analyze →"}</button></div>`);
+  document.getElementById("modal").classList.add("wide");
+  (document.getElementById(isDDL ? "genddl" : "gendesc")).focus();
 }
 async function genesisStep(){
   const d = document.getElementById("gendesc");
   if (d) GEN.description = d.value.trim();
-  if (!GEN.description) return toast("Describe your scenario first", true);
+  const dd = document.getElementById("genddl");
+  if (dd) GEN.ddl = dd.value.trim();
+  if (!GEN.description && !GEN.ddl) return toast("Describe your scenario (or paste DDL) first", true);
   document.querySelectorAll(".genans").forEach(i => {
     GEN.answers[i.dataset.id] = i.type === "checkbox" ? (i.checked ? "yes" : "no") : i.value.trim();
   });
@@ -1444,6 +1461,7 @@ async function genesisStep(){
 function renderGenesisQuestions(r){
   const sig = r.signals || {};
   const detected = [];
+  if (r.tables) detected.push(r.tables + " tables parsed");
   if (sig.domain && sig.domain !== "generic") detected.push("domain: " + sig.domain);
   if (sig.has_money) detected.push("money");
   if (sig.has_lifecycle) detected.push("send-and-confirm lifecycle");
@@ -1482,6 +1500,14 @@ function renderGenesisPreview(bp){
       ${bp.queries.slice(0, 6).map(q => `<code style="display:inline-block;margin:2px">${esc(q)}</code>`).join(" ")}</div>
     ${bp.watches.length ? `<div class="tourbox"><b>📡 standing watch</b> <span class="mini">${esc(bp.watches.join("; "))}</span></div>` : ""}
     ${bp.samples.length ? `<div class="tourbox"><b>🌱 ${bp.samples.length} sample facts</b> <span class="mini">so you can explore immediately</span></div>` : ""}
+    ${(bp.notes || []).length ? `<div class="tourbox"><b>🗄→📓 Your RDBMS, translated (${bp.notes.length} decisions)</b>
+      <div style="max-height:240px;overflow:auto;margin-top:6px">
+      <table><tr><th>yours</th><th>becomes</th><th>why</th></tr>` +
+      bp.notes.map(n => `<tr><td class="mini" style="font-family:var(--mono)">${esc(n.from)}</td>
+        <td class="mini" style="font-family:var(--mono);color:var(--accent)">${esc(n.to)}</td>
+        <td class="mini">${esc(n.why)}</td></tr>`).join("") +
+      `</table></div>
+      <span class="mini">This report is also stored as facts: <code>FACTS OF blueprint:rdbms-mapping</code></span></div>` : ""}
     <div class="btnrow">
       <button class="ghost mini" onclick="openGenesis()">↺ start over</button>
       <span class="spacer"></span>

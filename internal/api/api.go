@@ -965,7 +965,17 @@ func (s *Server) handleAssist(w http.ResponseWriter, r *http.Request) {
 
 type architectReq struct {
 	Description string            `json:"description"`
+	DDL         string            `json:"ddl"` // CREATE TABLE statements (RDBMS import path)
 	Answers     map[string]string `json:"answers"`
+}
+
+// generateBlueprint runs whichever Genesis path the request uses.
+func generateBlueprint(body architectReq) (*architect.Blueprint, error) {
+	if strings.TrimSpace(body.DDL) != "" {
+		bp, _, err := architect.GenerateFromDDL(body.DDL, body.Answers)
+		return bp, err
+	}
+	return architect.Generate(body.Description, body.Answers)
 }
 
 // handleArchitectPlan advances the interview: returns the next questions,
@@ -976,12 +986,32 @@ func (s *Server) handleArchitectPlan(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, 400, err.Error())
 		return
 	}
-	if strings.TrimSpace(body.Description) == "" {
-		httpErr(w, 422, "describe your scenario first — a sentence or two is plenty")
-		return
-	}
 	if body.Answers == nil {
 		body.Answers = map[string]string{}
+	}
+	// RDBMS import path: paste DDL, two questions, full mapping report.
+	if strings.TrimSpace(body.DDL) != "" {
+		tables, err := architect.ParseDDL(body.DDL)
+		if err != nil {
+			httpErr(w, 422, err.Error())
+			return
+		}
+		if qs := architect.DDLQuestions(body.Answers); len(qs) > 0 {
+			writeJSON(w, map[string]any{"questions": qs, "tables": len(tables),
+				"signals": map[string]any{"domain": "rdbms-import"}})
+			return
+		}
+		bp, _, err := architect.GenerateFromDDL(body.DDL, body.Answers)
+		if err != nil {
+			httpErr(w, 422, err.Error())
+			return
+		}
+		writeJSON(w, map[string]any{"blueprint": bp})
+		return
+	}
+	if strings.TrimSpace(body.Description) == "" {
+		httpErr(w, 422, "describe your scenario (or paste CREATE TABLE DDL) first")
+		return
 	}
 	sig := architect.Analyze(body.Description)
 	if qs := architect.NextQuestions(sig, body.Answers); len(qs) > 0 {
@@ -1003,7 +1033,7 @@ func (s *Server) handleArchitectApply(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, 400, err.Error())
 		return
 	}
-	bp, err := architect.Generate(body.Description, body.Answers)
+	bp, err := generateBlueprint(body)
 	if err != nil {
 		httpErr(w, 422, err.Error())
 		return
