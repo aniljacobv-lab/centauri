@@ -19,6 +19,10 @@ AI builds next. Keep items small enough for one PR.
 
 ## Next
 
+5½. **Referential field types in schemas** — `parent ref(item:*)`: PUT/
+   procedures validate that the referenced subject exists (docs/
+   modeling-hierarchies.md explains today's procedure-gateway pattern).
+
 6. Window frames in CeQL (`ROWS BETWEEN ... PRECEDING`).
 7. Spatial fields (lat/lon distance in WHERE).
 8. Stemming + ranking for MATCHES.
