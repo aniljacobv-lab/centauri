@@ -1,0 +1,15 @@
+# Render Blueprint: one-click cloud Centauri (in YOUR Render account).
+# The "Deploy to Render" button on the website points at this file.
+services:
+  - type: web
+    name: centauri
+    runtime: docker
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      - key: CENTAURI_TOKEN
+        generateValue: true   # Render creates a strong token; find it in the dashboard
+    disk:
+      name: centauri-data
+      mountPath: /data
+      sizeGB: 1

@@ -66,7 +66,7 @@
   <div class="punch">"Every other database starts empty. A Centauri database starts
     with a reason — and never forgets it."</div>
   <div class="cta">
-    <a class="btn primary" href="https://github.com/aniljacobv-lab/centauri/releases">⬇ Download (one file)</a>
+    <a class="btn primary" href="#download">⬇ Download</a>
     <a class="btn alt" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
     <a class="btn ghost" href="ceql.html">📘 The CeQL Book</a>
   </div>
@@ -121,10 +121,41 @@ tells you why your database is shaped the way it is — bi-temporally.</p>
   <div class="f"><b>Python SDK</b><p>Zero dependencies. <code>db.add(...)</code>, <code>db.at(..., "yesterday")</code>, <code>db.pump("data.csv")</code>, <code>db.watch()</code>.</p></div>
 </div>
 
-<h2>Quickstart</h2>
-<pre><code><span class="cm"># download one file from Releases, then:</span>
-centauri serve
-<span class="cm"># open http://localhost:7771 — click 🏗 Build my database</span></code></pre>
+<h2 id="download">Download &amp; run</h2>
+<div class="feat">
+  <div class="f" id="dl-win"><b>🪟 Windows</b>
+    <p><a href="https://github.com/aniljacobv-lab/centauri/releases/latest">⬇ Installer (centauri-setup.exe)</a> —
+    installs like any app: Start menu → <b>Centauri</b> → your browser opens with the
+    dashboard. Data lives in your user profile. <span style="color:var(--dim)">Portable
+    option: download the bare .exe and run <code>centauri desktop</code>.</span></p></div>
+  <div class="f" id="dl-mac"><b>🍎 macOS</b>
+    <p>One line in Terminal:</p>
+    <pre style="margin:8px 0 0">curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
+centauri desktop</pre></div>
+  <div class="f" id="dl-linux"><b>🐧 Linux</b>
+    <p>Same one line (amd64 &amp; arm64 auto-detected):</p>
+    <pre style="margin:8px 0 0">curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
+centauri desktop</pre></div>
+  <div class="f"><b>☁️ Run it in the cloud</b>
+    <p><a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">🚀 Deploy to Render</a> —
+    one click gives you a hosted Centauri with HTTPS in <i>your own</i> cloud account
+    (free/cheap tiers available). Or any VPS/Docker host: see the
+    <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">deployment guide</a>.
+    A fully managed Centauri Cloud is on the roadmap.</p></div>
+</div>
+<p class="mini" style="margin-top:8px">Every download is one self-contained file —
+engine, dashboard, textbook, Genesis. <code>centauri desktop</code> opens your browser
+automatically and keeps your data in your user profile, so there's nothing to configure.
+All releases ship with SHA-256 checksums; history is sealed by a verifiable hash chain.</p>
+<script>
+// highlight the visitor's platform
+(function(){
+  const p = navigator.platform + " " + navigator.userAgent;
+  const id = /Win/i.test(p) ? "dl-win" : /Mac/i.test(p) ? "dl-mac" : "dl-linux";
+  const el = document.getElementById(id);
+  if (el) { el.style.borderColor = "var(--accent)"; el.style.boxShadow = "0 0 0 1px var(--accent)"; }
+})();
+</script>
 
 <h2>Honest limits</h2>
 <div class="honest"><b>What Centauri is not (yet):</b> it's a single-node engine

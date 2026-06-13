@@ -20,7 +20,10 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"syscall"
@@ -147,6 +150,39 @@ func main() {
 	}
 
 	switch cmd {
+	case "desktop":
+		// The double-click experience: data lives in the user's profile
+		// (no stray files in random folders), the browser opens itself,
+		// and the window explains what's happening. Installers point
+		// their shortcuts here.
+		if !flagWasSet(fs, "data") {
+			dir, derr := os.UserConfigDir()
+			if derr == nil {
+				dir = filepath.Join(dir, "Centauri")
+				if err := os.MkdirAll(dir, 0o755); err == nil {
+					*data = filepath.Join(dir, "centauri.log")
+					// reopen the store at the profile location
+					st.Close()
+					st, err = store.OpenOptions(*data, store.Options{})
+					if err != nil {
+						log.Fatalf("open store: %v", err)
+					}
+				}
+			}
+		}
+		fmt.Print(banner)
+		if n, err := catalog.SeedIfEmpty(*data, time.Now().UnixMicro()); err == nil {
+			fmt.Printf("command catalog: %d commands\n", n)
+		}
+		fmt.Printf("your data:  %s\ndashboard:  http://localhost%s  (opening in your browser…)\n", *data, *addr)
+		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
+		go func() {
+			time.Sleep(1200 * time.Millisecond)
+			openBrowser("http://localhost" + *addr)
+		}()
+		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data})
+		apiSrv = srv
+		log.Fatal(http.ListenAndServe(*addr, srv.Routes()))
 	case "export":
 		if *to == "" {
 			log.Fatal("export: -to <file> is required (e.g. -to facts.csv)")
@@ -251,6 +287,31 @@ func follow(st *store.Store, primary, token string, interval time.Duration) {
 	}
 }
 
+// flagWasSet reports whether the user explicitly passed a flag.
+func flagWasSet(fs *flag.FlagSet, name string) bool {
+	set := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
+}
+
+// openBrowser opens a URL with the platform's default browser.
+func openBrowser(url string) {
+	var c *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		c = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		c = exec.Command("open", url)
+	default:
+		c = exec.Command("xdg-open", url)
+	}
+	_ = c.Start()
+}
+
 // runExport runs a CeQL read and writes the events as CSV or JSONL —
 // the bridge to warehouses, Excel, and pandas.
 func runExport(st *store.Store, query, format, to string) error {
@@ -342,6 +403,7 @@ func usage() {
 	fmt.Println(`usage: centauri <command> [flags]
 
   seed    populate with synthetic price-change events
+  desktop the friendly start: data in your user profile, browser opens itself
   serve   HTTP/JSON API (writes + queries + SSE watch + log shipping)
   mcp     Model Context Protocol server on stdio (for AI agents)
   follow  replicate a primary's log into a read-only follower
