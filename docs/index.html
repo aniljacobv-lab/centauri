@@ -3,176 +3,868 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Centauri — the database that never forgets</title>
-<meta name="description" content="Centauri is an open-source, bi-temporal, causal, AI-first event database. Every fact knows its time, cause, source, and trustworthiness. One binary, zero dependencies, PostgreSQL-style free license.">
+<title>Centauri: The bi-temporal, causal, AI-first event database</title>
+<meta name="description" content="Centauri is an open-source bi-temporal, causal, AI-first event database. Query the past, replay what you believed, prove your history, search and reason with AI. One binary, zero dependencies, free.">
 <meta property="og:title" content="Centauri — the database that never forgets">
-<meta property="og:description" content="Bi-temporal, causal, AI-first event database. Describe your scenario; the Genesis Engine builds the schema, procedures, and queries. One binary, zero dependencies, free.">
+<meta property="og:description" content="Bi-temporal, causal, topological, AI-first event database with the CeQL query language. One binary, zero dependencies, free.">
 <meta property="og:type" content="website">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Centauri",
  "applicationCategory":"DeveloperApplication","operatingSystem":"Windows, Linux, macOS",
- "description":"Open-source bi-temporal, causal, AI-first event database with the CeQL query language, CePL stored procedures, vector search, MCP server for AI agents, and the Genesis Engine that builds databases from plain-language descriptions.",
+ "description":"Open-source bi-temporal, causal, AI-first event database with the CeQL query language, topology operators, BM25 search, MCP server, and the Genesis Engine.",
  "license":"https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE",
  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
  "url":"https://github.com/aniljacobv-lab/centauri"}
 </script>
 <style>
-  :root{--bg:#0b0e14;--panel:#121826;--panel2:#0e1420;--line:#1f2a3d;--text:#dbe4f3;
-        --dim:#7e8ca3;--accent:#5eb0ff;--accent2:#9a7bff;--good:#46d39a;--warn:#ffb454;
-        --bad:#ff6b81;--mono:ui-monospace,Consolas,monospace}
+  :root{
+    --navy:#16212e;--ink:#16243a;--dim:#54627a;--faint:#8493a8;
+    --blue:#2f6fb0;--blue-d:#245a91;--teal:#00add8;--teal-d:#0594bb;
+    --bg:#ffffff;--bg2:#f4f8fc;--bg3:#eaf1f8;--border:#dbe5f0;--code:#f5f8fc;
+    --good:#1a8754;--bad:#d23b3b;--warn:#b4690e;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);
-       font:16px/1.65 system-ui,Segoe UI,Roboto,sans-serif}
-  .wrap{max-width:960px;margin:0 auto;padding:0 24px 100px}
-  header{padding:80px 0 40px;text-align:center}
-  h1{font-size:54px;margin:0;letter-spacing:1px}
-  h1 b{color:var(--accent)}
-  .tag{font-size:22px;color:var(--dim);margin:14px 0 6px}
-  .punch{font-size:17px;color:var(--text);font-style:italic;margin:18px auto;max-width:640px}
-  .cta{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
-  .btn{display:inline-block;padding:12px 26px;border-radius:10px;text-decoration:none;
-       font-weight:600;font-size:16px}
-  .btn.primary{background:var(--accent);color:#06121f}
-  .btn.alt{background:var(--accent2);color:#0d0618}
-  .btn.ghost{border:1px solid var(--line);color:var(--text)}
-  h2{font-size:28px;margin:70px 0 16px;color:var(--accent)}
-  .qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-  .q{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
-  .q b{display:block;font-size:17px;margin-bottom:6px}
-  .q .mini{color:var(--dim);font-size:13.5px}
-  pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-      padding:16px 18px;font-family:var(--mono);font-size:14px;overflow:auto;line-height:1.6}
-  .kw{color:var(--accent);font-weight:600} .cm{color:var(--dim)} .lit{color:var(--good)}
-  .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
-  .f{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px}
-  .f b{color:var(--accent2)}
-  .f p{margin:6px 0 0;color:var(--dim);font-size:14.5px}
-  .honest{background:#1a1410;border:1px solid #3a2b12;border-left:4px solid var(--warn);
-          border-radius:10px;padding:16px 20px;color:var(--dim);font-size:15px}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  em{color:var(--ink);font-style:italic;font-weight:600}
+  code{font-family:var(--mono);font-size:.88em;background:var(--code);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
+  .kw{color:var(--blue);font-weight:600}.cm{color:var(--faint)}.lit{color:var(--good)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+  nav{background:var(--navy);color:#fff;position:sticky;top:0;z-index:50}
+  nav .wrap{display:flex;align-items:center;gap:24px;height:58px}
+  .brand{font-weight:800;font-size:18px;color:#fff;display:flex;align-items:center;gap:8px}
+  .brand .star{color:var(--teal);font-size:20px}
+  nav .links{margin-left:auto;display:flex;gap:22px;font-size:14.5px}
+  nav .links a{color:#c6d4e6}nav .links a:hover{color:#fff;text-decoration:none}
+  @media(max-width:900px){nav .links a:not(.gh){display:none}}
+  .gh{border:1px solid #38506b;border-radius:7px;padding:6px 13px;color:#fff!important}
+  .announce{background:var(--blue);color:#fff;text-align:center;font-size:14px;padding:9px 16px}
+  .announce a{color:#fff;font-weight:700;text-decoration:underline}
+
+  .hero{background:linear-gradient(180deg,#fff,var(--bg2));border-bottom:1px solid var(--border)}
+  .hero .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center;padding:56px 24px}
+  @media(max-width:880px){.hero .wrap{grid-template-columns:1fr}.heroart{order:-1;max-width:340px}}
+  h1{font-size:clamp(32px,4.4vw,50px);line-height:1.08;margin:0 0 8px;letter-spacing:-1px;font-weight:800}
+  h1 .accent{color:var(--teal-d)}
+  .sub{font-size:18px;color:var(--dim);margin:0 0 20px;max-width:560px}
+  .checks{list-style:none;padding:0;margin:0 0 24px}
+  .checks li{position:relative;padding:4px 0 4px 28px;font-size:15.5px}
+  .checks li::before{content:"✓";position:absolute;left:0;top:4px;color:var(--teal-d);font-weight:800}
+  .btns{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:9px;font-weight:700;font-size:16px;border:1.5px solid transparent;cursor:pointer}
+  .btn:hover{text-decoration:none}
+  .btn.primary{background:var(--teal);color:#06222b;border-color:var(--teal)}
+  .btn.primary:hover{background:var(--teal-d);border-color:var(--teal-d);color:#fff}
+  .btn.outline{background:#fff;color:var(--ink);border-color:var(--border)}
+  .btn.outline:hover{border-color:var(--blue);color:var(--blue)}
+  .dlhint{font-size:13px;color:var(--faint);margin-top:12px}
+  .spon{margin-top:16px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+
+  section{padding:54px 0}
+  .alt{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  h2{font-size:clamp(23px,2.8vw,31px);margin:0 0 8px;letter-spacing:-.4px;font-weight:800}
+  h2 .rule{color:var(--teal-d)}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-d);font-weight:700;margin-bottom:6px}
+  .lead{color:var(--dim);font-size:17px;max-width:780px;margin:0 0 26px}
+
+  /* ASK box */
+  .ask{background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 34px rgba(20,40,80,.08);overflow:hidden}
+  .ask-head{background:var(--navy);color:#fff;padding:14px 20px;font-weight:700;display:flex;align-items:center;gap:9px}
+  .ask-head .b{margin-left:auto;font-family:var(--mono);font-size:11px;color:#8fb6d8;font-weight:500}
+  .ask-body{padding:20px}
+  .ask-in{display:flex;gap:10px}
+  .ask-in input{flex:1;border:1px solid var(--border);border-radius:9px;padding:13px 15px;font:15px system-ui;color:var(--ink)}
+  .ask-in input:focus{outline:none;border-color:var(--teal-d)}
+  .ask-in button{border:0;background:var(--teal);color:#06222b;font-weight:700;border-radius:9px;padding:0 22px;cursor:pointer}
+  .ask-in button:hover{background:var(--teal-d);color:#fff}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chip{font-size:13px;color:var(--blue);background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:5px 12px;cursor:pointer}
+  .chip:hover{background:#dfeaf6}
+  .answer{margin-top:16px;border-left:3px solid var(--teal);background:var(--bg2);border-radius:0 9px 9px 0;padding:14px 18px;font-size:15.5px;display:none}
+  .answer.show{display:block}
+  .answer .q{font-family:var(--mono);font-size:12.5px;color:var(--faint);margin-bottom:6px}
+  .answer .ceql{font-family:var(--mono);font-size:13.5px;background:var(--navy);color:#d6e6f5;border-radius:8px;padding:11px 14px;margin-top:10px;overflow:auto}
+  .answer .ceql .kw{color:#7fd3ff}.answer .ceql .lit{color:#9be29b}
+
+  /* quickstart */
+  .qs{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+  @media(max-width:820px){.qs{grid-template-columns:1fr}}
+  pre{background:var(--navy);color:#d6e6f5;border-radius:11px;padding:18px;font-family:var(--mono);font-size:13.5px;overflow:auto;line-height:1.7;margin:0}
+  pre .cm{color:#7e90a8}pre .kw{color:#7fd3ff}pre .lit{color:#9be29b}
+
+  /* feature grid */
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+  .feat{background:#fff;border:1px solid var(--border);border-radius:11px;padding:22px;transition:.15s}
+  .feat:hover{border-color:var(--teal);box-shadow:0 6px 22px rgba(20,40,80,.07)}
+  .feat .fi{width:38px;height:38px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:11px}
+  .feat h3{margin:0 0 7px;font-size:18px}
+  .feat p{margin:0;color:var(--dim);font-size:14.5px}
+
+  /* demos */
+  .demo{border-radius:12px;overflow:hidden;background:#fff;border:1px solid var(--border)}
+  .demo-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12.5px;color:var(--dim);background:var(--bg2)}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .demo-body{padding:22px}
+  label.fld{display:block;font-family:var(--mono);font-size:11.5px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:0 0 8px}
+  input[type=range]{width:100%;accent-color:var(--blue);height:4px;cursor:pointer}
+  .ceql-out{font-family:var(--mono);font-size:14px;background:var(--code);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-top:16px;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .result{display:flex;align-items:baseline;gap:13px;margin-top:14px;flex-wrap:wrap}
+  .result .big{font-size:34px;font-weight:800;font-family:var(--mono);color:var(--good)}
+  .result .note{color:var(--dim);font-size:14px}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:680px){.twocol{grid-template-columns:1fr}}
+  .axis{position:relative;height:54px;margin:6px 0 20px}
+  .axis .track{position:absolute;top:24px;left:0;right:0;height:3px;background:var(--border);border-radius:2px}
+  .axis .ev{position:absolute;top:18px;width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid var(--teal-d);transform:translateX(-50%);transition:.15s}
+  .axis .ev.active{background:var(--teal-d);box-shadow:0 0 0 4px rgba(0,173,216,.2)}
+  .axis .vh{position:absolute;top:6px;bottom:6px;width:2px;background:var(--blue);transform:translateX(-50%)}
+  .axis .vh::after{content:'AS OF';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:var(--blue);white-space:nowrap}
+  .axis .lbl{position:absolute;top:40px;font-family:var(--mono);font-size:10px;color:var(--faint);transform:translateX(-50%)}
+  .nlrow input{width:100%;background:var(--code);border:1px solid var(--border);border-radius:9px;color:var(--ink);font:15px var(--mono);padding:13px 14px}
+  .nlrow input:focus{outline:none;border-color:var(--blue);background:#fff}
+  .demochips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .demochips .chip{font-family:var(--mono);font-size:12.5px;color:var(--dim);background:#fff}
+  .chain{display:flex;align-items:stretch;overflow-x:auto;padding-bottom:6px}
+  .block{flex:0 0 auto;width:148px;background:var(--code);border:1px solid var(--border);border-radius:10px;padding:11px}
+  .block.broken{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+  .block .bn{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .block input{width:100%;background:#fff;border:1px solid var(--border);border-radius:6px;color:var(--ink);font:12.5px var(--mono);padding:6px;margin:7px 0}
+  .block .h{font-family:var(--mono);font-size:11px;color:var(--good);word-break:break-all}
+  .block.broken .h{color:var(--bad)}
+  .link{flex:0 0 auto;display:flex;align-items:center;color:var(--faint);font-family:var(--mono);padding:0 4px}
+  .verify{margin-top:14px;font-family:var(--mono);font-size:13.5px;padding:11px 15px;border-radius:9px}
+  .verify.ok{background:#e9f7ef;border:1px solid #b6e0c8;color:var(--good)}
+  .verify.fail{background:#fdeaea;border:1px solid #f3c2c2;color:var(--bad)}
+
+  /* reference table */
+  .scroll{overflow-x:auto}
+  table.ref{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .ref th,.ref td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .ref thead th{background:var(--bg2);font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .ref td.s{font-family:var(--mono);color:var(--blue);font-weight:600;white-space:nowrap}
+  .ref td.ex{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+  .ref tr:hover td{background:#fafcff}
+  .reftag{display:inline-block;font-family:var(--mono);font-size:10px;color:#fff;background:var(--teal-d);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+
+  /* docs links */
+  .doclinks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .doc{display:block;background:#fff;border:1px solid var(--border);border-radius:11px;padding:18px 20px;color:var(--ink)}
+  .doc:hover{border-color:var(--teal);text-decoration:none}
+  .doc b{display:block;color:var(--blue);font-size:16px;margin-bottom:5px}
+  .doc span{color:var(--dim);font-size:14px}
+
+  table.cmp{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .cmp th,.cmp td{padding:11px 12px;text-align:center;border-bottom:1px solid var(--border)}
+  .cmp thead th{background:var(--bg2);font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .cmp td:first-child,.cmp th:first-child{text-align:left;color:var(--ink)}
+  .cmp .me{color:var(--teal-d);font-weight:800}
+  .y{color:var(--good);font-weight:700}.n{color:var(--bad)}.p{color:var(--warn)}
+  .cmp td small{color:var(--faint);font-size:11px;display:block}
+  .honest{background:#fff8ed;border:1px solid #f0d8af;border-left:4px solid var(--warn);border-radius:10px;padding:18px 22px;color:var(--dim);font-size:15px}
   .honest b{color:var(--warn)}
-  footer{margin-top:80px;border-top:1px solid var(--line);padding-top:24px;
-         color:var(--dim);font-size:14px;text-align:center}
-  a{color:var(--accent)}
-  code{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
-       padding:1px 7px;font-family:var(--mono);font-size:14px}
+
+  /* download */
+  .ostiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:6px 0 22px}
+  @media(max-width:720px){.ostiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{border:1.5px solid var(--border);border-radius:11px;background:#fff;padding:18px 12px;text-align:center;cursor:pointer;transition:.15s;font-weight:700}
+  .tile:hover{border-color:var(--teal)}
+  .tile.active{border-color:var(--teal);background:var(--bg3);box-shadow:inset 0 -3px 0 var(--teal)}
+  .tile .ti{font-size:32px;display:block;margin-bottom:7px}
+  .dlpanel{display:none;background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px}
+  .dlpanel.active{display:block}
+  .dlrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .dlbig{display:inline-flex;align-items:center;gap:9px;padding:13px 24px;border-radius:9px;background:var(--teal);color:#06222b;font-weight:700;font-size:16px;border:1.5px solid var(--teal)}
+  .dlbig:hover{background:var(--teal-d);color:#fff;border-color:var(--teal-d);text-decoration:none}
+  .dlmeta{color:var(--faint);font-size:13px;font-family:var(--mono)}
+  .cmd{display:flex;align-items:center;gap:8px;margin-top:16px;background:var(--navy);border-radius:9px;padding:13px 14px;font-family:var(--mono);font-size:13px;overflow:auto}
+  .cmd code{background:none;border:none;color:#d6e6f5;white-space:nowrap}
+  .copy{margin-left:auto;flex:0 0 auto;cursor:pointer;border:1px solid #38506b;background:#22344a;color:#cfe0f5;border-radius:6px;padding:5px 11px;font-size:11px;font-family:var(--mono)}
+  .copy:hover{background:#2c425c}
+  .dlsub{margin-top:15px;color:var(--dim);font-size:14px}
+  .dlsub a{font-family:var(--mono);font-size:13px}
+
+  /* agent transcript */
+  .tx{display:flex;flex-direction:column;gap:10px;max-width:760px}
+  .bub{border-radius:12px;padding:11px 15px;font-size:15px}
+  .bub .who{font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:4px}
+  .bub.u{background:var(--bg3);align-self:flex-start;max-width:85%}
+  .bub.ai{background:#eaf7f1;border:1px solid #bfe6d2;align-self:flex-end;max-width:85%}
+  .toolcall{font-family:var(--mono);font-size:12.5px;background:var(--navy);color:#d6e6f5;border-radius:10px;padding:12px 15px;align-self:center;width:100%;overflow:auto;line-height:1.6}
+  .toolcall .fn{color:#7fd3ff;font-weight:700}.toolcall .cm{color:#7e90a8}.toolcall .lit{color:#9be29b}
+  .exgrid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:8px}
+  @media(max-width:820px){.exgrid{grid-template-columns:1fr}}
+  .exgrid h3{font-size:16px;color:var(--dim);margin:0 0 10px}
+  /* example cards */
+  .excards{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+  .excard{background:#fff;border:1px solid var(--border);border-radius:11px;padding:18px;transition:.15s}
+  .excard:hover{border-color:var(--teal);box-shadow:0 6px 22px rgba(20,40,80,.06)}
+  .extags{display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap}
+  .t2{font-family:var(--mono);font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 8px}
+  .t2.cap{background:var(--bg3);color:var(--teal-d)}
+  .t2.dom{background:#eef3f9;color:var(--blue)}
+  .excard .q2{font-weight:600;font-size:15px;margin:0 0 11px;line-height:1.4}
+  .excard pre{font-size:12.5px;padding:13px;line-height:1.65}
+  footer{background:var(--navy);color:#aebfd4;padding:38px 0 56px;font-size:14px}
+  footer a{color:#cfe0f5}
+  footer .lock{font-weight:800;color:#fff;font-size:17px;margin-bottom:6px}
+  footer .lock .star{color:var(--teal)}
+  footer .cols{display:flex;gap:48px;flex-wrap:wrap;margin-top:18px}
+  footer .col b{color:#fff;display:block;margin-bottom:8px;font-size:13px;text-transform:uppercase;letter-spacing:1px}
+  footer .col a{display:block;padding:3px 0;color:#aebfd4}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<header>
-  <h1><b>CENTAURI</b></h1>
-  <div class="tag">The database that never forgets.</div>
-  <div class="punch">"Every other database starts empty. A Centauri database starts
-    with a reason — and never forgets it."</div>
-  <div class="cta">
-    <a class="btn primary" href="#download">⬇ Download</a>
-    <a class="btn alt" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
-    <a class="btn ghost" href="ceql.html">📘 The CeQL Book</a>
+<nav><div class="wrap">
+  <span class="brand"><span class="star">✦</span> Centauri</span>
+  <span class="links">
+    <a href="#ask">Ask AI</a>
+    <a href="#agents">For agents</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#playground">Playground</a>
+    <a href="#reference">CeQL Reference</a>
+    <a href="#examples">Examples</a>
+    <a href="#docs">Docs</a>
+    <a href="#download">Download</a>
+    <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
+  </span>
+</div></nav>
+<div class="announce">Centauri <b>v0.3.0</b> — now with built-in topology, native BM25 search, desktop mode &amp; installers. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
+
+<!-- HERO -->
+<div class="hero"><div class="wrap">
+  <div>
+    <h1>The event database that <span class="accent">never forgets.</span></h1>
+    <p class="sub">An open-source, bi-temporal, causal, AI-first event database. Every fact knows its time, cause, source, and trustworthiness — and your agents can reason over all of it.</p>
+    <ul class="checks">
+      <li>Query <b>what was true</b> and <b>what you believed</b> at any moment in time</li>
+      <li>Tamper-evident by design — a SHA-256 chain over every committed fact</li>
+      <li>Ask in plain English; built-in MCP server; ranked BM25 + vector search</li>
+      <li>One binary, zero dependencies, PostgreSQL-style free license</li>
+    </ul>
+    <div class="btns">
+      <a class="btn primary" href="#download">⬇ Download</a>
+      <a class="btn outline" href="#ask">Ask Centauri →</a>
+    </div>
+    <div class="dlhint">Packages for <a href="#download">Windows</a>, <a href="#download">macOS</a>, <a href="#download">Linux</a> · or <code>curl … | sh</code></div>
+    <div class="spon">Centauri by Centauri LLC · sponsored by Proxima360</div>
   </div>
-</header>
+  <div class="heroart">
+    <svg viewBox="0 0 420 360" xmlns="http://www.w3.org/2000/svg" width="100%" role="img" aria-label="Centauri constellation over a bi-temporal grid">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00add8"/><stop offset="1" stop-color="#2f6fb0"/></linearGradient></defs>
+      <rect x="20" y="20" width="380" height="320" rx="14" fill="#0f1b29"/>
+      <g stroke="#24384e" stroke-width="1">
+        <line x1="60" y1="300" x2="380" y2="300"/><line x1="60" y1="40" x2="60" y2="300"/>
+        <line x1="60" y1="240" x2="380" y2="240"/><line x1="60" y1="180" x2="380" y2="180"/><line x1="60" y1="120" x2="380" y2="120"/>
+        <line x1="140" y1="40" x2="140" y2="300"/><line x1="220" y1="40" x2="220" y2="300"/><line x1="300" y1="40" x2="300" y2="300"/>
+      </g>
+      <text x="56" y="324" fill="#6c8099" font-family="monospace" font-size="11">valid time →</text>
+      <text x="34" y="44" fill="#6c8099" font-family="monospace" font-size="11" transform="rotate(-90 34 44)">↑ transaction time</text>
+      <polyline points="80,270 140,270 140,210 220,210 220,150 300,150 300,90 360,90" fill="none" stroke="url(#g)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <g fill="#7fe6ff"><circle cx="110" cy="90" r="4.5"/><circle cx="175" cy="70" r="3"/><circle cx="250" cy="105" r="5.5"/><circle cx="320" cy="70" r="3.5"/><circle cx="300" cy="150" r="4"/><circle cx="220" cy="150" r="3"/></g>
+      <g stroke="#3a6c8f" stroke-width="1.2"><line x1="110" y1="90" x2="175" y2="70"/><line x1="175" y1="70" x2="250" y2="105"/><line x1="250" y1="105" x2="320" y2="70"/><line x1="250" y1="105" x2="300" y2="150"/><line x1="300" y1="150" x2="220" y2="150"/></g>
+      <text x="250" y="128" fill="#9fb6cc" font-family="monospace" font-size="10" text-anchor="middle">α Centauri</text>
+    </svg>
+  </div>
+</div></div>
 
-<h2>Four questions no ordinary database can answer</h2>
-<div class="qgrid">
-  <div class="q"><b>1. What was true at any moment?</b>
-    <span class="mini">Every fact carries its effective time. <code>AS OF '2026-03-15'</code> — or just <code>YESTERDAY</code>.</span></div>
-  <div class="q"><b>2. What did we believe at any moment?</b>
-    <span class="mini">A second clock records when you <i>learned</i> each fact. <code>AS KNOWN AT</code> replays past decisions fairly.</span></div>
-  <div class="q"><b>3. Why did it change?</b>
-    <span class="mini">Causes are stored as first-class links. <code>WHY</code> walks the chain. No war room required.</span></div>
-  <div class="q"><b>4. Can we trust it — and did it land?</b>
-    <span class="mini">Provenance and confidence on every fact. <code>PENDING</code> finds changes that were sent but never applied.</span></div>
-</div>
+<!-- ASK AI -->
+<section id="ask"><div class="wrap">
+  <div class="kicker">Ask Centauri</div>
+  <h2>Ask a question — get an answer <span class="rule">and the query</span>.</h2>
+  <p class="lead">Centauri is built for the agent era: plain-English questions compile to CeQL with deterministic rules (no tokens, no API key), and agents speak CeQL natively over MCP. Try it — ask about the product, or pose a data question and watch it become a query.</p>
+  <div class="ask">
+    <div class="ask-head">🤖 Centauri Assistant <span class="b">powered by Centauri SEARCH (BM25) · runs in your browser</span></div>
+    <div class="ask-body">
+      <div class="ask-in">
+        <input id="ask-q" placeholder="e.g. Does Centauri scale? or: why did the price of toy:robot change?" value="What problems does Centauri solve?">
+        <button id="ask-go">Ask</button>
+      </div>
+      <div class="chips" id="ask-chips"></div>
+      <div class="answer" id="ask-a"></div>
+    </div>
+  </div>
+</div></section>
 
-<h2>CeQL — a query language for time, cause, and trust</h2>
-<pre><code><span class="cm">-- what did the register believe the price was, last Tuesday at 2pm Central?</span>
-<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">FACET</span> register
-  <span class="kw">AS OF</span> <span class="lit">'last week 2pm CST'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span> <span class="kw">WHY</span>
+<!-- AI, NATIVELY -->
+<section id="agents"><div class="wrap">
+  <div class="kicker">AI, natively</div>
+  <h2>How an agent actually <span class="rule">uses Centauri</span>.</h2>
+  <p class="lead">Centauri exposes a <b>native MCP server</b> with 20 typed tools, so an agent calls the database directly — no string-building, no SQL injection, no glue. Here's a real interaction.</p>
 
-<span class="cm">-- where do our systems disagree about price, right now?</span>
-<span class="kw">DISAGREE ON</span> price_cents
+  <div class="demo">
+    <div class="demo-head"><span class="dot" style="background:var(--teal-d)"></span> Agent ↔ Centauri (MCP)</div>
+    <div class="demo-body"><div class="tx">
+      <div class="bub u"><div class="who">user → agent</div>Why is item 100001 cheaper at the register than head office thinks?</div>
+      <div class="toolcall"><span class="cm">// the agent calls one MCP tool — no query string to build</span>
+<span class="fn">centauri_context</span>({ <span class="lit">"subject"</span>: <span class="lit">"item:100001/store:4001"</span> })</div>
+      <div class="toolcall"><span class="cm">// Centauri returns one structured bundle the agent can reason over</span>
+{
+  <span class="lit">"facts"</span>: { register: 1799, storecentral: 2199 },
+  <span class="lit">"disagreements"</span>: { price_cents: [1799, 2199] },
+  <span class="lit">"pending"</span>: [{ facet: <span class="lit">"register"</span>, effective: <span class="lit">"2026-03-10"</span>,
+                 recorded: <span class="lit">"2026-03-12"</span>, activated: false }],
+  <span class="lit">"confidence"</span>: 0.92
+}</div>
+      <div class="bub ai"><div class="who">agent → user</div>The register shows <b>$17.99</b> but head office (storecentral) still shows <b>$21.99</b>. A markdown effective Mar&nbsp;10 reached the register but <b>storecentral never activated it</b> — that's the disagreement. Fix: re-distribute the markdown to storecentral, or retire the stale $21.99 fact.</div>
+    </div></div>
+  </div>
 
-<span class="cm">-- average per facet, only groups with enough data</span>
-<span class="kw">FACTS</span> facet, <span class="kw">COUNT</span>(*), <span class="kw">AVG</span>(price_cents) <span class="kw">OF</span> item:*
-  <span class="kw">GROUP BY</span> facet <span class="kw">HAVING COUNT</span>(*) > 5</code></pre>
-<p>Or skip the syntax: the dashboard translates plain English — <i>"price of
-item X yesterday at 2pm CST"</i> — into CeQL, deterministically, no AI tokens.
-The <a href="ceql.html">full textbook</a> includes a Rosetta Stone mapping
-every Oracle, DB2, PostgreSQL, MongoDB, Cypher, and KSQL idiom to CeQL.</p>
+  <div class="exgrid">
+    <div>
+      <h3>1 · Text or typed AST — agent's choice</h3>
+      <pre><span class="cm">// humans write CeQL text…</span>
+<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">AS OF</span> <span class="lit">'2026-03-15'</span> <span class="kw">WHY</span>
 
-<h2>🏗 The Genesis Engine</h2>
-<p><b>Describe your scenario in plain language.</b> Centauri detects the domain,
-asks a short adaptive interview, then builds everything: validated schemas,
-stored procedures, standing watches, starter queries, sample data. Then it does
-the thing no other database has ever done: <b>it stores that conversation as
-facts inside the database it created.</b> Forever after, <code>FACTS OF blueprint:*</code>
-tells you why your database is shaped the way it is — bi-temporally.</p>
-<p>Databases with birth certificates.</p>
+<span class="cm">// …agents emit the same query as a typed JSON AST —</span>
+<span class="cm">// no parsing, no injection, just a tool call:</span>
+{ <span class="lit">"kind"</span>:<span class="lit">"facts"</span>, <span class="lit">"subject"</span>:<span class="lit">"item:100001/store:4001"</span>,
+  <span class="lit">"as_of"</span>: 1742000000000000, <span class="lit">"why"</span>: true }</pre>
+    </div>
+    <div>
+      <h3>2 · Hybrid retrieval for RAG</h3>
+      <pre><span class="cm">// embed the user's question as an event, then blend</span>
+<span class="cm">// keyword (BM25) + vector recall in one call:</span>
+<span class="kw">SEARCH</span> <span class="lit">'late markdown register'</span> <span class="kw">OF</span> item:*
+  <span class="kw">SIMILAR TO</span> evt:user_question <span class="kw">ALPHA</span> 0.5
 
-<h2>Everything ships in one file</h2>
-<div class="feat">
-  <div class="f"><b>Zero-install dashboard</b><p>Query workbench (scripts, history, visual builder, exportable grids), guided tour, schema &amp; procedure editors — embedded in the binary.</p></div>
-  <div class="f"><b>CePL stored procedures</b><p>Near-English procedures stored as versioned facts, with step-by-step execution traces. PL/SQL, redesigned for auditability.</p></div>
-  <div class="f"><b>AI agents are first-class</b><p>Built-in MCP server: 19 tools for querying, writing, vector search, and Genesis. Your agent speaks CeQL natively.</p></div>
-  <div class="f"><b>Tamper-evident history</b><p>A SHA-256 chain seals every record. <code>centauri verify</code> proves your history is byte-for-byte intact.</p></div>
-  <div class="f"><b>Multitenant environments</b><p>Many isolated databases per server, snapshot cloning, namespaces for shared-schema tenancy, two-tier access tokens.</p></div>
-  <div class="f"><b>Replication &amp; backup</b><p>Readable replicas via log shipping; chain-verified one-command backups.</p></div>
-  <div class="f"><b>Vector search</b><p>Embeddings stored as supersedable, model-attributed enrichments. Re-embed with a better model and search upgrades itself.</p></div>
-  <div class="f"><b>Python SDK</b><p>Zero dependencies. <code>db.add(...)</code>, <code>db.at(..., "yesterday")</code>, <code>db.pump("data.csv")</code>, <code>db.watch()</code>.</p></div>
-</div>
+<span class="cm">// top hits become grounded context for the model</span></pre>
+    </div>
+    <div>
+      <h3>3 · Leak-free training features</h3>
+      <pre><span class="cm"># Python SDK — features exactly as known then,</span>
+<span class="cm"># so the model can't peek at the future:</span>
+row = db.context(<span class="lit">"item:100001/store:4001"</span>,
+                 known_at=<span class="lit">"2026-03-01"</span>)
+<span class="cm"># no label leakage, no train/serve skew</span></pre>
+    </div>
+    <div>
+      <h3>4 · Common agent tool calls</h3>
+      <pre><span class="fn">centauri_ceql</span>(<span class="lit">"PENDING pdt OLDER THAN 21 DAYS"</span>)
+<span class="fn">centauri_asof</span>({subject, at, known_at})  <span class="cm">// decision replay</span>
+<span class="fn">centauri_trace</span>({event, direction:<span class="lit">"cause"</span>}) <span class="cm">// WHY</span>
+<span class="fn">centauri_genesis</span>({scenario})        <span class="cm">// build a DB</span></pre>
+    </div>
+  </div>
+  <p style="color:var(--faint);font-size:13.5px;margin-top:18px">All 20 MCP tools are documented in <a href="ceql.html">The CeQL Book</a> · the JSON AST is the same shape CeQL parses to, so anything you can type, an agent can emit.</p>
+</div></section>
 
-<h2 id="download">Download &amp; run</h2>
-<div class="feat">
-  <div class="f" id="dl-win"><b>🪟 Windows</b>
-    <p><a href="https://github.com/aniljacobv-lab/centauri/releases/latest">⬇ Installer (centauri-setup.exe)</a> —
-    installs like any app: Start menu → <b>Centauri</b> → your browser opens with the
-    dashboard. Data lives in your user profile. <span style="color:var(--dim)">Portable
-    option: download the bare .exe and run <code>centauri desktop</code>.</span></p></div>
-  <div class="f" id="dl-mac"><b>🍎 macOS</b>
-    <p>One line in Terminal:</p>
-    <pre style="margin:8px 0 0">curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
-centauri desktop</pre></div>
-  <div class="f" id="dl-linux"><b>🐧 Linux</b>
-    <p>Same one line (amd64 &amp; arm64 auto-detected):</p>
-    <pre style="margin:8px 0 0">curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
-centauri desktop</pre></div>
-  <div class="f"><b>☁️ Run it in the cloud</b>
-    <p><a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">🚀 Deploy to Render</a> —
-    one click gives you a hosted Centauri with HTTPS in <i>your own</i> cloud account
-    (free/cheap tiers available). Or any VPS/Docker host: see the
-    <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">deployment guide</a>.
-    A fully managed Centauri Cloud is on the roadmap.</p></div>
-</div>
-<p class="mini" style="margin-top:8px">Every download is one self-contained file —
-engine, dashboard, textbook, Genesis. <code>centauri desktop</code> opens your browser
-automatically and keeps your data in your user profile, so there's nothing to configure.
-All releases ship with SHA-256 checksums; history is sealed by a verifiable hash chain.</p>
+<!-- QUICKSTART -->
+<section class="alt" id="quickstart"><div class="wrap">
+  <div class="kicker">Quickstart</div>
+  <h2>From zero to querying in <span class="rule">60 seconds</span>.</h2>
+  <p class="lead">No server to configure, no schema migration to run. Download, seed sample data, and start asking questions of time, cause, and trust.</p>
+  <div class="qs">
+    <div>
+      <h3 style="margin:0 0 10px;font-size:16px;color:var(--dim)">1 · Install &amp; run</h3>
+      <pre><span class="cm"># macOS / Linux</span>
+curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
+centauri seed                 <span class="cm"># load demo data</span>
+centauri desktop              <span class="cm"># opens the dashboard in your browser</span>
+
+<span class="cm"># Windows: download the installer, then Start menu → Centauri</span></pre>
+    </div>
+    <div>
+      <h3 style="margin:0 0 10px;font-size:16px;color:var(--dim)">2 · Ask questions in CeQL</h3>
+      <pre><span class="cm">-- what is true now</span>
+<span class="kw">FACTS OF</span> item:100001/store:4001
+
+<span class="cm">-- what we believed last month about last week</span>
+<span class="kw">FACTS OF</span> item:100001/store:4001
+  <span class="kw">AS OF</span> <span class="lit">'last week'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span>
+
+<span class="cm">-- why did it change? ranked search? the shape of it?</span>
+<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">WHY</span>
+<span class="kw">SEARCH</span> <span class="lit">'late markdown'</span> <span class="kw">OF</span> item:*
+<span class="kw">SHAPE OF</span> item:* <span class="kw">ON</span> price_cents</pre>
+    </div>
+  </div>
+</div></section>
+
+<!-- FEATURES -->
+<section id="features"><div class="wrap">
+  <div class="kicker">Capabilities</div>
+  <h2>One binary. <span class="rule">A lot of database.</span></h2>
+  <p class="lead">No extensions to install, no services to wire up — everything below ships inside a single executable with zero third-party dependencies.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">⏳</div><h3>Bi-temporal core</h3><p>Two clocks on every fact. Nothing is updated or deleted — a change is a new, superseding fact. Ask <code>AS OF</code> any moment, or <code>AS KNOWN AT</code> to replay a past decision fairly.</p></div>
+    <div class="feat"><div class="fi">🔗</div><h3>Causal &amp; tamper-evident</h3><p>Causes are first-class links — <code>WHY</code> walks the chain. A SHA-256 chain seals every record; <code>centauri verify</code> proves your history is byte-for-byte intact.</p></div>
+    <div class="feat"><div class="fi">🔎</div><h3>Search &amp; retrieval</h3><p>Native ranked <code>SEARCH</code> (BM25), semantic <code>SIMILAR</code> over embeddings, and hybrid keyword+vector — the recall of semantics with the precision of keywords.</p></div>
+    <div class="feat"><div class="fi">🧮</div><h3>Built-in topology</h3><p>Persistent homology &amp; sheaf consistency as operators: <code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — clusters, loops, voids, periodicity, and drift no row store can see.</p></div>
+    <div class="feat"><div class="fi">🤖</div><h3>Built for AI agents</h3><p>A native MCP server lets agents speak CeQL directly. Plain-English compiles to queries with no tokens. <code>AS KNOWN AT</code> gives leak-free training features. Genesis builds a database from a description.</p></div>
+    <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>Zero-install dashboard, interactive CeQL textbook, CePL stored procedures, replication &amp; chain-verified backups, multitenant environments, zero-dependency Python SDK.</p></div>
+  </div>
+</div></section>
+
+<!-- PLAYGROUND -->
+<section class="alt" id="playground"><div class="wrap">
+  <div class="kicker">Playground</div>
+  <h2>Play with the ideas — <span class="rule">no install</span>.</h2>
+  <p class="lead">These run entirely in your browser, using the same logic that runs inside Centauri.</p>
+
+  <div class="demo" style="margin-bottom:22px">
+    <div class="demo-head"><span class="dot" style="background:var(--teal-d)"></span> Time travel — “what did we believe, and when?” <span style="margin-left:auto">item:100001/store:4001</span></div>
+    <div class="demo-body">
+      <div class="twocol">
+        <div>
+          <label class="fld">AS OF — <span id="vt-d" style="color:var(--blue)"></span></label>
+          <div class="axis" id="axis"><div class="track"></div></div>
+          <input type="range" id="vt" min="0" max="100" value="62">
+        </div>
+        <div>
+          <label class="fld">AS KNOWN AT — <span id="kt-d" style="color:var(--teal-d)"></span></label>
+          <div style="height:54px"></div>
+          <input type="range" id="kt" min="0" max="100" value="100">
+        </div>
+      </div>
+      <div class="ceql-out" id="d1-ceql"></div>
+      <div class="result"><span class="big" id="d1-price">—</span><span class="note" id="d1-note"></span></div>
+    </div>
+  </div>
+
+  <div class="twocol">
+    <div class="demo">
+      <div class="demo-head"><span class="dot" style="background:var(--blue)"></span> Plain English → CeQL</div>
+      <div class="demo-body">
+        <div class="nlrow"><input id="nl" value="why did the price of toy:robot change?" spellcheck="false"></div>
+        <div class="demochips" id="nl-chips"></div>
+        <div class="ceql-out" id="d2-ceql"></div>
+        <div class="note" id="d2-note" style="color:var(--dim);font-size:14px;margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="demo">
+      <div class="demo-head"><span class="dot" style="background:var(--good)"></span> Tamper-evident history</div>
+      <div class="demo-body">
+        <p style="margin:0 0 14px;color:var(--dim);font-size:14.5px"><b>Edit any record</b> and watch <code>centauri verify</code> catch it.</p>
+        <div class="chain" id="chain"></div>
+        <div class="verify ok" id="verify">✓ centauri verify — history intact</div>
+        <div style="margin-top:12px"><span class="chip" id="reset">↺ reset history</span></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- CeQL REFERENCE -->
+<section id="reference"><div class="wrap">
+  <div class="kicker">Documentation</div>
+  <h2>CeQL reference</h2>
+  <p class="lead">One query language for time, cause, trust, shape, and meaning. Every statement below is documented in full — with a Rosetta Stone from SQL, Cypher, Mongo and more — in <a href="ceql.html">The CeQL Book</a>.</p>
+  <div class="scroll"><table class="ref">
+    <thead><tr><th style="width:200px">Statement</th><th>What it does</th><th style="width:300px">Example</th></tr></thead>
+    <tbody>
+      <tr><td class="s">FACTS OF</td><td>Current facts about a subject (one per facet); add projections, WHERE, GROUP BY, ORDER BY.</td><td class="ex">FACTS OF item:100001/store:4001</td></tr>
+      <tr><td class="s">AS OF</td><td>Time travel — what was true at a given moment (or “yesterday”, “10 days ago”).</td><td class="ex">FACTS OF toy:robot AS OF '2026-03-15'</td></tr>
+      <tr><td class="s">AS KNOWN AT</td><td>The second clock — what you <em>believed</em> at a past moment. The audit query.</td><td class="ex">… AS OF '2026-03-15' AS KNOWN AT '2026-03-01'</td></tr>
+      <tr><td class="s">HISTORY OF</td><td>The full, never-erased timeline of a subject.</td><td class="ex">HISTORY OF item:100001/store:4001</td></tr>
+      <tr><td class="s">WHY / EFFECTS</td><td>Walk the causal graph — what led to an event, or what it caused.</td><td class="ex">FACTS OF toy:robot WHY DEPTH 3</td></tr>
+      <tr><td class="s">PUT / CORRECT / RETIRE</td><td>Write a fact, fix one, or retire it — all append-only; history is kept.</td><td class="ex">PUT toy:robot SET price_cents=500</td></tr>
+      <tr><td class="s">PENDING / DISAGREE</td><td>Operational integrity: changes sent but never activated; systems that disagree.</td><td class="ex">PENDING pdt OLDER THAN 21 DAYS</td></tr>
+      <tr><td class="s">SEARCH <span class="reftag">new</span></td><td>Ranked full-text (BM25) across subjects and text values; hybrid with vectors via SIMILAR&nbsp;TO.</td><td class="ex">SEARCH 'late markdown' OF item:*</td></tr>
+      <tr><td class="s">SIMILAR TO</td><td>Semantic search over embeddings — events that look like this one.</td><td class="ex">SIMILAR TO 0193fa2e-77c1 TOP 5</td></tr>
+      <tr><td class="s">SHAPE <span class="reftag">topology</span></td><td>Persistent homology of a value cloud: clusters (B₀), loops (B₁), voids (B₂), periodicity.</td><td class="ex">SHAPE OF item:* ON price_cents</td></tr>
+      <tr><td class="s">CONSISTENCY <span class="reftag">topology</span></td><td>Sheaf consistency across a subject's facets — agreement clusters + the outlier.</td><td class="ex">CONSISTENCY OF item:1/store:9 ON price_cents</td></tr>
+      <tr><td class="s">CYCLES / DRIFT <span class="reftag">topology</span></td><td>Cycles in the causal graph (integrity); distribution drift over time.</td><td class="ex">DRIFT OF item:* ON price_cents BUCKETS 6</td></tr>
+      <tr><td class="s">CONTEXT FOR</td><td>Everything an AI needs in one call: facts, history, causes, disagreements, confidence.</td><td class="ex">CONTEXT FOR item:100001/store:4001</td></tr>
+      <tr><td class="s">WATCH</td><td>A standing query — stream new facts as they commit.</td><td class="ex">WATCH ALL FACET pdt</td></tr>
+      <tr><td class="s">DEFINE SCHEMA / RUN</td><td>Versioned validation schemas; run CePL stored procedures with a step trace.</td><td class="ex">RUN duty_estimate WITH item='100001'</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<!-- EXAMPLES ACROSS DOMAINS -->
+<section class="alt" id="examples"><div class="wrap">
+  <div class="kicker">Examples across domains</div>
+  <h2>The same operators, <span class="rule">everywhere</span>.</h2>
+  <p class="lead">Centauri isn't a retail tool — the subjects are just names. Here's how each capability reads in healthcare, finance, security, ML, IoT, and more. Every query is real CeQL.</p>
+  <div class="excards">
+
+    <div class="excard"><div class="extags"><span class="t2 cap">AS KNOWN AT</span><span class="t2 dom">Healthcare</span></div>
+      <div class="q2">What labs did the clinician <em>actually</em> have when they prescribed?</div>
+      <pre><span class="cm">-- decision replay: the chart as it was that day</span>
+<span class="kw">CONTEXT FOR</span> patient:8842/encounter:0421
+  <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-02-10'</span></pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">AS OF · AS KNOWN AT</span><span class="t2 dom">Finance / audit</span></div>
+      <div class="q2">Reconstruct the desk's positions exactly as believed at the close.</div>
+      <pre><span class="cm">-- regulators ask "what did you know, and when?"</span>
+<span class="kw">FACTS OF</span> position:*/desk:fx
+  <span class="kw">AS OF</span> <span class="lit">'2026-03-15 16:00 EST'</span>
+  <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-15 16:00 EST'</span></pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">WHY</span><span class="t2 dom">SRE / observability</span></div>
+      <div class="q2">What chain of changes caused the checkout outage?</div>
+      <pre><span class="cm">-- walk the causal graph to the root</span>
+<span class="kw">FACTS OF</span> incident:5521 <span class="kw">WHY</span> <span class="kw">DEPTH</span> 6</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">EFFECTS</span><span class="t2 dom">Security</span></div>
+      <div class="q2">A credential was phished — what did the attacker reach?</div>
+      <pre><span class="cm">-- forward blast radius from one event</span>
+<span class="kw">EFFECTS</span> event:cred-leak-77 <span class="kw">DEPTH</span> 8</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">SEARCH · BM25</span><span class="t2 dom">IT / support</span></div>
+      <div class="q2">Find past incidents about TLS handshake timeouts.</div>
+      <pre><span class="cm">-- ranked full-text, not substring</span>
+<span class="kw">SEARCH</span> <span class="lit">'tls handshake timeout'</span> <span class="kw">OF</span> incident:*</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">SEARCH · hybrid</span><span class="t2 dom">RAG / knowledge</span></div>
+      <div class="q2">Ground the model — keyword + meaning over the runbooks.</div>
+      <pre><span class="cm">-- BM25 recall + vector semantics in one call</span>
+<span class="kw">SEARCH</span> <span class="lit">'pod crashloop oom'</span> <span class="kw">OF</span> runbook:*
+  <span class="kw">SIMILAR TO</span> evt:user_question <span class="kw">ALPHA</span> 0.5</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">SHAPE · topology</span><span class="t2 dom">Fraud</span></div>
+      <div class="q2">Are these transfers forming a <em>ring</em>, not isolated outliers?</div>
+      <pre><span class="cm">-- persistent homology finds the loop a</span>
+<span class="cm">-- threshold rule would miss</span>
+<span class="kw">SHAPE OF</span> transfer:* <span class="kw">ON</span> amount, velocity</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">SHAPE · MAXDIM 2</span><span class="t2 dom">IoT / telecom</span></div>
+      <div class="q2">Do our sensors leave an uncovered hole in the field?</div>
+      <pre><span class="cm">-- a void (Betti-2) = a coverage gap</span>
+<span class="kw">SHAPE OF</span> sensor:* <span class="kw">ON</span> lat, lon, range <span class="kw">MAXDIM</span> 2</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">SHAPE · WINDOW</span><span class="t2 dom">Cardiology</span></div>
+      <div class="q2">Is this heart rhythm periodic — or arrhythmic?</div>
+      <pre><span class="cm">-- a clean loop = regular rhythm; a broken</span>
+<span class="cm">-- one flags arrhythmia (time-delay embedding)</span>
+<span class="kw">SHAPE OF</span> signal:ecg/patient:8842 <span class="kw">ON</span> mv <span class="kw">WINDOW</span> 40</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">DRIFT</span><span class="t2 dom">ML Ops</span></div>
+      <div class="q2">Has the model's input distribution drifted since training?</div>
+      <pre><span class="cm">-- topological drift across time buckets</span>
+<span class="kw">DRIFT OF</span> feature:churn_v3/* <span class="kw">ON</span> value <span class="kw">BUCKETS</span> 8</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">CONSISTENCY · sheaf</span><span class="t2 dom">Healthcare</span></div>
+      <div class="q2">Do EHR, pharmacy &amp; lab agree on this patient's potassium?</div>
+      <pre><span class="cm">-- which system is the outlier, by how much</span>
+<span class="kw">CONSISTENCY OF</span> patient:8842/lab:potassium
+  <span class="kw">ON</span> value <span class="kw">EPS</span> 0.2</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">CYCLES</span><span class="t2 dom">Financial crime</span></div>
+      <div class="q2">Is money flowing in a circle (layering)?</div>
+      <pre><span class="cm">-- a directed cycle in the money graph</span>
+<span class="kw">CYCLES IN CAUSES OF</span> transfer:*</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">PENDING · DISAGREE</span><span class="t2 dom">DevOps / config</span></div>
+      <div class="q2">Which config pushes were sent but never took effect on a host?</div>
+      <pre><span class="cm">-- the silent rollout that never landed</span>
+<span class="kw">PENDING</span> host <span class="kw">OLDER THAN</span> 2 <span class="kw">DAYS</span>
+<span class="kw">DISAGREE ON</span> config_hash</pre></div>
+
+    <div class="excard"><div class="extags"><span class="t2 cap">verify · hash chain</span><span class="t2 dom">Compliance / forensics</span></div>
+      <div class="q2">Prove this chain-of-custody log was never altered.</div>
+      <pre><span class="cm"># recomputes the SHA-256 chain byte-for-byte</span>
+$ centauri verify
+<span class="lit">chain head: 7f3a… · 1,284,902 records · intact ✓</span></pre></div>
+
+  </div>
+</div></section>
+
+<!-- DOCS LINKS -->
+<section id="docs"><div class="wrap">
+  <div class="kicker">Learn more</div>
+  <h2>Documentation &amp; resources</h2>
+  <div class="doclinks">
+    <a class="doc" href="ceql.html"><b>The CeQL Book ↗</b><span>The complete textbook: tutorial, every statement, grammar, and the SQL→CeQL Rosetta Stone.</span></a>
+    <a class="doc" href="https://github.com/aniljacobv-lab/centauri"><b>Source &amp; README ↗</b><span>Architecture, contributing guide, and the zero-dependency Go codebase.</span></a>
+    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md"><b>Deployment guide ↗</b><span>Run on a VPS, Docker, or one-click to Render with HTTPS and a generated token.</span></a>
+    <a class="doc" href="#reference"><b>CeQL reference</b><span>The cheat-sheet above — every statement with a runnable example.</span></a>
+    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/releases"><b>Releases &amp; changelog ↗</b><span>Versioned downloads, checksums, and what changed in each release.</span></a>
+    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/issues/new/choose"><b>Suggest a feature ↗</b><span>File an idea — accepted features are implemented and shipped.</span></a>
+  </div>
+</div></section>
+
+<!-- COMPARE -->
+<section id="compare"><div class="wrap">
+  <div class="kicker">Feature matrix</div>
+  <h2>Where Centauri fits — and where it doesn't</h2>
+  <p class="lead">Centauri is the flight recorder beside your operational stores, not a Postgres replacement. The unvarnished picture, ✗ and all.</p>
+  <div class="scroll"><table class="cmp">
+    <thead><tr><th></th><th class="me">Centauri</th><th>PostgreSQL</th><th>Datomic</th><th>EventStoreDB</th><th>SQLite</th></tr></thead>
+    <tbody>
+      <tr><td>Bi-temporal (valid + transaction time)</td><td class="y">✓</td><td class="n">✗</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Nothing ever erased</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+      <tr><td>Causal links as data</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Tamper-evident hash chain</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Topology / TDA operators</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Native BM25 + hybrid search</td><td class="y">✓</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="p">~</td></tr>
+      <tr><td>Built-in MCP for AI agents</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+      <tr><td>Horizontal scale / sharding</td><td class="n">✗<small>single-node</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+      <tr><td>Data larger than RAM</td><td class="n">✗<small>in-mem index</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+      <tr><td>Standard SQL</td><td class="n">✗<small>CeQL</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+    </tbody>
+  </table></div>
+  <div class="honest" style="margin-top:24px"><b>Honest limits:</b> single-node with read replicas — no clustering/sharding;
+    indexes live in memory, so your data must fit in RAM; no cost-based optimizer.</div>
+</div></section>
+
+<!-- DOWNLOAD -->
+<section class="alt" id="download"><div class="wrap">
+  <div class="kicker">Download</div>
+  <h2>Get Centauri</h2>
+  <p class="lead">Ready-to-run installers and binaries — one self-contained file with the engine, dashboard, textbook, topology, search, and Genesis. Select your operating system:</p>
+  <div class="ostiles">
+    <div class="tile" data-os="win"><span class="ti">🪟</span>Windows</div>
+    <div class="tile" data-os="mac"><span class="ti">🍎</span>macOS</div>
+    <div class="tile" data-os="linux"><span class="ti">🐧</span>Linux</div>
+    <div class="tile" data-os="cloud"><span class="ti">☁️</span>Cloud</div>
+  </div>
+  <div class="dlpanel" id="p-win">
+    <div class="dlrow"><a class="dlbig" href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-windows-setup.exe" download>⬇ centauri-windows-setup.exe</a><span class="dlmeta">latest · Windows 10/11 · 64-bit</span></div>
+    <div class="dlsub">Run it like any app: <b>Start menu → Centauri</b> → your browser opens with the dashboard.<br>
+      Portable instead? <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-windows-amd64.exe" download>centauri-windows-amd64.exe</a> → run <code>centauri desktop</code> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
+  </div>
+  <div class="dlpanel" id="p-mac">
+    <p style="margin:0 0 6px;color:var(--dim)">Install with one line (auto-detects Apple Silicon or Intel):</p>
+    <div class="cmd"><code id="mac-cmd">curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh</code><button class="copy" data-copy="mac-cmd">copy</button></div>
+    <div class="dlsub">Then: <code>centauri desktop</code>. Direct: <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-darwin-arm64" download>Apple Silicon</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-darwin-amd64" download>Intel</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
+  </div>
+  <div class="dlpanel" id="p-linux">
+    <p style="margin:0 0 6px;color:var(--dim)">Install with one line (amd64 &amp; arm64 auto-detected):</p>
+    <div class="cmd"><code id="lin-cmd">curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh</code><button class="copy" data-copy="lin-cmd">copy</button></div>
+    <div class="dlsub">Then: <code>centauri desktop</code>. Direct: <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-amd64" download>linux-amd64</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-arm64" download>linux-arm64</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
+  </div>
+  <div class="dlpanel" id="p-cloud">
+    <div class="dlrow"><a class="dlbig" href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">🚀 Deploy to Render</a><span class="dlmeta">hosted · HTTPS · your account</span></div>
+    <div class="dlsub">One click spins up a hosted Centauri with a generated access token. Any Docker host works too — see the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">deployment guide</a>.</div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="lock"><span class="star">✦</span> Centauri</div>
+  <div>by Centauri LLC · sponsored by Proxima360 — the nearest star to your data.</div>
+  <div class="cols">
+    <div class="col"><b>Product</b><a href="#download">Download</a><a href="#playground">Playground</a><a href="#reference">CeQL reference</a><a href="#compare">Feature matrix</a></div>
+    <div class="col"><b>Docs</b><a href="ceql.html">The CeQL Book</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">Deployment</a><a href="#quickstart">Quickstart</a></div>
+    <div class="col"><b>Project</b><a href="https://github.com/aniljacobv-lab/centauri">GitHub</a><a href="https://github.com/aniljacobv-lab/centauri/releases">Releases</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">License</a></div>
+  </div>
+</div></footer>
+
 <script>
-// highlight the visitor's platform
+/* ---------- shared NL → CeQL translator ---------- */
+function ceqlTranslate(text){
+  const timeRe=/\b(yesterday|today|tomorrow|now|last (?:week|month|year)|\d+\s*(?:minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?)\s*(?:ago|before|back))\b(?:\s*(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight))?(?:\s+(utc|gmt|est|edt|cst|cdt|mst|mdt|pst|pdt|ist|bst|cet|jst|aest))?/i;
+  const olderRe=/older than\s+(\d+)\s*d?a?y?s?/i,clockRe=/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i;
+  const t=text.trim();if(!t)return{err:"say something first"};const lower=t.toLowerCase();
+  let subject="";for(const w of t.replace(/[?!,"']/g,'').split(/\s+/)){if(w.includes(':')&&!clockRe.test(w)){subject=w;break;}}
+  const tm=t.match(timeRe);const timeClause=tm?"'"+tm[0].trim()+"'":"";
+  const belief=/believe|knew|known|thought/.test(lower);const knownClause=(belief&&timeClause)?timeClause:"";
+  const has=(...ws)=>ws.some(w=>lower.includes(w));
+  const needSub=w=>({err:"I can write the "+w+" query — but which subject? Mention it like toy:robot or item:100001/store:4001"});
+  if(has("search","find","keyword","full text","look for")){
+    let phrase;const m=t.match(/'([^']+)'|"([^"]+)"/);
+    if(m){phrase=m[1]||m[2];}
+    else{phrase=t.replace(/\b(search|find|look for|looking for|keyword|full text|for|in|the)\b/gi,'').replace(/[?]/g,'').trim();if(subject)phrase=phrase.replace(subject,'').trim();}
+    return{q:"SEARCH '"+(phrase||"…")+"' OF "+(subject||"item:*"),note:"ranked BM25 full-text search"};
+  }
+  if(has("pending","stuck","wedge","never activated")){let f="pdt";for(const x of["pdt","register","shelf","storecentral","source"])if(lower.includes(x)){f=x;break;}let q="PENDING "+f;const m=lower.match(olderRe);if(m)q+=" OLDER THAN "+m[1]+" DAYS";return{q,note:"wedge scan — distributed but never activated"};}
+  if(has("disagree","conflict","mismatch","don't match","differ")){let field="price_cents";const i=lower.indexOf(" on ");if(i>=0){const r=lower.slice(i+4).split(/\s+/);if(r[0])field=r[0].replace(/[?.!,]/g,'');}return{q:"DISAGREE ON "+field,note:"subjects whose facets disagree"};}
+  if(has("shape","topology","cluster","loop","periodic","seasonal")){return{q:"SHAPE OF "+(subject||"item:*")+" ON price_cents",note:"persistent homology of the value cloud"};}
+  if(has("history","timeline","all changes","everything that happened"))return subject?{q:"HISTORY OF "+subject,note:"the full never-erased timeline"}:needSub("HISTORY");
+  if(has("why","cause","what led","reason"))return subject?{q:"FACTS OF "+subject+" WHY DEPTH 3",note:"current facts with their causal chains"}:needSub("WHY");
+  if(has("context","everything about","tell me about","brief me")){if(!subject)return needSub("CONTEXT");let q="CONTEXT FOR "+subject;if(knownClause)q+=" AS KNOWN AT "+knownClause;return{q,note:"the full reasoning bundle"};}
+  if(has("how many","count","stats","statistics"))return{q:"STATS",note:"store counters"};
+  if(has("schemas","schema"))return{q:"SCHEMAS",note:"registered schemas"};
+  if(!subject)return needSub("FACTS");
+  let q="FACTS OF "+subject;if(timeClause)q+=" AS OF "+timeClause;if(knownClause)q+=" AS KNOWN AT "+knownClause;
+  let note=timeClause?"facts as of that moment":"current facts";if(knownClause)note+=", as known then";return{q,note};
+}
+function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DISAGREE ON|SHAPE OF|SEARCH|PENDING|STATS|SCHEMAS|SUBJECTS|AS OF|AS KNOWN AT|WHY|DEPTH|OLDER THAN|DAYS|LIMIT|FACET|ON|OF)\b/g,'<span class="kw">$1</span>').replace(/('[^']*')/g,'<span class="lit">$1</span>');}
+
+/* ---------- ASK: Centauri-powered (BM25 over a KB of facts) ---------- */
 (function(){
-  const p = navigator.platform + " " + navigator.userAgent;
-  const id = /Win/i.test(p) ? "dl-win" : /Mac/i.test(p) ? "dl-mac" : "dl-linux";
-  const el = document.getElementById(id);
-  if (el) { el.style.borderColor = "var(--accent)"; el.style.boxShadow = "0 0 0 1px var(--accent)"; }
+  // Knowledge base — modeled as Centauri "facts" (subject + tags + answer),
+  // retrieved with Centauri's own BM25 ranking ported to the browser.
+  const KB=[
+    {q:"What is Centauri",t:"what is overview about definition bi-temporal causal event database introduction",
+      a:"Centauri is an open-source <b>bi-temporal, causal, AI-first event database</b>. Unlike ordinary databases that overwrite the past, it keeps every fact on two clocks — when it was true, and when you learned it — so you can query what was true at any moment, replay what you believed when you decided, trace why anything changed, prove your history wasn't tampered with, and give AI agents a memory they can reason over."},
+    {q:"What problems does Centauri solve",t:"problems solve use cases pain points why what for",
+      a:"Four questions ordinary databases can't answer: <b>what was true</b> at a past moment, <b>what we believed</b> then, <b>why</b> something changed, and whether the record was <b>tampered with</b>. It also catches changes that were sent but never landed (<code>PENDING</code>/<code>DISAGREE</code>), and gives agents point-in-time, provenance-aware memory."},
+    {q:"Does Centauri scale larger than RAM sharding cluster",t:"scale scaling ram memory sharding cluster volume capacity big data petabyte how much data limits",
+      a:"Centauri is a <b>single-node engine with read replicas</b> — indexes live in memory, so the working set must fit in RAM. It's the system of record for facts that matter (prices, decisions, state changes, audit) — a flight recorder beside your operational stores, not a petabyte warehouse. For large estates, shard by tenant/banner/region and keep the high-volume firehose in a columnar store."},
+    {q:"Is it free and what is the license",t:"free license cost open source pricing money commercial paid",
+      a:"Yes — <b>free and open source</b> under a PostgreSQL-style permissive license. No paid tiers, no telemetry."},
+    {q:"How is Centauri different from PostgreSQL",t:"postgresql postgres compare versus difference replace relational sql",
+      a:"It isn't a Postgres replacement — it's the layer Postgres doesn't have: bi-temporal history, causal lineage, tamper-evidence, topology, native search, and an agent-native interface. Run it <em>beside</em> Postgres as the system of record for what happened, when, why, and how much to trust it. See the <a href='#compare'>feature matrix</a>."},
+    {q:"How does it compare to Oracle DB2 SQL Server MongoDB",t:"compare comparison versus oracle db2 sqlserver sql server mongodb mongo mysql cassandra snowflake elasticsearch alternative replace traditional rdbms warehouse",
+      a:"Centauri <em>complements</em> traditional databases (Oracle, DB2, SQL Server, MongoDB, etc.) rather than replacing them. They remain your high-volume operational store; Centauri sits beside them as the bi-temporal, causal, tamper-evident record of change — the part those engines don't do. Compared to bitemporal add-ons (e.g. Oracle Flashback / DB2 time-travel tables), Centauri makes time, cause, trust, search, and topology first-class in one zero-dependency binary."},
+    {q:"What is bi-temporal valid and transaction time",t:"bitemporal bi-temporal two clocks valid transaction time as of as known at time travel history audit replay",
+      a:"Two independent clocks on every fact: <b>valid time</b> (when it was true in the world) and <b>transaction time</b> (when Centauri learned it). <code>AS OF</code> travels valid time; <code>AS KNOWN AT</code> travels transaction time — together they replay exactly what you believed at any past moment, which is the fair way to audit a decision."},
+    {q:"What is CeQL the query language",t:"ceql query language syntax sql grammar how to query",
+      a:"CeQL is Centauri's query language — time, cause, trust, shape, and meaning are syntax, not afterthoughts. One semantics, three surfaces: humans write text, agents emit the JSON AST, legacy speaks REST. See the <a href='#reference'>CeQL reference</a> and <a href='ceql.html'>The CeQL Book</a>."},
+    {q:"Full-text search BM25",t:"search full text bm25 keyword find lookup ranked relevance inverted index elasticsearch",
+      a:"Native ranked full-text search: <code>SEARCH 'late markdown' OF item:*</code> scores results with <b>BM25</b> (pure Go, no inverted index to maintain), and is bi-temporal like everything else. This assistant is powered by that same engine."},
+    {q:"Hybrid keyword and vector search RAG retrieval",t:"hybrid vector semantic embedding similar rag retrieval knn cosine",
+      a:"<code>SEARCH '…' SIMILAR TO &lt;event&gt; ALPHA 0.5</code> blends BM25 keyword scores with embedding similarity — the recall of semantics with the precision of keywords. Embeddings are stored as supersedable facts, so retrieval improves as you re-embed."},
+    {q:"Built-in topology shape clusters loops voids drift periodicity",t:"topology shape homology cluster loop void periodic seasonal drift consistency cycles tda persistent",
+      a:"Topology operators see the <em>shape</em> of your data: <code>SHAPE</code> (persistent homology — clusters/loops/voids/periodicity), <code>CONSISTENCY</code> (sheaf agreement across systems + the outlier), <code>CYCLES</code> (causal-graph integrity), and <code>DRIFT</code> (distribution change over time) — patterns no SQL can express. Pure Go, zero deps."},
+    {q:"Built for AI agents MCP",t:"ai agent agents mcp llm model context protocol gateway assistant copilot tools",
+      a:"A native <b>MCP server</b> lets agents speak CeQL directly as typed tool calls — query, write, search, run Genesis. No glue code, no prompt-mangled SQL. Plus plain-English→CeQL with no tokens, and a one-call <code>CONTEXT FOR</code> bundle that hands an agent everything it needs about a subject."},
+    {q:"Ask in plain English natural language",t:"natural language english plain translate nl no tokens deterministic ask",
+      a:"Type a question in English and Centauri compiles it to CeQL with <b>deterministic rules</b> — no tokens, no API key, no hallucinated SQL. Try the “Plain English → CeQL” box in the <a href='#playground'>Playground</a>."},
+    {q:"Leak-free training data point in time features for ML",t:"ml machine learning training features leakage point in time skew model rag pipeline data science",
+      a:"<code>AS KNOWN AT</code> reconstructs features exactly as they were known at prediction time — eliminating the training-serving skew and label leakage that quietly wreck models. It's the clean way to build historical training sets and reproducible RAG context."},
+    {q:"Genesis engine builds a database from a description",t:"genesis build generate scaffold interview blueprint create schema describe",
+      a:"Describe a domain in plain language; the <b>Genesis Engine</b> detects it, runs a short interview, then builds the schemas, procedures, watches, and starter data — and stores that conversation as facts inside the database it created. Databases with birth certificates."},
+    {q:"CePL stored procedures",t:"cepl stored procedure function plsql logic run trace",
+      a:"<b>CePL</b> is near-English stored procedures, kept as versioned facts with a step-by-step execution trace — PL/SQL rebuilt for auditability. Call them with <code>RUN &lt;proc&gt; WITH …</code>."},
+    {q:"Schemas validation",t:"schema schemas validation define types required constraints versioned",
+      a:"Define versioned, append-only schemas with <code>DEFINE SCHEMA</code>; writes that break a schema are rejected. Schemas evolve without migrations — new versions supersede old ones, and the history is kept like everything else."},
+    {q:"Replication and backup",t:"replication replica backup follow ship durability disaster recovery log shipping",
+      a:"Readable replicas via log shipping (<code>centauri follow</code>), and chain-verified one-command backups (<code>centauri backup</code>) that prove the copy is byte-for-byte intact."},
+    {q:"Multitenant environments and namespaces",t:"multitenant tenant namespace environments isolation token per customer saas",
+      a:"Many isolated databases per server, snapshot cloning, namespaces for shared-schema tenancy (a subject's first segment is its namespace), and two-tier access tokens."},
+    {q:"Tamper-evident hash chain verify integrity",t:"tamper verify hash chain integrity audit sha256 trust proof immutable",
+      a:"Every committed fact is sealed into a <b>SHA-256 chain</b>. <code>centauri verify</code> recomputes it byte-for-byte and points at the exact record where anything changed — and everything downstream of it. Try the tamper demo in the <a href='#playground'>Playground</a>."},
+    {q:"Why did it change causality lineage",t:"why cause causal lineage effects root cause reason explain trace",
+      a:"Causes are first-class links. <code>WHY</code> walks the chain back to the root; <code>EFFECTS</code> walks it forward. No more war-room archaeology to explain a value."},
+    {q:"Pending wedge changes that never landed",t:"pending wedge disagree never activated landed sync price register retail silent failure distributed",
+      a:"Centauri models each system as a <em>facet</em> of reality and tracks whether a change was distributed but never activated. <code>PENDING pdt OLDER THAN 21 DAYS</code> finds silent failures; <code>DISAGREE ON price_cents</code> finds systems that disagree right now."},
+    {q:"How do I install and download",t:"install download setup get started run binary windows mac macos linux installer curl",
+      a:"From the <a href='#download'>Download</a> section: a Windows installer, or one line on macOS/Linux (<code>curl … | sh</code>). Then <code>centauri desktop</code> opens the dashboard in your browser — see the <a href='#quickstart'>Quickstart</a>."},
+    {q:"Desktop mode and dashboard",t:"desktop dashboard browser ui run start gui interface workbench",
+      a:"<code>centauri desktop</code> keeps your data in your user profile and opens a zero-install dashboard — a query workbench, visual builder, live feed, and the interactive CeQL textbook, all embedded in the binary."},
+    {q:"Deployment Docker Render cloud hosting",t:"deploy deployment docker render cloud host server vps https kubernetes container production",
+      a:"One-click <a href='https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri'>Deploy to Render</a> (HTTPS + generated token in your own account), or any Docker host. See the <a href='https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md'>deployment guide</a>."},
+    {q:"Python SDK",t:"python sdk client library api code programmatic",
+      a:"A zero-dependency Python SDK: <code>db.add()</code>, <code>db.at('yesterday')</code>, <code>db.pump('data.csv')</code>, <code>db.watch()</code>."},
+    {q:"Data model event fact facet subject",t:"data model event fact facet subject value provenance confidence atom structure schema",
+      a:"The atom is an <b>Event</b>: a fact about a <em>subject</em>, on a <em>facet</em> (register, shelf, source…), with a value, two timestamps, provenance, confidence, and causal links. Events are immutable; only supersession markers are added."},
+    {q:"Does it support delete or update",t:"delete update modify edit retire supersede immutable append change remove",
+      a:"There is no destructive update or delete. An “update” is a new superseding fact; a “delete” is <code>RETIRE</code> (the current fact stops applying, but history is kept). Nothing is ever erased — that's the whole point."},
+    {q:"Streaming and watch standing queries",t:"watch stream subscribe live realtime trigger standing query feed notify events",
+      a:"<code>WATCH</code> is a standing query — stream every new fact (or a filtered subset) as it commits. The dashboard's live feed and SDK <code>db.watch()</code> ride the same channel."},
+    {q:"Performance and speed",t:"performance fast speed latency throughput benchmark memory in-memory",
+      a:"Reads serve from in-memory indexes (sub-millisecond point queries); writes are append-then-apply with a durable log. It's built for correctness and rich queries over a working set that fits in RAM, not for petabyte OLAP."},
+    {q:"Security tokens access control",t:"security token auth authentication access read-only encryption permission",
+      a:"Two-tier bearer tokens gate the HTTP API (a full token and a read-only token). Encryption-at-rest with crypto-erasure is on the roadmap. Followers can be run read-only."},
+    {q:"Retail pricing use case",t:"retail price markdown store sku inventory promotion register pos use case",
+      a:"Centauri shines at retail price/promo integrity: did the markdown reach the register? where do POS and ERP disagree? what price did we believe at the moment of sale? — answered with <code>PENDING</code>, <code>DISAGREE</code>, <code>CONSISTENCY</code>, and <code>AS KNOWN AT</code>."},
+    {q:"Who made Centauri Proxima360",t:"who made author company proxima360 centauri llc team built sponsor",
+      a:"Centauri is by <b>Centauri LLC</b>, sponsored by <b>Proxima360</b> — the nearest star to your data. Source is on <a href='https://github.com/aniljacobv-lab/centauri'>GitHub</a>."},
+    {q:"Roadmap future plans",t:"roadmap future encryption clustering plans coming soon next managed cloud",
+      a:"On the roadmap: encryption-at-rest with crypto-erasure, an ANN index for vectors at scale, and a fully managed Centauri Cloud. Single-node clustering/sharding is intentionally out of scope — partition by tenant instead."},
+  ];
+  function tok(s){const o=[];let b="";for(const ch of s.toLowerCase()){if(/[a-z0-9]/.test(ch))b+=ch;else if(b){o.push(b);b="";}}if(b)o.push(b);return o;}
+  function uniq(a){const s=new Set(),o=[];for(const x of a)if(!s.has(x)){s.add(x);o.push(x);}return o;}
+  const docs=KB.map(e=>tok(e.q+" "+e.t));
+  function rankBM25(qterms,k1,b){
+    k1=1.5;b=0.75;const n=docs.length,qset=new Set(qterms),df={},tfs=[];let total=0;
+    for(const d of docs){total+=d.length;const tf={};for(const w of d)if(qset.has(w))tf[w]=(tf[w]||0)+1;for(const w in tf)df[w]=(df[w]||0)+1;tfs.push(tf);}
+    const avg=total/n||1,idf={};for(const t of qset)idf[t]=Math.log(1+(n-(df[t]||0)+0.5)/((df[t]||0)+0.5));
+    const out=[];
+    for(let i=0;i<n;i++){const tf=tfs[i];if(!Object.keys(tf).length)continue;const dl=docs[i].length;let s=0;
+      for(const t in tf){const f=tf[t];s+=idf[t]*(f*(k1+1))/(f+k1*(1-b+b*dl/avg));}out.push({i,s});}
+    out.sort((a,b)=>b.s-a.s);return out;
+  }
+  const a=document.getElementById('ask-a'),inp=document.getElementById('ask-q');
+  function answer(text){
+    const r=rankBM25(uniq(tok(text)));
+    let html='<div class="q">Q: '+text.replace(/</g,'&lt;')+'</div>';
+    if(r.length && r[0].s>=0.5){html+=KB[r[0].i].a;}
+    else{html+="I don't have a canned answer for that yet — try asking about features, install, scaling, search, topology, AI, or how Centauri compares to other databases. (This assistant retrieves from a knowledge base ranked by Centauri's BM25 search.)";}
+    const tr=ceqlTranslate(text);
+    if(!tr.err && (text.includes(':')||/\b(why|history|search|pending|disagree|shape|drift|consistency|context|stats|as of|as known|similar)\b/i.test(text))){
+      html+='<div style="margin-top:10px;color:var(--dim);font-size:13.5px">As a data query, that compiles to:</div><div class="ceql">'+ceqlHL(tr.q)+'</div>';
+    }
+    a.innerHTML=html;a.classList.add('show');
+  }
+  document.getElementById('ask-go').onclick=()=>answer(inp.value);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')answer(inp.value);});
+  const qs=["What problems does Centauri solve?","Does Centauri scale?","How does it compare to Oracle or DB2?","Is it free?","Does it do full-text search?","Can my AI agent use it?","How do I install it?","why did the price of toy:robot change?"];
+  qs.forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;c.onclick=()=>{inp.value=s;answer(s);};document.getElementById('ask-chips').appendChild(c);});
+  answer(inp.value);
+})();
+
+/* ---------- download tiles + OS detect + copy ---------- */
+(function(){
+  const p=navigator.platform+" "+navigator.userAgent;
+  const def=/Mac/i.test(p)?"mac":/Linux|X11/i.test(p)?"linux":"win";
+  function show(os){
+    document.querySelectorAll(".tile").forEach(t=>t.classList.toggle("active",t.dataset.os===os));
+    document.querySelectorAll(".dlpanel").forEach(pn=>pn.classList.toggle("active",pn.id==="p-"+os));
+  }
+  document.querySelectorAll(".tile").forEach(t=>t.onclick=()=>show(t.dataset.os));show(def);
+  document.querySelectorAll(".copy").forEach(b=>b.onclick=()=>{
+    const t=document.getElementById(b.dataset.copy).textContent;
+    navigator.clipboard&&navigator.clipboard.writeText(t);
+    const o=b.textContent;b.textContent="copied ✓";setTimeout(()=>b.textContent=o,1400);
+  });
+})();
+
+/* ---------- DEMO 1: time travel ---------- */
+(function(){
+  const START=Date.UTC(2026,0,1),END=Date.UTC(2026,5,13),span=END-START;
+  const ev=[
+    {ef:Date.UTC(2026,0,1),rec:Date.UTC(2026,0,1),p:1999,why:"launch price"},
+    {ef:Date.UTC(2026,1,14),rec:Date.UTC(2026,1,14),p:2499,why:"seasonal raise"},
+    {ef:Date.UTC(2026,1,14),rec:Date.UTC(2026,2,15),p:2299,why:"correction: raise was overstated"},
+    {ef:Date.UTC(2026,2,10),rec:Date.UTC(2026,2,12),p:1799,why:"markdown (entered 2 days late)"},
+    {ef:Date.UTC(2026,3,1),rec:Date.UTC(2026,3,1),p:2199,why:"spring reset"},
+    {ef:Date.UTC(2026,4,20),rec:Date.UTC(2026,4,20),p:1599,why:"clearance"}];
+  const vt=document.getElementById('vt'),kt=document.getElementById('kt');
+  const fmt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+  const usd=c=>'$'+(c/100).toFixed(2),pos=t=>(t-START)/span*100;
+  const axis=document.getElementById('axis');
+  ev.forEach((e,i)=>{const d=document.createElement('div');d.className='ev';d.dataset.i=i;d.style.left=pos(e.ef)+'%';d.title=usd(e.p)+' — '+e.why;axis.appendChild(d);});
+  const vh=document.createElement('div');vh.className='vh';axis.appendChild(vh);
+  ['Jan','Feb','Mar','Apr','May','Jun'].forEach((m,i)=>{const l=document.createElement('div');l.className='lbl';l.textContent=m;l.style.left=pos(Date.UTC(2026,i,1))+'%';axis.appendChild(l);});
+  function render(){
+    const D=START+span*(vt.value/100),K=START+span*(kt.value/100);
+    document.getElementById('vt-d').textContent=fmt(D);
+    document.getElementById('kt-d').textContent=(kt.value>=100?'now':fmt(K));
+    vh.style.left=pos(D)+'%';
+    let best=null;ev.forEach(e=>{if(e.rec<=K&&e.ef<=D){if(!best||e.ef>best.ef||(e.ef===best.ef&&e.rec>best.rec))best=e;}});
+    axis.querySelectorAll('.ev').forEach(d=>d.classList.toggle('active',best&&+d.dataset.i===ev.indexOf(best)));
+    const known=kt.value>=100?'now':"'"+fmt(K)+"'";
+    document.getElementById('d1-ceql').innerHTML='<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">FACET</span> register\n  <span class="kw">AS OF</span> <span class="lit">\''+fmt(D)+'\'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'+known+'</span>';
+    const price=document.getElementById('d1-price'),note=document.getElementById('d1-note');
+    if(!best){price.textContent='∅';price.style.color='var(--faint)';note.textContent='Nothing known yet — no fact had been recorded by then.';return;}
+    price.textContent=usd(best.p);price.style.color='var(--good)';
+    let n='“'+best.why+'.”';
+    const corrected=ev.some(e=>e.ef===best.ef&&e.rec>best.rec&&e.rec>K);
+    if(corrected)n+=' A later correction exists, but you didn\'t know it yet on this date.';
+    if(best.rec>best.ef)n+=' (Recorded '+fmt(best.rec)+', '+Math.round((best.rec-best.ef)/864e5)+' days after it took effect.)';
+    note.textContent=n;
+  }
+  vt.oninput=kt.oninput=render;render();
+})();
+
+/* ---------- DEMO 2: NL -> CeQL ---------- */
+(function(){
+  const nl=document.getElementById('nl'),out=document.getElementById('d2-ceql'),note=document.getElementById('d2-note');
+  function run(){const r=ceqlTranslate(nl.value);if(r.err){out.innerHTML='<span style="color:var(--warn)">'+r.err+'</span>';note.textContent='';return;}out.innerHTML=ceqlHL(r.q);note.textContent='→ '+r.note;}
+  nl.addEventListener('input',run);
+  ["why did the price of toy:robot change?","price of item:100001/store:4001 yesterday at 2pm CST","search 'penny' in item:*","is the price periodic for item:55/store:9","where do systems disagree on price_cents"].forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;c.onclick=()=>{nl.value=s;run();};document.getElementById('nl-chips').appendChild(c);});
+  run();
+})();
+
+/* ---------- DEMO 3: hash chain ---------- */
+(function(){
+  const seed=[{s:"item:100001 price=1999"},{s:"item:100001 price=2499"},{s:"link cause=promo:spring"},{s:"item:100001 price=1599"}];
+  let recs,sealed=[];const chain=document.getElementById('chain'),verify=document.getElementById('verify'),enc=new TextEncoder();
+  async function sha(str){const b=await crypto.subtle.digest('SHA-256',enc.encode(str));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+  async function chainHashes(data){const out=[];let prev="genesis";for(const d of data){const h=await sha(prev+"|"+d);out.push(h);prev=h;}return out;}
+  async function build(){
+    recs=seed.map(x=>({...x}));sealed=await chainHashes(recs.map(r=>r.s));chain.innerHTML='';
+    recs.forEach((r,i)=>{
+      if(i){const l=document.createElement('div');l.className='link';l.textContent='→';chain.appendChild(l);}
+      const b=document.createElement('div');b.className='block';b.dataset.i=i;
+      b.innerHTML='<div class="bn">record #'+i+'</div><input value="'+r.s.replace(/"/g,'&quot;')+'"><div class="bn">sha →</div><div class="h">'+sealed[i].slice(0,16)+'…</div>';
+      b.querySelector('input').addEventListener('input',e=>{recs[i].s=e.target.value;recheck();});chain.appendChild(b);
+    });recheck();
+  }
+  async function recheck(){
+    const now=await chainHashes(recs.map(r=>r.s));let broke=-1;
+    chain.querySelectorAll('.block').forEach((b,i)=>{const bad=now[i]!==sealed[i];b.classList.toggle('broken',bad);b.querySelector('.h').textContent=now[i].slice(0,16)+'…';if(bad&&broke<0)broke=i;});
+    if(broke<0){verify.className='verify ok';verify.textContent='✓ centauri verify — history intact';}
+    else{verify.className='verify fail';verify.textContent='✗ centauri verify — chain breaks at record #'+broke+' (and every record after it)';}
+  }
+  document.getElementById('reset').onclick=build;build();
 })();
 </script>
-
-<h2>Honest limits</h2>
-<div class="honest"><b>What Centauri is not (yet):</b> it's a single-node engine
-with read replicas — no clustering or sharding. Indexes live in memory, so your
-data must fit in RAM. There's no cost-based optimizer. Encryption at rest with
-crypto-erasure is on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/ROADMAP.md">roadmap</a>.
-Centauri isn't a Postgres replacement — it's the <b>flight recorder</b> beside
-your operational stores: the system of record for what happened, when, why,
-and how much to trust it.</div>
-
-<footer>
-  Free and open source under a <a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">PostgreSQL-style license</a>
-  · <a href="https://github.com/aniljacobv-lab/centauri">Source</a>
-  · <a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a> (an AI implements accepted ones)
-  · Built by Proxima360 and contributors — human and otherwise
-</footer>
-
-</div>
 </body>
 </html>

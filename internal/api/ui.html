@@ -1426,6 +1426,50 @@ function renderQueryResult(r, out, meta){
       };
       break;
     }
+    case "search":
+      h = `<h3>🔎 ${(r.hits || []).length} result(s) for “${esc(r.query)}”${r.hybrid ? " (hybrid)" : ""}</h3>
+        <div class="mini" style="margin-bottom:8px">terms: ${(r.terms || []).map(esc).join(", ")}</div>` +
+        (r.hits || []).map((hit, i) => {
+          const e = hit.event || {};
+          return `<div class="mini" style="margin:6px 0;border-left:2px solid var(--line);padding-left:10px">
+            <b>${i + 1}.</b> <a href="#" onclick="select(${jsAttr(e.subject)});return false">${esc(e.subject)}</a>
+            <span class="badge b-type">${esc(e.facet || "")}</span>
+            <span style="color:var(--good)">score ${(+hit.score).toFixed(3)}</span>
+            ${hit.bm25 !== undefined ? `<span style="color:var(--dim)"> · bm25 ${(+hit.bm25).toFixed(2)}</span>` : ""}
+            ${hit.vector !== undefined ? `<span style="color:var(--dim)"> · vec ${(+hit.vector).toFixed(2)}</span>` : ""}
+            <br>${fmtVal(e.value || {})}</div>`;
+        }).join("");
+      break;
+    case "shape": {
+      const bett = (r.betti || []).map((b, i) => `Betti${"₀₁₂₃"[i] || i}=${b}`).join(", ");
+      const voids = (r.betti2 !== undefined) ? `, <b>${r.betti2} void(s)</b>` : "";
+      h = `<h3>🧮 Shape — ${bett}</h3>
+        <div class="mini">${(r.points || 0)} points · ${esc(r.mode || "")} · ${esc(r.metric || "euclidean")} · scale ${(+r.scale).toFixed(3)}</div>
+        <div class="mini" style="margin-top:6px">${r.betti0} cluster(s), <b>${r.betti1 || 0} loop(s)</b>${voids}</div>` +
+        ((r.pairs || []).length ? `<table style="margin-top:8px"><tr><th>class</th><th>birth</th><th>death</th><th>persistence</th></tr>` +
+          r.pairs.map(p => `<tr><td>H${p.dim}</td><td>${(+p.birth).toFixed(3)}</td><td>${(+p.death).toFixed(3)}</td><td><b>${(p.death - p.birth).toFixed(3)}</b></td></tr>`).join("") + `</table>` : "");
+      break;
+    }
+    case "consistency":
+      h = `<h3>${r.consistent ? "✓" : "⚡"} Consistency of ${esc(r.subject)} on “${esc(r.field)}”</h3>
+        <div class="mini">${esc(r.note)}</div>
+        <div class="mini" style="margin-top:6px">agreement clusters: <b>${r.components}</b> · inconsistency score: <b>${(+r.score).toFixed(2)}</b>${r.outlier ? ` · outlier facet: <b>${esc(r.outlier)}</b>` : ""}</div>
+        <table style="margin-top:8px"><tr><th>facet</th><th>${esc(r.field)}</th></tr>` +
+        Object.entries(r.facets || {}).map(([f, v]) => `<tr><td>${esc(f)}${f === r.outlier ? " ⚠" : ""}</td><td>${esc(String(v))}</td></tr>`).join("") + `</table>`;
+      break;
+    case "cycles":
+      h = `<h3>${r.found ? "⚠" : "✓"} Causal cycles</h3>
+        <div class="mini">${esc(r.note)} (scanned ${r.edges} edge(s))</div>` +
+        (r.found ? `<div class="mini" style="color:var(--bad);margin-top:6px;font-family:var(--mono)">${(r.cycle || []).map(esc).join(" → ")}</div>` : "");
+      break;
+    case "drift": {
+      const s = r.series || [], mx = Math.max(1, ...s);
+      h = `<h3>📈 Drift of “${esc(r.field)}” — peak ${(+r.max_drift).toFixed(3)}</h3>
+        <div class="mini">${esc(r.note)}</div>` +
+        s.map((d, i) => `<div class="mini" style="margin:3px 0">bucket ${i}→${i + 1}
+          <span style="display:inline-block;height:9px;border-radius:3px;background:var(--accent);width:${Math.max(2, 140 * d / mx)}px;vertical-align:middle"></span> ${(+d).toFixed(3)}</div>`).join("");
+      break;
+    }
     default:
       h = `<h3>${esc(r.kind || "result")}</h3><pre>${esc(JSON.stringify(r, null, 2))}</pre>`;
   }

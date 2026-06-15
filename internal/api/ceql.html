@@ -62,7 +62,9 @@ One language. Three speakers: humans, AI agents, and legacy systems.</div>
 <a href="#schemas">9. Schemas</a>
 <a href="#live">10. Standing queries: WATCH</a>
 <a href="#ai">11. AI: SIMILAR &amp; CONTEXT</a>
+<a href="#search">11¾. Full-text search: SEARCH (BM25 + hybrid)</a>
 <a href="#ops">12. Operations: PENDING, DISAGREE…</a>
+<a href="#topology">12½. Topology: SHAPE, CONSISTENCY, CYCLES, DRIFT</a>
 <a href="#rosetta">13. The Rosetta Stone</a>
 <a href="#agents">14. For agents: the JSON AST</a>
 <a href="#grammar">15. Grammar reference</a>
@@ -242,6 +244,25 @@ trust-ranked winner, pending wedges, AI enrichments, schemas, and a confidence
 summary. With <code>AS KNOWN AT</code> it reconstructs the bundle as it stood at
 any past moment — the fair way to audit a past (human or AI) decision.</p>
 
+<h2 id="search">11¾. Full-text search — SEARCH</h2>
+<p>Beyond <code>MATCHES</code> (a plain substring scan), <span class="kw">SEARCH</span> ranks
+results by relevance using <b>BM25</b> — the same scoring family that powers search engines —
+computed in a single pass, in pure Go, with no inverted index to maintain. It is bi-temporal like
+everything else, and it can blend with vector similarity for hybrid retrieval.</p>
+<pre><code><span class="cm">-- ranked keyword search across subjects and text values</span>
+<span class="kw">SEARCH</span> <span class="lit">'late markdown'</span> <span class="kw">OF</span> item:* <span class="kw">LIMIT</span> 10
+
+<span class="cm">-- hybrid: blend BM25 with embedding similarity to a reference event</span>
+<span class="cm">-- ALPHA 1.0 = pure keyword … 0.0 = pure semantic (default 0.5)</span>
+<span class="kw">SEARCH</span> <span class="lit">'markdown'</span> <span class="kw">OF</span> item:* <span class="kw">SIMILAR TO</span> 0193fa2e-77c1 <span class="kw">ALPHA</span> 0.5
+
+<span class="cm">-- search the corpus as it was known at a past moment</span>
+<span class="kw">SEARCH</span> <span class="lit">'penny'</span> <span class="kw">OF</span> item:* <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span></code></pre>
+<div class="box">BM25 rewards documents where your terms are frequent (with saturation) and rare across the
+corpus (high IDF), normalized for document length. Pair it with <code>SIMILAR</code>'s vectors and you
+get hybrid retrieval — the recall of semantics with the precision of keywords, which is exactly what
+good RAG pipelines want.</div>
+
 <h2 id="ops">12. Operations</h2>
 <pre><code><span class="kw">PROFILE OF</span> item:*                <span class="cm">-- what does my data look like? fields, types,</span>
                                  <span class="cm">-- coverage, ranges, top values, distributions</span>
@@ -251,6 +272,43 @@ any past moment — the fair way to audit a past (human or AI) decision.</p>
 <span class="kw">SUBJECTS LIKE</span> item:*4001 <span class="kw">LIMIT</span> 50
 <span class="kw">STATS</span>
 <span class="kw">EXPLAIN</span> FACTS OF toy:robot WHY   <span class="cm">-- shows the JSON AST instead of running</span></code></pre>
+
+<h2 id="topology">12½. Topology — the shape of your data</h2>
+<p>Centauri's differentiator: operators that answer questions about the
+<i>shape</i> of your data, not just its values. They read the same in-memory
+state as everything else, in pure stdlib Go — no dependencies, no model, just
+mathematics. Four lenses:</p>
+<pre><code><span class="cm">-- SHAPE: persistent homology of a value cloud.</span>
+<span class="cm">-- Betti-0 = clusters, Betti-1 = loops, Betti-2 = voids.</span>
+<span class="kw">SHAPE OF</span> item:*/store:4001 <span class="kw">ON</span> price_cents
+<span class="kw">SHAPE OF</span> item:* <span class="kw">ON</span> price_cents, trust, av_cost   <span class="cm">-- N-D; axes auto-normalized (RAW to disable)</span>
+<span class="kw">SHAPE OF</span> item:* <span class="kw">ON</span> price_cents, trust, av_cost <span class="kw">MAXDIM</span> 2  <span class="cm">-- include voids (coverage holes)</span>
+<span class="cm">-- Periodicity/seasonality: a time-delay (sliding-window) embedding turns a</span>
+<span class="cm">-- periodic signal into a loop, so Betti-1 &gt; 0 means "this repeats" (SW1PerS).</span>
+<span class="kw">SHAPE OF</span> item:100001/store:4001 <span class="kw">ON</span> price_cents <span class="kw">WINDOW</span> 12 <span class="kw">STRIDE</span> 2
+<span class="cm">-- Semantic structure of stored embeddings, under the cosine metric.</span>
+<span class="kw">SHAPE OF</span> item:* <span class="kw">ON EMBEDDING</span> <span class="kw">METRIC</span> cosine
+
+<span class="cm">-- CONSISTENCY: model the facets observing a subject as a sheaf.</span>
+<span class="cm">-- A global section exists iff they agree; otherwise you get the</span>
+<span class="cm">-- number of disagreeing clusters, a score, and the outlier facet.</span>
+<span class="kw">CONSISTENCY OF</span> item:100001/store:4001 <span class="kw">ON</span> price_cents
+<span class="kw">CONSISTENCY OF</span> item:100001/store:4001 <span class="kw">ON</span> price_cents <span class="kw">EPS</span> 5  <span class="cm">-- within 5 = agree</span>
+
+<span class="cm">-- CYCLES: H1 of the causal graph. Lineage must be acyclic, so any</span>
+<span class="cm">-- cycle found is a data-integrity alarm.</span>
+<span class="kw">CYCLES IN CAUSES OF</span> item:100001/store:4001
+<span class="kw">CYCLES</span>                                <span class="cm">-- scan the whole lineage graph</span>
+
+<span class="cm">-- DRIFT: how a field's distribution changes across time buckets</span>
+<span class="cm">-- (a regime-change / concept-drift detector built on persistence).</span>
+<span class="kw">DRIFT OF</span> item:*/store:4001 <span class="kw">ON</span> price_cents <span class="kw">BUCKETS</span> 6</code></pre>
+<div class="box">Why this matters: <b>SHAPE</b> sees structure (clusters, loops)
+that averages and histograms miss; <b>CONSISTENCY</b> turns "do my systems
+agree?" from a yes/no into a measured, localized answer; <b>CYCLES</b> catches
+lineage corruption the hash chain can't; <b>DRIFT</b> flags when the world your
+data describes has changed shape. All bi-temporal — add <span class="kw">AS OF</span>
+/ <span class="kw">AS KNOWN AT</span> to ask them about any past moment.</div>
 
 <h2 id="rosetta">13. The Rosetta Stone — every language you know, in CeQL</h2>
 <h3>From SQL</h3>

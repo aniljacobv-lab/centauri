@@ -41,6 +41,15 @@ const (
 	KExplain      Kind = "explain"
 	KRun          Kind = "run"     // CePL procedure call; executed by the API layer
 	KProfile      Kind = "profile" // data-shape summary: "what does my data look like?"
+
+	// Topology — Centauri's differentiator (see topology.go).
+	KShape       Kind = "shape"       // persistent homology of a value cloud
+	KConsistency Kind = "consistency" // sheaf consistency of a subject's facets
+	KCycles      Kind = "cycles"      // directed cycles in the causal graph
+	KDrift       Kind = "drift"       // topological drift of a field over time
+
+	// Search — native BM25 full-text + hybrid keyword/vector (see bm25.go).
+	KSearch Kind = "search"
 )
 
 // Field is one projection item: a value/meta field or an aggregate.
@@ -119,6 +128,22 @@ type Query struct {
 
 	SchemaTitle  string        `json:"schema_title,omitempty"`
 	SchemaFields []SchemaField `json:"schema_fields,omitempty"`
+
+	// Topology
+	OnFields    []string `json:"on_fields,omitempty"`    // SHAPE axes (N numeric fields)
+	OnEmbedding bool     `json:"on_embedding,omitempty"` // SHAPE over stored embedding vectors
+	Window      int      `json:"window,omitempty"`       // SHAPE time-delay embedding dimension
+	Stride      int      `json:"stride,omitempty"`       // SHAPE time-delay delay (default 1)
+	Metric      string   `json:"metric,omitempty"`       // SHAPE distance: euclidean | cosine
+	MaxDim      int      `json:"maxdim,omitempty"`       // SHAPE max homology dim (1=loops, 2=voids)
+	Normalize   *bool    `json:"normalize,omitempty"`    // SHAPE z-score axes (nil = auto)
+	Scale       float64  `json:"scale,omitempty"`        // SHAPE Vietoris–Rips ceiling (0 = auto)
+	Eps         float64  `json:"eps,omitempty"`          // CONSISTENCY agreement tolerance
+	Buckets     int      `json:"buckets,omitempty"`      // DRIFT time buckets
+
+	// Search
+	Text  string  `json:"text,omitempty"`  // SEARCH query string
+	Alpha float64 `json:"alpha,omitempty"` // SEARCH hybrid blend (1=keyword .. 0=vector)
 
 	Inner *Query `json:"inner,omitempty"` // EXPLAIN
 }
@@ -366,6 +391,16 @@ func (p *parser) statement() (*Query, error) {
 		return &Query{Kind: KSchema, SchemaID: id}, nil
 	case p.eat("DEFINE"):
 		return p.defineSchemaStmt()
+	case p.eat("SHAPE"):
+		return p.shapeStmt()
+	case p.eat("CONSISTENCY"):
+		return p.consistencyStmt()
+	case p.eat("CYCLES"):
+		return p.cyclesStmt()
+	case p.eat("DRIFT"):
+		return p.driftStmt()
+	case p.eat("SEARCH"):
+		return p.searchStmt()
 	case p.eat("WATCH"):
 		return p.watchStmt()
 	case p.eat("RUN"):
@@ -736,6 +771,259 @@ func (p *parser) pendingStmt() (*Query, error) {
 		q.OlderDays = n
 	}
 	return q, nil
+}
+
+// asClause parses one "OF <t>" or "KNOWN AT <t>" after AS was consumed.
+// Shared by the topology statements.
+func (p *parser) asClause(q *Query) error {
+	if p.eat("OF") {
+		t, err := p.when()
+		if err != nil {
+			return err
+		}
+		q.AsOf = t
+		return nil
+	}
+	if p.eat("KNOWN") {
+		if err := p.expect("AT"); err != nil {
+			return err
+		}
+		t, err := p.when()
+		if err != nil {
+			return err
+		}
+		q.KnownAt = t
+		return nil
+	}
+	return fmt.Errorf("after AS expected OF or KNOWN AT")
+}
+
+// SHAPE OF <pattern>
+//   ON <f1>[, <f2>…] | ON EMBEDDING | ON <field> WINDOW <n> [STRIDE <n>]
+//   [METRIC euclidean|cosine] [MAXDIM 1|2] [NORMALIZE|RAW]
+//   [FACET f] [SCALE n] [AS OF t] [AS KNOWN AT t] [LIMIT n]
+func (p *parser) shapeStmt() (*Query, error) {
+	q := &Query{Kind: KShape}
+	if err := p.expect("OF"); err != nil {
+		return nil, err
+	}
+	subj, err := p.word("a subject pattern (e.g. item:*/store:4001)")
+	if err != nil {
+		return nil, err
+	}
+	q.Subject = subj
+	for {
+		switch {
+		case p.eat("ON"):
+			if p.eat("EMBEDDING") || p.eat("EMBEDDINGS") {
+				q.OnEmbedding = true
+				break
+			}
+			for {
+				f, err := p.word("a numeric field")
+				if err != nil {
+					return nil, err
+				}
+				q.OnFields = append(q.OnFields, f)
+				if !p.eatOp(",") {
+					break
+				}
+			}
+		case p.eat("WINDOW"):
+			n, err := p.intTok("WINDOW")
+			if err != nil {
+				return nil, err
+			}
+			q.Window = n
+		case p.eat("STRIDE"):
+			n, err := p.intTok("STRIDE")
+			if err != nil {
+				return nil, err
+			}
+			q.Stride = n
+		case p.eat("METRIC"):
+			m, err := p.word("a metric (euclidean or cosine)")
+			if err != nil {
+				return nil, err
+			}
+			q.Metric = m
+		case p.eat("MAXDIM"):
+			n, err := p.intTok("MAXDIM")
+			if err != nil {
+				return nil, err
+			}
+			q.MaxDim = n
+		case p.eat("NORMALIZE"):
+			yes := true
+			q.Normalize = &yes
+		case p.eat("RAW"):
+			no := false
+			q.Normalize = &no
+		case p.eat("FACET"):
+			f, err := p.word("a facet name")
+			if err != nil {
+				return nil, err
+			}
+			q.Facet = f
+		case p.eat("SCALE"):
+			if p.peek().k != tNum {
+				return nil, fmt.Errorf("SCALE needs a number")
+			}
+			q.Scale = p.next().n
+		case p.eat("AS"):
+			if err := p.asClause(q); err != nil {
+				return nil, err
+			}
+		case p.eat("LIMIT"):
+			n, err := p.intTok("LIMIT")
+			if err != nil {
+				return nil, err
+			}
+			q.Limit = n
+		default:
+			return q, nil
+		}
+	}
+}
+
+// CONSISTENCY OF <subject> ON <field> [ACROSS FACETS] [EPS n] [AS OF t] [AS KNOWN AT t]
+func (p *parser) consistencyStmt() (*Query, error) {
+	q := &Query{Kind: KConsistency}
+	if err := p.expect("OF"); err != nil {
+		return nil, err
+	}
+	subj, err := p.word("a subject")
+	if err != nil {
+		return nil, err
+	}
+	q.Subject = subj
+	for {
+		switch {
+		case p.eat("ON"):
+			f, err := p.word("a field name")
+			if err != nil {
+				return nil, err
+			}
+			q.Field = f
+		case p.eat("ACROSS"):
+			p.eat("FACETS") // sugar
+		case p.eat("EPS"):
+			if p.peek().k != tNum {
+				return nil, fmt.Errorf("EPS needs a number")
+			}
+			q.Eps = p.next().n
+		case p.eat("AS"):
+			if err := p.asClause(q); err != nil {
+				return nil, err
+			}
+		default:
+			return q, nil
+		}
+	}
+}
+
+// CYCLES [IN CAUSES] [OF <subject>]
+func (p *parser) cyclesStmt() (*Query, error) {
+	q := &Query{Kind: KCycles}
+	p.eat("IN")
+	p.eat("CAUSES")
+	if p.eat("OF") {
+		subj, err := p.word("a subject")
+		if err != nil {
+			return nil, err
+		}
+		q.Subject = subj
+	}
+	return q, nil
+}
+
+// DRIFT OF <pattern> ON <field> [FACET f] [BUCKETS n]
+func (p *parser) driftStmt() (*Query, error) {
+	q := &Query{Kind: KDrift}
+	if err := p.expect("OF"); err != nil {
+		return nil, err
+	}
+	subj, err := p.word("a subject pattern")
+	if err != nil {
+		return nil, err
+	}
+	q.Subject = subj
+	for {
+		switch {
+		case p.eat("ON"):
+			f, err := p.word("a numeric field")
+			if err != nil {
+				return nil, err
+			}
+			q.Field = f
+		case p.eat("FACET"):
+			f, err := p.word("a facet name")
+			if err != nil {
+				return nil, err
+			}
+			q.Facet = f
+		case p.eat("BUCKETS"):
+			n, err := p.intTok("BUCKETS")
+			if err != nil {
+				return nil, err
+			}
+			q.Buckets = n
+		default:
+			return q, nil
+		}
+	}
+}
+
+// SEARCH '<text>' [OF <pattern>] [FACET f] [SIMILAR TO <event> [ALPHA a]]
+//   [AS OF t] [AS KNOWN AT t] [LIMIT n]
+func (p *parser) searchStmt() (*Query, error) {
+	q := &Query{Kind: KSearch, Subject: "*"}
+	if p.peek().k != tStr {
+		return nil, fmt.Errorf("SEARCH needs a quoted query, e.g. SEARCH 'late markdown'")
+	}
+	q.Text = p.next().s
+	for {
+		switch {
+		case p.eat("OF"):
+			s, err := p.word("a subject pattern")
+			if err != nil {
+				return nil, err
+			}
+			q.Subject = s
+		case p.eat("FACET"):
+			f, err := p.word("a facet name")
+			if err != nil {
+				return nil, err
+			}
+			q.Facet = f
+		case p.eat("SIMILAR"):
+			if err := p.expect("TO"); err != nil {
+				return nil, err
+			}
+			id, err := p.word("an event id")
+			if err != nil {
+				return nil, err
+			}
+			q.EventID = id
+		case p.eat("ALPHA"):
+			if p.peek().k != tNum {
+				return nil, fmt.Errorf("ALPHA needs a number 0..1")
+			}
+			q.Alpha = p.next().n
+		case p.eat("AS"):
+			if err := p.asClause(q); err != nil {
+				return nil, err
+			}
+		case p.eat("LIMIT"):
+			n, err := p.intTok("LIMIT")
+			if err != nil {
+				return nil, err
+			}
+			q.Limit = n
+		default:
+			return q, nil
+		}
+	}
 }
 
 func (p *parser) traceStmt(k Kind) (*Query, error) {

@@ -106,6 +106,16 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		return nil, fmt.Errorf("RUN is handled by the server layer — POST the query to /v1/query")
 	case KProfile:
 		return execProfile(st, q)
+	case KShape:
+		return execShape(st, q)
+	case KConsistency:
+		return execConsistency(st, q)
+	case KCycles:
+		return execCycles(st, q)
+	case KDrift:
+		return execDrift(st, q)
+	case KSearch:
+		return execSearch(st, q)
 	case KFacts, KHistory:
 		return execRead(st, q)
 	}

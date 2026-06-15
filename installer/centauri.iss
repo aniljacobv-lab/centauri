@@ -6,7 +6,10 @@
 ; (adjust Source below if your version tag differs).
 
 #define MyAppName "Centauri"
-#define MyAppVersion "0.3.0"
+; release.bat passes the version via ISCC /DMyAppVersion=...; this is the fallback.
+#ifndef MyAppVersion
+  #define MyAppVersion "0.3.0"
+#endif
 #define MyAppPublisher "Proxima360"
 #define MyAppURL "https://github.com/aniljacobv-lab/centauri"
 
@@ -21,14 +24,14 @@ DefaultDirName={autopf}\Centauri
 DefaultGroupName=Centauri
 DisableProgramGroupPage=yes
 OutputDir=..\dist
-OutputBaseFilename=centauri-{#MyAppVersion}-windows-setup
+OutputBaseFilename=centauri-windows-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequiredOverridesAllowed=dialog
 
 [Files]
-Source: "..\dist\centauri-v{#MyAppVersion}-windows-amd64.exe"; DestDir: "{app}"; DestName: "centauri.exe"; Flags: ignoreversion
+Source: "..\dist\centauri-windows-amd64.exe"; DestDir: "{app}"; DestName: "centauri.exe"; Flags: ignoreversion
 
 [Icons]
 ; The shortcut runs `centauri desktop`: data goes to %APPDATA%\Centauri,

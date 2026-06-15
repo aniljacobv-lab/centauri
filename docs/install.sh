@@ -5,7 +5,6 @@
 set -e
 
 REPO="aniljacobv-lab/centauri"
-VERSION="${CENTAURI_VERSION:-v0.3.0}"
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -20,8 +19,14 @@ case "$ARCH" in
   *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-URL="https://github.com/$REPO/releases/download/$VERSION/centauri-$VERSION-$os-$arch"
-echo "Downloading Centauri $VERSION for $os/$arch ..."
+# Stable asset names mean this URL always points at the newest release.
+# Pin a version with: CENTAURI_VERSION=v0.3.0 curl ... | sh
+if [ -n "${CENTAURI_VERSION:-}" ]; then
+  URL="https://github.com/$REPO/releases/download/$CENTAURI_VERSION/centauri-$os-$arch"
+else
+  URL="https://github.com/$REPO/releases/latest/download/centauri-$os-$arch"
+fi
+echo "Downloading Centauri for $os/$arch ..."
 TMP="$(mktemp)"
 curl -fSL -o "$TMP" "$URL"
 chmod +x "$TMP"

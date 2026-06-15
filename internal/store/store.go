@@ -749,6 +749,19 @@ func (s *Store) Trace(eventID, direction string, maxDepth int) []TraceNode {
 	return out
 }
 
+// CausalEdges returns a copy of every causal link in the lineage graph
+// (read-only). The topology engine uses it to detect cycles — a directed
+// cycle here is a data-integrity alarm, since lineage must be acyclic.
+func (s *Store) CausalEdges() []model.CausalLink {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []model.CausalLink
+	for _, ls := range s.causalOut {
+		out = append(out, ls...)
+	}
+	return out
+}
+
 // ByRef resolves an outside-world id (sendnow batch, job run) to events.
 func (s *Store) ByRef(ref string) []*model.Event {
 	s.mu.RLock()

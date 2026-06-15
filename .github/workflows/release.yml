@@ -24,13 +24,14 @@ jobs:
       - name: Build all release targets
         env:
           CGO_ENABLED: "0"          # stdlib-only: pure-Go cross-compile, no cgo
-          TAG: ${{ github.ref_name }}
         run: |
           mkdir -p dist
+          # Stable, version-independent names so the website can link to
+          # /releases/latest/download/<asset> directly (the tag carries the version).
           for target in "linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64" "windows arm64"; do
             set -- $target
             os=$1; arch=$2
-            out="dist/centauri-${TAG}-${os}-${arch}"
+            out="dist/centauri-${os}-${arch}"
             [ "$os" = "windows" ] && out="${out}.exe"
             echo "build $os/$arch -> $out"
             GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w" -o "$out" ./cmd/centauri
