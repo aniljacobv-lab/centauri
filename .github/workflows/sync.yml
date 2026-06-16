@@ -1,0 +1,45 @@
+name: Sync embedded files
+
+# Keeps the two "canonical -> copy" pairs in sync automatically, so they
+# never drift even on a direct `git commit` (no need to remember ship.bat):
+#
+#   internal/api/ceql.html   (the Book, embedded in the binary)  ->  docs/ceql.html  (served by GitHub Pages)
+#   docs/kb.json             (the assistant KB you edit)         ->  internal/assistant/kb.json  (embedded in the binary)
+#
+# Only triggers on the two SOURCE files; the commit it makes touches only the
+# DESTINATION files (not in `paths`), and pushes by GITHUB_TOKEN don't trigger
+# further workflows — so there is no loop.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "internal/api/ceql.html"
+      - "docs/kb.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-${{ github.ref }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync canonical files to their copies
+        run: |
+          cp internal/api/ceql.html docs/ceql.html
+          cp docs/kb.json internal/assistant/kb.json
+      - name: Commit and push if anything changed
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Already in sync — nothing to do."
+            exit 0
+          fi
+          git config user.name  "centauri-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ceql.html internal/assistant/kb.json
+          git commit -m "chore: sync CeQL Book + assistant KB [skip ci]"
+          git push
