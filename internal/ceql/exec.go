@@ -18,7 +18,10 @@ func (q *Query) IsWrite() bool {
 	// EXPLAIN never writes — it only shows the plan of its inner query.
 	// RUN counts as a write because procedures may PUT.
 	// ASK may append a kb_gap fact on a miss, so it counts as a write.
-	return q.Kind == KPut || q.Kind == KDefineSchema || q.Kind == KRun || q.Kind == KAsk
+	// SNAPSHOT appends a marker; ROLLBACK appends reversion facts.
+	// DIFF is read-only.
+	return q.Kind == KPut || q.Kind == KDefineSchema || q.Kind == KRun || q.Kind == KAsk ||
+		q.Kind == KSnapshot || q.Kind == KRollback
 }
 
 // Execute runs a CeQL query against a store. now is the server clock
@@ -119,6 +122,12 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		return execSearch(st, q)
 	case KAsk:
 		return execAsk(st, q, now)
+	case KSnapshot:
+		return execSnapshot(st, q, now)
+	case KRollback:
+		return execRollback(st, q, now)
+	case KDiff:
+		return execDiff(st, q)
 	case KFacts, KHistory:
 		return execRead(st, q)
 	}

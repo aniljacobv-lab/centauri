@@ -896,6 +896,22 @@ func (s *Store) Subjects() []string {
 	return out
 }
 
+// MaxRecordedTime returns the transaction-time (UnixMicro) of the most
+// recently committed event, or 0 if the store is empty. It is the
+// timestamp of the "last commit" and is used to target ROLLBACK TO LAST.
+// Read-only: it never mutates state.
+func (s *Store) MaxRecordedTime() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var max int64
+	for _, e := range s.events {
+		if e.RecordedTime > max {
+			max = e.RecordedTime
+		}
+	}
+	return max
+}
+
 // Stats returns basic counters.
 func (s *Store) Stats() map[string]int {
 	s.mu.RLock()

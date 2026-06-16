@@ -122,6 +122,23 @@ func Entries() []Entry {
 			"Mark the current fact no longer applicable (history kept — there is no DELETE)",
 			[]string{"delete", "remove", "retire", "discontinue", "get rid of"}},
 
+		// ---- TRANSACTIONS (reversible, time-travel commits) ----
+		{"txn", "snapshot", "SNAPSHOT '<name>'", "SNAPSHOT 'before-import'",
+			"Name the current point so you can return to it later",
+			[]string{"snapshot", "save point", "savepoint", "checkpoint", "mark this point", "bookmark state"}},
+		{"txn", "rollback-last", "ROLLBACK [TO LAST]", "ROLLBACK TO LAST",
+			"Undo the most recent commit by appending reversion facts (nothing is erased)",
+			[]string{"rollback", "undo", "revert", "undo last change", "go back"}},
+		{"txn", "rollback-snapshot", "ROLLBACK TO SNAPSHOT '<name>'", "ROLLBACK TO SNAPSHOT 'before-import'",
+			"Restore everything to a named snapshot — the revert is itself auditable",
+			[]string{"rollback to snapshot", "restore snapshot", "go back to savepoint", "revert to checkpoint"}},
+		{"txn", "rollback-time", "ROLLBACK [OF <pattern>] TO '<time>'", "ROLLBACK OF toy:* TO '2026-03-15'",
+			"Rewind matching subjects to how they were at any past moment",
+			[]string{"rollback to date", "revert to time", "rewind to", "restore as of"}},
+		{"txn", "diff", "DIFF [OF <pattern>] BETWEEN '<t1>' AND '<t2>'", "DIFF OF toy:* BETWEEN '2026-03-01' AND '2026-03-15'",
+			"Preview what changed between two points before you roll back",
+			[]string{"diff", "what changed", "compare", "changes between", "delta"}},
+
 		// ---- SCHEMA ----
 		{"schema", "define", "DEFINE SCHEMA <id> (<field> <type> [REQUIRED] [MIN n] [MAX n] [UNIT 'u'], ...)",
 			"DEFINE SCHEMA price (price_cents number REQUIRED MIN 1 UNIT 'cents', kind string) TITLE 'A retail price'",

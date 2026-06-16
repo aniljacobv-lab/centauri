@@ -58,6 +58,7 @@ One language. Three speakers: humans, AI agents, and legacy systems.</div>
 <a href="#time">5. Time travel</a>
 <a href="#why-op">6. Causality: WHY &amp; EFFECTS</a>
 <a href="#writing">7. Writing: PUT, CORRECT, RETIRE</a>
+<a href="#txn">7½. Reversible transactions: SNAPSHOT, ROLLBACK, DIFF</a>
 <a href="#agg">8. Aggregation</a>
 <a href="#schemas">9. Schemas</a>
 <a href="#live">10. Standing queries: WATCH</a>
@@ -200,6 +201,33 @@ database can't pretend the past didn't happen. <code>RETIRE</code> marks the
 current fact as no longer applicable — but history stays auditable. (For legal
 PII erasure, crypto-erasure is the planned v0.3 mechanism — that destroys a
 decryption key, not history.)</div>
+
+<h2 id="txn">7½. Reversible transactions — SNAPSHOT, ROLLBACK, DIFF</h2>
+<p>Because nothing is ever erased, "rollback" here means something no SQL
+database can do. A rollback doesn't throw work away — it <b>appends superseding
+reversion facts</b> that restore each subject to a chosen past point, and records
+the rollback itself as an auditable event. So you can rewind to <em>any</em> past
+commit, the revert is itself reversible, and <code>AS OF</code> still sees the
+pre-rollback world.</p>
+<pre><code><span class="kw">SNAPSHOT</span> <span class="lit">'before-import'</span>                 <span class="cm">-- name the current point</span>
+
+<span class="kw">DIFF</span> <span class="kw">OF</span> toy:* <span class="kw">BETWEEN</span> <span class="lit">'2026-03-01'</span> <span class="kw">AND</span> <span class="lit">'2026-03-15'</span>  <span class="cm">-- preview what changed</span>
+
+<span class="kw">ROLLBACK</span>                                  <span class="cm">-- undo the last commit (default)</span>
+<span class="kw">ROLLBACK</span> <span class="kw">TO</span> <span class="kw">SNAPSHOT</span> <span class="lit">'before-import'</span>       <span class="cm">-- return to a named point</span>
+<span class="kw">ROLLBACK</span> <span class="kw">OF</span> toy:* <span class="kw">TO</span> <span class="lit">'2026-03-15'</span>          <span class="cm">-- rewind matching subjects to a time</span></code></pre>
+<div class="box"><b>How it stays honest.</b> A <code>ROLLBACK</code> emits one
+<code>rollback:&lt;ts&gt;</code> marker plus a <code>CORRECTION</code> per changed
+fact, linked back to the marker — so <code>WHY</code> on a restored fact shows it
+came from a rollback, and <code>HISTORY</code> grows rather than shrinks. To undo a
+rollback, roll back to a snapshot taken just before it.</div>
+<table>
+<tr><th>SQL</th><th>CeQL</th><th>The difference</th></tr>
+<tr><td><code>SAVEPOINT s</code></td><td><code>SNAPSHOT 's'</code></td><td>survives the session; it's a durable fact</td></tr>
+<tr><td><code>ROLLBACK</code></td><td><code>ROLLBACK</code></td><td>rewinds committed history, not just an open txn</td></tr>
+<tr><td><code>ROLLBACK TO s</code></td><td><code>ROLLBACK TO SNAPSHOT 's'</code></td><td>auditable & itself reversible — nothing erased</td></tr>
+<tr><td>—</td><td><code>DIFF … BETWEEN … AND …</code></td><td>see the delta between any two moments first</td></tr>
+</table>
 
 <h2 id="agg">8. Aggregation</h2>
 <pre><code><span class="kw">FACTS</span> facet, <span class="kw">COUNT</span>(*), <span class="kw">AVG</span>(price_cents), <span class="kw">MAX</span>(price_cents)

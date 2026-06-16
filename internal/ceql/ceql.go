@@ -53,6 +53,13 @@ const (
 
 	// Ask — the self-learning assistant over kb:* facts (see assistant.go).
 	KAsk Kind = "ask"
+
+	// Transactions — reversible, time-travel commits (see txn.go). Rollback
+	// never erases: it appends superseding reversion facts, so the revert is
+	// itself an auditable event and you can rewind to any past commit.
+	KSnapshot Kind = "snapshot" // name the current point so you can return to it
+	KRollback Kind = "rollback" // restore matching subjects to a past point
+	KDiff     Kind = "diff"     // what changed between two points in time
 )
 
 // Field is one projection item: a value/meta field or an aggregate.
@@ -149,6 +156,12 @@ type Query struct {
 	Alpha float64 `json:"alpha,omitempty"` // SEARCH hybrid blend (1=keyword .. 0=vector)
 
 	Inner *Query `json:"inner,omitempty"` // EXPLAIN
+
+	// Transactions / rollback / diff
+	Name string `json:"name,omitempty"` // SNAPSHOT name; ROLLBACK TO SNAPSHOT name
+	Last bool   `json:"last,omitempty"` // ROLLBACK (TO LAST): revert the most recent commit
+	From int64  `json:"from,omitempty"` // DIFF lower bound (valid-time, UnixMicro)
+	To   int64  `json:"to,omitempty"`   // DIFF upper bound (valid-time, UnixMicro)
 }
 
 // ---------------------------------------------------------------------
@@ -409,6 +422,15 @@ func (p *parser) statement() (*Query, error) {
 			return nil, fmt.Errorf("ASK needs a quoted question, e.g. ASK 'does it scale?'")
 		}
 		return &Query{Kind: KAsk, Text: p.next().s}, nil
+	case p.eat("SNAPSHOT"):
+		if p.peek().k != tStr {
+			return nil, fmt.Errorf("SNAPSHOT needs a quoted name, e.g. SNAPSHOT 'before-import'")
+		}
+		return &Query{Kind: KSnapshot, Name: p.next().s}, nil
+	case p.eat("ROLLBACK"):
+		return p.rollbackStmt()
+	case p.eat("DIFF"):
+		return p.diffStmt()
 	case p.eat("WATCH"):
 		return p.watchStmt()
 	case p.eat("RUN"):
@@ -1215,6 +1237,67 @@ func (p *parser) watchStmt() (*Query, error) {
 			return q, nil
 		}
 	}
+}
+
+// ROLLBACK [OF subj] [TO (LAST | SNAPSHOT 'name' | <time>)]
+// Default target is the last commit; default pattern is everything.
+func (p *parser) rollbackStmt() (*Query, error) {
+	q := &Query{Kind: KRollback, Subject: "*", Last: true}
+	if p.eat("OF") {
+		s, err := p.word("a subject pattern (e.g. item:* or *)")
+		if err != nil {
+			return nil, err
+		}
+		q.Subject = s
+	}
+	if p.eat("TO") {
+		switch {
+		case p.eat("LAST"):
+			q.Last = true
+		case p.eat("SNAPSHOT"):
+			if p.peek().k != tStr {
+				return nil, fmt.Errorf("ROLLBACK TO SNAPSHOT needs a quoted name")
+			}
+			q.Name = p.next().s
+			q.Last = false
+		default:
+			t, err := p.when()
+			if err != nil {
+				return nil, fmt.Errorf("ROLLBACK TO expects LAST, SNAPSHOT 'name', or a time: %w", err)
+			}
+			q.AsOf = t
+			q.Last = false
+		}
+	}
+	return q, nil
+}
+
+// DIFF [OF subj] BETWEEN <time> AND <time>
+func (p *parser) diffStmt() (*Query, error) {
+	q := &Query{Kind: KDiff, Subject: "*"}
+	if p.eat("OF") {
+		s, err := p.word("a subject pattern (e.g. item:* or *)")
+		if err != nil {
+			return nil, err
+		}
+		q.Subject = s
+	}
+	if err := p.expect("BETWEEN"); err != nil {
+		return nil, err
+	}
+	from, err := p.when()
+	if err != nil {
+		return nil, fmt.Errorf("DIFF BETWEEN expects a start time: %w", err)
+	}
+	if err := p.expect("AND"); err != nil {
+		return nil, err
+	}
+	to, err := p.when()
+	if err != nil {
+		return nil, fmt.Errorf("DIFF ... AND expects an end time: %w", err)
+	}
+	q.From, q.To = from, to
+	return q, nil
 }
 
 // ---------------------------------------------------------------------

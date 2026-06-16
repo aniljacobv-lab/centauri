@@ -531,6 +531,8 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
       <tr><td class="s">HISTORY OF</td><td>The full, never-erased timeline of a subject.</td><td class="ex">HISTORY OF item:100001/store:4001</td></tr>
       <tr><td class="s">WHY / EFFECTS</td><td>Walk the causal graph — what led to an event, or what it caused.</td><td class="ex">FACTS OF toy:robot WHY DEPTH 3</td></tr>
       <tr><td class="s">PUT / CORRECT / RETIRE</td><td>Write a fact, fix one, or retire it — all append-only; history is kept.</td><td class="ex">PUT toy:robot SET price_cents=500</td></tr>
+      <tr><td class="s">SNAPSHOT / ROLLBACK <span class="reftag">new</span></td><td>Name a point, then rewind to it — rollback appends auditable reversion facts (never erases) and rewinds <em>any</em> past commit.</td><td class="ex">ROLLBACK TO SNAPSHOT 'before-import'</td></tr>
+      <tr><td class="s">DIFF <span class="reftag">new</span></td><td>What changed between two moments — preview before you roll back.</td><td class="ex">DIFF OF item:* BETWEEN '2026-03-01' AND '2026-03-15'</td></tr>
       <tr><td class="s">PENDING / DISAGREE</td><td>Operational integrity: changes sent but never activated; systems that disagree.</td><td class="ex">PENDING pdt OLDER THAN 21 DAYS</td></tr>
       <tr><td class="s">SEARCH <span class="reftag">new</span></td><td>Ranked full-text (BM25) across subjects and text values; hybrid with vectors via SIMILAR&nbsp;TO.</td><td class="ex">SEARCH 'late markdown' OF item:*</td></tr>
       <tr><td class="s">SIMILAR TO</td><td>Semantic search over embeddings — events that look like this one.</td><td class="ex">SIMILAR TO 0193fa2e-77c1 TOP 5</td></tr>

@@ -75,6 +75,7 @@
   .badge{display:inline-block;border-radius:6px;padding:1px 7px;font-size:10.5px;margin-right:4px}
   .b-pend{background:#3a2b12;color:var(--warn)} .b-prov{background:#13283f;color:var(--accent)}
   .b-type{background:#221a3a;color:var(--accent2)}
+  .b-good{background:#0f2f1c;color:var(--good)} .b-bad{background:#3a1518;color:var(--bad)}
   .confbar{height:4px;border-radius:2px;background:#1c2535;margin-top:8px}
   .confbar i{display:block;height:100%;border-radius:2px;background:var(--good)}
   .disagree{border-color:#5a2b35;background:#1d1016}
@@ -1477,6 +1478,34 @@ function renderQueryResult(r, out, meta){
         <div class="mini">${esc(r.note)}</div>` +
         s.map((d, i) => `<div class="mini" style="margin:3px 0">bucket ${i}→${i + 1}
           <span style="display:inline-block;height:9px;border-radius:3px;background:var(--accent);width:${Math.max(2, 140 * d / mx)}px;vertical-align:middle"></span> ${(+d).toFixed(3)}</div>`).join("");
+      break;
+    }
+    case "snapshot":
+      toast(`Snapshot “${r.name}” taken ✓`);
+      h = `<h3>📌 Snapshot “${esc(r.name)}”</h3>
+           <div class="mini">${esc(r.note || "")}</div>`;
+      break;
+    case "rollback":
+      if (r.reverted) toast(`Rolled back ${r.reverted} fact(s) ✓`);
+      h = `<h3>↩ Rollback to ${esc(r.target || "a point")} — ${r.reverted || 0} fact(s) restored</h3>
+           <div class="mini">${esc(r.note || "")}</div>` +
+           ((r.changes || []).length ? `<table style="margin-top:8px"><tr><th>subject</th><th>facet</th><th>action</th></tr>` +
+             r.changes.slice(0, 200).map(c => `<tr>
+               <td><a href="#" onclick="select(${jsAttr(c.subject)});return false">${esc(c.subject)}</a></td>
+               <td>${esc(c.facet)}</td><td>${esc(c.action)}</td></tr>`).join("") + `</table>` : "");
+      boot();
+      break;
+    case "diff": {
+      const rows = r.changes || [];
+      const fv = v => v == null ? "<span class='mini'>—</span>" : fmtVal(v);
+      const badge = k => `<span class="badge ${k === 'added' ? 'b-good' : k === 'removed' ? 'b-bad' : 'b-type'}">${esc(k)}</span>`;
+      h = `<h3>🔀 Diff — ${rows.length} change(s)</h3>` +
+          (rows.length ? `<table><tr><th>subject</th><th>facet</th><th>change</th><th>before</th><th>after</th></tr>` +
+            rows.slice(0, 300).map(c => `<tr>
+              <td><a href="#" onclick="select(${jsAttr(c.subject)});return false">${esc(c.subject)}</a></td>
+              <td>${esc(c.facet)}</td><td>${badge(c.change)}</td>
+              <td>${fv(c.before)}</td><td>${fv(c.after)}</td></tr>`).join("") + `</table>`
+            : `<div class="mini">No changes between those two points.</div>`);
       break;
     }
     default:

@@ -856,7 +856,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	if q.IsWrite() {
 		if r.Method == http.MethodGet {
-			httpErr(w, 405, "writes (PUT/CORRECT/RETIRE/DEFINE/RUN) must use POST, not GET")
+			httpErr(w, 405, "writes (PUT/CORRECT/RETIRE/DEFINE/RUN/SNAPSHOT/ROLLBACK) must use POST, not GET")
 			return
 		}
 		if s.readOnly(r) {
