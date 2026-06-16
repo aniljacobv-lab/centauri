@@ -691,12 +691,12 @@ $ centauri verify
       <tr><td>Built-in MCP for AI agents</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
       <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
       <tr><td>Horizontal scale / sharding</td><td class="n">✗<small>single-node</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
-      <tr><td>Data larger than RAM</td><td class="n">✗<small>in-mem index</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+      <tr><td>Data larger than RAM</td><td class="p">~<small>--lazy: payloads on disk</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
       <tr><td>Standard SQL</td><td class="n">✗<small>CeQL</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
     </tbody>
   </table></div>
   <div class="honest" style="margin-top:24px"><b>Honest limits:</b> single-node with read replicas — no clustering/sharding;
-    indexes live in memory, so your data must fit in RAM; no cost-based optimizer.</div>
+    the index lives in memory (with <code>--lazy</code>, payloads spill to disk so the dataset can exceed RAM — only the lightweight index stays resident); no cost-based optimizer.</div>
 </div></section>
 
 <!-- DOWNLOAD -->
@@ -782,7 +782,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"What problems does Centauri solve",t:"problems solve use cases pain points why what for",
       a:"Four questions ordinary databases can't answer: <b>what was true</b> at a past moment, <b>what we believed</b> then, <b>why</b> something changed, and whether the record was <b>tampered with</b>. It also catches changes that were sent but never landed (<code>PENDING</code>/<code>DISAGREE</code>), and gives agents point-in-time, provenance-aware memory."},
     {q:"Does Centauri scale larger than RAM sharding cluster",t:"scale scaling ram memory sharding cluster volume capacity big data petabyte how much data limits",
-      a:"Centauri is a <b>single-node engine with read replicas</b> — indexes live in memory, so the working set must fit in RAM. It's the system of record for facts that matter (prices, decisions, state changes, audit) — a flight recorder beside your operational stores, not a petabyte warehouse. For large estates, shard by tenant/banner/region and keep the high-volume firehose in a columnar store."},
+      a:"Centauri is a <b>single-node engine with read replicas</b>. By default indexes and payloads live in memory; pass <code>--lazy</code> to keep <b>payloads on disk</b> so only the lightweight index stays resident — letting a dataset exceed RAM. It's the system of record for facts that matter (prices, decisions, state changes, audit) — a flight recorder beside your operational stores, not a petabyte warehouse. For large estates, shard by tenant/banner/region."},
     {q:"Is it free and what is the license",t:"free license cost open source pricing money commercial paid",
       a:"Yes — <b>free and open source</b> under a PostgreSQL-style permissive license. No paid tiers, no telemetry."},
     {q:"How is Centauri different from PostgreSQL",t:"postgresql postgres compare versus difference replace relational sql",
