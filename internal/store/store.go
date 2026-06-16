@@ -78,6 +78,12 @@ type Options struct {
 	// so a second writer (e.g. another device syncing the same folder)
 	// can't open it and corrupt the log. Safe default for serve/desktop.
 	Lock bool
+	// LazyPayloads keeps event value maps on disk instead of in RAM: on
+	// replay, only lightweight metadata is indexed and the payload is read
+	// back (via ReadAt) on demand. Breaks the "whole dataset in RAM" limit
+	// at the cost of a disk read + decode per cold value. Opt-in; OFF keeps
+	// the original all-in-memory behavior exactly.
+	LazyPayloads bool
 }
 
 // Store is Centauri's storage engine.
@@ -91,7 +97,10 @@ type Store struct {
 	failed   bool
 	lockPath string // single-writer lock marker; "" when unlocked
 
-	events map[string]*model.Event // event_id -> event
+	events map[string]*model.Event // event_id -> event (Value nil when offloaded)
+	// offsets is the on-disk location {byteOffset, length} of each event's
+	// record, used to ReadAt its payload when LazyPayloads is on.
+	offsets map[string][2]int64
 	// bySubjectFacet holds event ids sorted by EffectiveTime ascending.
 	bySubjectFacet map[string][]string        // subject|facet -> ordered event ids
 	open           map[string]string          // subject|facet -> current (non-superseded) event id
@@ -125,6 +134,7 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		path:           path,
 		opts:           opts,
 		events:         map[string]*model.Event{},
+		offsets:        map[string][2]int64{},
 		bySubjectFacet: map[string][]string{},
 		open:           map[string]string{},
 		pending:        map[string]map[string]bool{},
@@ -221,6 +231,14 @@ func (s *Store) replay(f *os.File, start int64) (int64, error) {
 				return off, nil // torn tail: caller truncates
 			}
 			s.apply(&r)
+			if s.opts.LazyPayloads && r.Event != nil {
+				// Offload the payload: keep metadata indexed, drop the
+				// value map, and remember where to read it back from.
+				if ev := s.events[r.Event.EventID]; ev != nil {
+					ev.Value = nil
+					s.offsets[r.Event.EventID] = [2]int64{off, int64(len(line))}
+				}
+			}
 		}
 		if len(line) > 0 && line[len(line)-1] == '\n' {
 			s.chainExtend(line) // tamper-evidence chain covers every kept line
@@ -604,6 +622,42 @@ func (s *Store) Activate(eventID string, t int64) error {
 
 // Current returns the open (non-superseded) event for subject, optionally
 // filtered to one facet. O(1) per facet via the open index.
+// hydrate returns an event with its payload loaded. When LazyPayloads is
+// off (or the value is already present) it returns e unchanged. Otherwise
+// it reads the record at the recorded offset and returns a copy with the
+// value filled in, leaving the stored stub lean. Caller holds s.mu (R or W).
+func (s *Store) hydrate(e *model.Event) *model.Event {
+	if e == nil || !s.opts.LazyPayloads || e.Value != nil {
+		return e
+	}
+	pos, ok := s.offsets[e.EventID]
+	if !ok || s.f == nil {
+		return e
+	}
+	buf := make([]byte, pos[1])
+	if _, err := s.f.ReadAt(buf, pos[0]); err != nil {
+		return e // best effort: metadata is still valid
+	}
+	var r record
+	if json.Unmarshal(bytes.TrimSpace(buf), &r) != nil || r.Event == nil {
+		return e
+	}
+	cp := *e
+	cp.Value = r.Event.Value
+	return &cp
+}
+
+// hydrateAll hydrates a slice in place-returning a new slice.
+func (s *Store) hydrateAll(evs []*model.Event) []*model.Event {
+	if !s.opts.LazyPayloads {
+		return evs
+	}
+	for i, e := range evs {
+		evs[i] = s.hydrate(e)
+	}
+	return evs
+}
+
 func (s *Store) Current(subject, facet string) []*model.Event {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -612,7 +666,7 @@ func (s *Store) Current(subject, facet string) []*model.Event {
 		if id, ok := s.open[key(subject, facet)]; ok {
 			out = append(out, s.events[id])
 		}
-		return out
+		return s.hydrateAll(out)
 	}
 	return s.currentLocked(subject)
 }
@@ -659,7 +713,7 @@ func (s *Store) asOfLocked(subject, facet string, effectiveAt, knownAt int64) []
 			out = append(out, best)
 		}
 	}
-	return out
+	return s.hydrateAll(out)
 }
 
 // History returns the full ordered event timeline for subject/facet.
@@ -673,7 +727,7 @@ func (s *Store) History(subject, facet string) []*model.Event {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].EffectiveTime < out[j].EffectiveTime })
-	return out
+	return s.hydrateAll(out)
 }
 
 // Pending returns distributed-but-unactivated events on a facet older
@@ -690,7 +744,7 @@ func (s *Store) Pending(facet string, olderThan int64) []*model.Event {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].RecordedTime < out[j].RecordedTime })
-	return out
+	return s.hydrateAll(out)
 }
 
 // Disagreements returns subjects whose open facets disagree on field.
@@ -722,7 +776,7 @@ func (s *Store) currentLocked(subject string) []*model.Event {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Facet < out[j].Facet })
-	return out
+	return s.hydrateAll(out)
 }
 
 // TraceNode is one hop in a causal walk.
@@ -746,7 +800,7 @@ func (s *Store) Trace(eventID, direction string, maxDepth int) []TraceNode {
 		}
 		seen[id] = true
 		if e, ok := s.events[id]; ok {
-			out = append(out, TraceNode{Event: e, Link: via, Depth: depth})
+			out = append(out, TraceNode{Event: s.hydrate(e), Link: via, Depth: depth})
 		}
 		if direction == "cause" {
 			// inbound edges: From caused To==id, so the cause is From.
@@ -784,7 +838,7 @@ func (s *Store) ByRef(ref string) []*model.Event {
 	for _, id := range s.byRef[ref] {
 		out = append(out, s.events[id])
 	}
-	return out
+	return s.hydrateAll(out)
 }
 
 // AddEnrichment appends an AI-written fact and its lineage link, and

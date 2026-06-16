@@ -88,7 +88,7 @@ func (s *Store) Similar(vec []float32, k int, exclude string, minScore float64) 
 			continue
 		}
 		if e, ok := s.events[id]; ok {
-			hits = append(hits, SimilarHit{Event: e, Score: score})
+			hits = append(hits, SimilarHit{Event: s.hydrate(e), Score: score})
 		}
 	}
 	sort.Slice(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })

@@ -42,6 +42,7 @@ func (s *Store) checkpointPath() string { return s.path + ".checkpoint" }
 // replay after a checkpoint-guided tail replay failed).
 func (s *Store) resetState() {
 	s.events = map[string]*model.Event{}
+	s.offsets = map[string][2]int64{}
 	s.bySubjectFacet = map[string][]string{}
 	s.open = map[string]string{}
 	s.pending = map[string]map[string]bool{}
@@ -73,6 +74,11 @@ func logPrefixSHA(f *os.File, n int64) (string, error) {
 // writeCheckpoint atomically writes the snapshot next to the log.
 // Caller holds s.mu.
 func (s *Store) writeCheckpoint() error {
+	// In lazy mode the in-memory events have no payloads, so a checkpoint
+	// of them would lose data. Skip it and rebuild offsets via full replay.
+	if s.opts.LazyPayloads {
+		return nil
+	}
 	superAt := make(map[string]int64, len(s.supersededAt))
 	for id, n := range s.supersededAt {
 		superAt[id] = n.recordedTime
@@ -113,6 +119,10 @@ func (s *Store) writeCheckpoint() error {
 // problem — missing file, parse error, size or hash mismatch — returns 0
 // for a full replay. Called from OpenOptions before s.f is set.
 func (s *Store) tryLoadCheckpoint(f *os.File) int64 {
+	// Lazy mode needs a full replay to rebuild payload offsets.
+	if s.opts.LazyPayloads {
+		return 0
+	}
 	b, err := os.ReadFile(s.checkpointPath())
 	if err != nil {
 		return 0

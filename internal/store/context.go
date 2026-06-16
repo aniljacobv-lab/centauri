@@ -111,7 +111,7 @@ func (s *Store) Context(subject string, knownAt int64, historyLimit int, minConf
 			if knownAt > 0 && e.RecordedTime > knownAt {
 				continue
 			}
-			full = append(full, e)
+			full = append(full, s.hydrate(e))
 		}
 	}
 	sort.Slice(full, func(i, j int) bool { return full[i].EffectiveTime > full[j].EffectiveTime })
@@ -246,7 +246,7 @@ func (s *Store) causeChainLocked(eventID string, maxDepth int) []TraceNode {
 			}
 			seen[l.From] = true
 			if e, ok := s.events[l.From]; ok {
-				out = append(out, TraceNode{Event: e, Link: l.Type, Depth: depth})
+				out = append(out, TraceNode{Event: s.hydrate(e), Link: l.Type, Depth: depth})
 			}
 			walk(l.From, depth+1)
 		}
