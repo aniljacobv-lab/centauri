@@ -74,6 +74,10 @@ type Options struct {
 	// NoSync skips the per-commit fsync. Use only for bulk loads (seed)
 	// where the whole load can be redone; Close still syncs once.
 	NoSync bool
+	// Lock acquires an exclusive single-writer lock next to the data file,
+	// so a second writer (e.g. another device syncing the same folder)
+	// can't open it and corrupt the log. Safe default for serve/desktop.
+	Lock bool
 }
 
 // Store is Centauri's storage engine.
@@ -82,9 +86,10 @@ type Store struct {
 	path   string
 	f      *os.File
 	size   int64 // committed file size; rollback target on write error
-	opts   Options
-	closed bool
-	failed bool
+	opts     Options
+	closed   bool
+	failed   bool
+	lockPath string // single-writer lock marker; "" when unlocked
 
 	events map[string]*model.Event // event_id -> event
 	// bySubjectFacet holds event ids sorted by EffectiveTime ascending.
@@ -173,6 +178,14 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 	}
 	s.f = f
 	s.size = good
+	if opts.Lock {
+		lp, lerr := acquireLock(path)
+		if lerr != nil {
+			f.Close()
+			return nil, lerr
+		}
+		s.lockPath = lp
+	}
 	return s, nil
 }
 
@@ -261,6 +274,7 @@ func (s *Store) Close() error {
 		_ = s.writeCheckpoint()
 	}
 	cerr := s.f.Close()
+	releaseLock(s.lockPath)
 	if serr != nil {
 		return serr
 	}

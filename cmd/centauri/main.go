@@ -124,7 +124,8 @@ func main() {
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
-	st, err := store.OpenOptions(*data, store.Options{NoSync: cmd == "seed"})
+	st, err := store.OpenOptions(*data, store.Options{NoSync: cmd == "seed",
+		Lock: cmd == "serve" || cmd == "desktop"})
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
@@ -164,7 +165,7 @@ func main() {
 					*data = filepath.Join(dir, "centauri.log")
 					// reopen the store at the profile location
 					st.Close()
-					st, err = store.OpenOptions(*data, store.Options{})
+					st, err = store.OpenOptions(*data, store.Options{Lock: true})
 					if err != nil {
 						log.Fatalf("open store: %v", err)
 					}

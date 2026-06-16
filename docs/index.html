@@ -220,6 +220,7 @@
 <nav><div class="wrap">
   <span class="brand"><span class="star">✦</span> Centauri</span>
   <span class="links">
+    <a href="#own">Own your data</a>
     <a href="#ask">Ask AI</a>
     <a href="#agents">For agents</a>
     <a href="#quickstart">Quickstart</a>
@@ -242,7 +243,7 @@
       <li><b>Agent-native memory</b> — built-in MCP server; any agent queries it directly, no tokens to remember</li>
       <li>Query <b>what was true</b> and <b>what you believed</b> at any moment in time</li>
       <li>Tamper-evident by design — a SHA-256 chain over every committed fact</li>
-      <li>One binary, zero dependencies, PostgreSQL-style free license</li>
+      <li><b>Your data, on your hardware</b> — laptop, server, or your own cloud; never ours. Free, no lock-in</li>
     </ul>
     <div class="btns">
       <a class="btn primary" href="#download">⬇ Download</a>
@@ -269,6 +270,19 @@
     </svg>
   </div>
 </div></div>
+
+<!-- OWN YOUR DATA -->
+<section class="alt" id="own"><div class="wrap">
+  <div class="kicker">Own your data</div>
+  <h2>Your data. Your hardware. <span class="rule">Your rules.</span></h2>
+  <p class="lead">Oracle makes you rent your data's home and pay per core. Centauri flips that: the engine is free, and your data lives wherever <em>you</em> control — never on our servers. Oracle-grade memory for what happened, when, why, and how much to trust it — without the license, and on infrastructure you own.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">💾</div><h3>Runs where you control</h3><p>Your laptop, your server, a USB stick, a NAS, a synced folder (OneDrive, Google Drive, Dropbox), or — on the roadmap — your own object-storage bucket. Never a vendor's cloud.</p></div>
+    <div class="feat"><div class="fi">🪙</div><h3>No license, no per-core fees</h3><p>Free and open source. No seats, no cores, no support contract — you pay only for the hardware you already own.</p></div>
+    <div class="feat"><div class="fi">🔓</div><h3>Zero lock-in</h3><p>One open file (JSONL) you can read, move, back up, or delete; an open query language; <code>centauri export</code> any time. Walk away with everything.</p></div>
+  </div>
+  <div class="honest" style="margin-top:24px"><b>Honest status:</b> today your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder. Larger-than-RAM storage, log segmentation, and a "bring your own bucket" (S3/GCS/Azure) backend are designed and on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-own-your-data.md">roadmap</a>.</div>
+</div></section>
 
 <!-- ASK AI -->
 <section id="ask"><div class="wrap">
