@@ -121,6 +121,25 @@ func main() {
 		return
 	}
 
+	// merge reconciles diverged copies (e.g. the same data edited on two
+	// devices via a synced folder) into one new log. Offline & non-destructive.
+	if cmd == "merge" {
+		if *to == "" {
+			log.Fatal("merge: -to <output.log> is required")
+		}
+		inputs := fs.Args()
+		if len(inputs) == 0 {
+			log.Fatal("merge: give one or more input logs, e.g. centauri merge -to merged.log a.log b.log")
+		}
+		n, err := store.MergeLogs(*to, inputs...)
+		if err != nil {
+			log.Fatalf("merge: %v", err)
+		}
+		fmt.Printf("merged %d unique records from %d log(s) into %s — it replays cleanly.\n", n, len(inputs), *to)
+		fmt.Printf("verify it: centauri verify -data %s\n", *to)
+		return
+	}
+
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
@@ -417,6 +436,7 @@ func usage() {
   follow  replicate a primary's log into a read-only follower
   verify  recompute the tamper-evidence chain over a log file
   backup  copy a database to -to <file> and verify the copy's chain
+  merge   reconcile diverged copies into one: merge -to merged.log a.log b.log
   export  write a CeQL result to CSV/JSONL: -q "FACTS OF *" -format csv -to facts.csv`)
 	os.Exit(1)
 }
