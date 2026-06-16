@@ -765,6 +765,58 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
       a:"It's temporal (bi-temporal) and detects periodicity and drift — but it's not a metrics TSDB for high-frequency telemetry. Use a TSDB (Influx, Prometheus, Timescale) for the firehose; use Centauri for the facts and decisions that need time-travel, cause, and trust."},
     {q:"What kind or type of database is Centauri relational document key-value ledger",t:"what kind type category relational document key value keyvalue ledger blockchain nosql sql rdbms oltp olap store",
       a:"Centauri is an <b>event database</b>: the atom is an immutable, bi-temporal, causal fact — not a row, document, or key-value pair. Its facets and flexible values can model relational or document-like data, and its tamper-evident hash chain gives ledger-like integrity (without being a blockchain). It's the system of record for <em>change</em>, beside your operational store."},
+    {q:"Can I embed the assistant or a live agent on my website",t:"embed widget website live agent chatbot support bot script iframe self host zero token docs assistant",
+      a:"Yes. This assistant is a self-contained, <b>zero-token</b> BM25 widget that indexes your page's content — drop it into any site for a free docs/support bot with no LLM bill. For answers that <em>learn</em> over time, put a running Centauri behind it: the <code>ASK</code> statement searches your <code>kb:*</code> facts and logs gaps for an agent to fill."},
+    {q:"What are the system requirements",t:"requirements hardware os ram cpu prerequisites needs minimum platform",
+      a:"Windows 10/11, macOS, or Linux (64-bit); enough RAM to hold your working set (indexes live in memory); no other dependencies — it's one static binary."},
+    {q:"How do I get started quickly quickstart",t:"quickstart getting started first steps tutorial begin demo seed",
+      a:"Install, then <code>centauri seed</code> (demo data) → <code>centauri desktop</code> (opens the dashboard) → run <code>FACTS OF item:100001/store:4001</code>. See the Quickstart section."},
+    {q:"What is a facet",t:"facet facets register shelf source storecentral system view reality per system",
+      a:"A facet is one system's view of a subject — register, shelf, storecentral, source, etc. The same item can hold different facet values, which is how <code>CONSISTENCY</code> and <code>DISAGREE</code> spot systems that don't match."},
+    {q:"Does it support aggregations and group by",t:"aggregate aggregation group by count sum avg having analytics rollup statistics",
+      a:"Yes: <code>FACTS facet, COUNT(*), AVG(price_cents) OF item:* GROUP BY facet HAVING COUNT(*) &gt; 5</code>. Aggregations respect time travel, so you can roll up as of any past moment."},
+    {q:"Does Centauri support joins",t:"join joins relational foreign key relationship link",
+      a:"Not SQL-style table joins. Relationships are modeled with subjects/facets and first-class causal links (<code>WHY</code>/<code>EFFECTS</code>), and <code>CONTEXT FOR</code> assembles everything about a subject in one call."},
+    {q:"Is it ACID and does it support transactions",t:"acid transaction transactions consistency atomicity isolation oltp commit rollback",
+      a:"Writes are atomic per append and durable (write-then-apply), and a single node is strongly consistent. It is not a multi-statement OLTP transaction engine with rollback — use your operational RDBMS for that; Centauri is the system of record for facts."},
+    {q:"Is my data durable and crash-safe",t:"durability crash recovery persistence wal write ahead log restart safe fsync",
+      a:"Yes — every fact is written to an append-only log before memory changes, so a crash replays cleanly on restart, and the SHA-256 chain proves the log is intact."},
+    {q:"How do authentication and access control work",t:"security auth authentication token access control permission read only api key bearer",
+      a:"The HTTP API is gated by a bearer token, with an optional second <b>read-only</b> token; followers can run read-only. Put it behind TLS (Render or your own proxy)."},
+    {q:"Does it encrypt data at rest and in transit",t:"encryption encrypt at rest tls in transit secure ssl https",
+      a:"In transit: run it behind HTTPS (Render provides it). At rest: encryption with crypto-erasure is on the roadmap; today, use disk/volume encryption."},
+    {q:"Is it good for audit and compliance SOX HIPAA",t:"compliance audit sox hipaa regulatory governance trail evidence chain of custody",
+      a:"Its bi-temporal, never-erased, tamper-evident log is built for audit: prove what was true, what you knew, and that nothing was altered — exactly what SOX/HIPAA-style reviews ask for."},
+    {q:"Where does my data live and is there telemetry",t:"privacy telemetry data location phone home tracking local sovereignty residency",
+      a:"Your data stays wherever you run Centauri — your machine or your cloud. No telemetry, no phone-home."},
+    {q:"Is there a REST API or HTTP interface",t:"rest api http endpoint json curl integrate v1 query web",
+      a:"Yes — <code>POST /v1/query</code> runs CeQL or a JSON AST; there are also <code>/v1/context</code>, <code>/v1/asof</code>, <code>/v1/pending</code>, and <code>/v1/watch</code> (SSE). Any language that makes HTTP calls can use Centauri."},
+    {q:"What languages and clients are supported",t:"language client driver python javascript java go sdk binding library",
+      a:"A zero-dependency Python SDK ships today; everything else uses the HTTP API (any language), and AI agents use the MCP server. CeQL's JSON AST makes typed clients trivial."},
+    {q:"How do I import or export data",t:"import export csv jsonl bulk load migrate pump dump backfill",
+      a:"Bulk-load with the SDK's <code>db.pump('data.csv')</code> or the HTTP ingest endpoint; export with <code>centauri export -q 'FACTS OF *' -format csv</code> (or jsonl)."},
+    {q:"How does it compare to Datomic or EventStoreDB",t:"datomic eventstore eventstoredb immutable temporal event sourcing compare versus",
+      a:"Like Datomic it's immutable and time-aware, and like EventStoreDB it's an event log — but Centauri adds the second clock (bi-temporal), causal links, tamper-evident hashing, topology, native search, and an MCP agent interface, in one zero-dependency binary."},
+    {q:"How is it different from Kafka event streaming",t:"kafka streaming event bus pulsar queue broker pub sub stream",
+      a:"Kafka is a streaming bus that moves events between systems; Centauri is the database that stores and lets you query them bi-temporally, causally, and by shape. They're complementary — stream with Kafka, remember and reason with Centauri (<code>WATCH</code> even streams new facts out)."},
+    {q:"Is it a blockchain or distributed ledger",t:"blockchain ledger distributed crypto chain web3 dlt consensus",
+      a:"No. It has a tamper-evident SHA-256 hash chain so you can prove integrity, but it's a single-node database, not a distributed consensus ledger — auditability without the blockchain overhead."},
+    {q:"Which AI agents or LLMs can use it",t:"which agent llm claude gpt openai anthropic gemini model compatible support copilot",
+      a:"Any agent that speaks MCP (Claude and other MCP clients) or can make an HTTP call. No model lock-in — the model just needs to call a tool or a REST endpoint."},
+    {q:"Is there support or a community",t:"support community help enterprise commercial sla contact maintainer",
+      a:"It's open source — file issues and feature requests on GitHub (accepted features get implemented and shipped). Commercial/enterprise support is via Proxima360."},
+    {q:"How can I contribute",t:"contribute contributing pull request pr open source develop hack",
+      a:"PRs welcome on GitHub, and you can suggest a feature via the issue template — accepted ideas get implemented by the maintainers (sometimes by an AI)."},
+    {q:"What does the name Centauri mean",t:"name meaning centauri proxima star why called branding",
+      a:"Centauri is the nearest star system to the Sun; the sponsor Proxima360 is named for Proxima Centauri, the nearest star — 'the nearest star to your data.'"},
+    {q:"Can it run offline or on a laptop",t:"offline laptop local air gapped no internet portable single binary edge",
+      a:"Yes — one self-contained binary with no network dependencies, so it runs offline on a laptop or in an air-gapped environment."},
+    {q:"How do I monitor it, health and stats",t:"monitoring health stats metrics observability counters status uptime",
+      a:"<code>STATS</code> (or <code>/v1/stats</code>) returns live counters — events, subjects, open facts, pending wedges, links — and <code>centauri verify</code> checks integrity. The dashboard shows it live."},
+    {q:"How do I back up and restore",t:"backup restore snapshot recover copy disaster recovery replica",
+      a:"<code>centauri backup</code> copies the committed log and verifies the hash chain matches; restore by pointing at the backup file. <code>centauri follow</code> keeps a live readable replica."},
+    {q:"What is Centauri good for, use cases and industries",t:"use case examples industries good for fit retail healthcare finance security iot supply chain ml",
+      a:"Anywhere change, time, cause, and trust matter: retail price/promo integrity, financial audit and reconstruction, clinical decision replay, security incident lineage, ML feature provenance, compliance trails, and IoT/sensor drift. See the Examples section."},
   ];
   function tok(s){const o=[];let b="";for(const ch of s.toLowerCase()){if(/[a-z0-9]/.test(ch))b+=ch;else if(b){o.push(b);b="";}}if(b)o.push(b);return o;}
   function uniq(a){const s=new Set(),o=[];for(const x of a)if(!s.has(x)){s.add(x);o.push(x);}return o;}
@@ -786,9 +838,12 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     document.querySelectorAll('.feat').forEach(f=>{const h=f.querySelector('h3'),p=f.querySelector('p');
       if(h&&p)KB.push({q:h.innerText.trim(),t:h.innerText,a:p.innerHTML});});
   }catch(e){}
-  const docs=KB.map(e=>tok(e.q+" "+e.t));
+  let docs=[],VOCAB=[];
+  function rebuild(){docs=KB.map(e=>tok(e.q+" "+e.t));const s=new Set();docs.forEach(d=>d.forEach(w=>s.add(w)));VOCAB=[...s];}
+  rebuild();
+  // tiny markdown so kb.json answers (`code`, **bold**) and inline HTML both render
+  function md(s){return String(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');}
   // vocabulary + edit-distance≤1 correction, so "centuri"/"vektor"/"databse" still match
-  const VOCAB=(()=>{const s=new Set();docs.forEach(d=>d.forEach(w=>s.add(w)));return [...s];})();
   function within1(a,b){if(a===b)return true;const la=a.length,lb=b.length;if(Math.abs(la-lb)>1)return false;
     let i=0,j=0,diff=0;while(i<la&&j<lb){if(a[i]===b[j]){i++;j++;}else{if(++diff>1)return false;if(la>lb)i++;else if(lb>la)j++;else{i++;j++;}}}
     return diff+(la-i)+(lb-j)<=1;}
@@ -811,7 +866,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     const r=terms.length?rankBM25(terms):[];
     let html='<div class="q">Q: '+text.replace(/</g,'&lt;')+'</div>';
     if(r.length && r[0].s>=0.6){
-      html+=KB[r[0].i].a;
+      html+=md(KB[r[0].i].a);
       const rel=r.slice(1,3).filter(x=>x.s>=0.8);
       if(rel.length)html+='<div style="margin-top:12px;font-size:13px;color:var(--dim)">Related: '+
         rel.map(x=>'<span class="chip rel" data-q="'+KB[x.i].q.replace(/"/g,'&quot;')+'">'+KB[x.i].q+'</span>').join(' ')+'</div>';
@@ -833,6 +888,13 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
   const qs=["What problems does Centauri solve?","Does Centauri scale?","How does it compare to Oracle or DB2?","Is it free?","Does it do full-text search?","Can my AI agent use it?","How do I install it?","why did the price of toy:robot change?"];
   qs.forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;c.onclick=()=>{inp.value=s;answer(s);};document.getElementById('ask-chips').appendChild(c);});
   answer(inp.value);
+  // single source of truth: pull the full knowledge base from kb.json and merge in
+  fetch('kb.json').then(r=>r.ok?r.json():[]).then(arr=>{
+    if(!Array.isArray(arr))return;
+    const have=new Set(KB.map(e=>(e.q||'').toLowerCase()));
+    arr.forEach(e=>{const k=(e.q||'').toLowerCase();if(e&&e.q&&e.a&&!have.has(k)){have.add(k);KB.push({q:e.q,t:e.t||'',a:e.a});}});
+    rebuild();answer(inp.value);
+  }).catch(()=>{});
 })();
 
 /* ---------- download tiles + OS detect + copy ---------- */

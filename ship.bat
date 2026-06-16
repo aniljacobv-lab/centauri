@@ -13,6 +13,10 @@ cd /d "%~dp0"
 set MSG=%~1
 if "%MSG%"=="" set MSG=update
 
+REM Single source of truth for the assistant KB: docs\kb.json is canonical;
+REM keep the copy embedded into the binary in sync before building.
+if exist docs\kb.json copy /Y docs\kb.json internal\assistant\kb.json >nul
+
 echo === 1/4  go vet ^& go test =====================================
 go vet ./...
 if errorlevel 1 goto :failed
