@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Centauri: The bi-temporal, causal, AI-first event database</title>
-<meta name="description" content="Centauri is an open-source bi-temporal, causal, AI-first event database. Query the past, replay what you believed, prove your history, search and reason with AI. One binary, zero dependencies, free.">
-<meta property="og:title" content="Centauri — the database that never forgets">
-<meta property="og:description" content="Bi-temporal, causal, topological, AI-first event database with the CeQL query language. One binary, zero dependencies, free.">
+<title>Centauri — Memory for AI · the bi-temporal event database</title>
+<meta name="description" content="Centauri is the memory layer for AI agents: an open-source bi-temporal, causal event database your agents reason over natively. Query the past, replay what you believed, prove your history. One binary, zero dependencies, free.">
+<meta property="og:title" content="Centauri — Memory for AI that never forgets">
+<meta property="og:description" content="The memory layer for AI agents — an open-source bi-temporal, causal event database. Query the past, replay beliefs, prove history. One binary, zero dependencies, free.">
 <meta property="og:type" content="website">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Centauri",
@@ -236,12 +236,12 @@
 <!-- HERO -->
 <div class="hero"><div class="wrap">
   <div>
-    <h1>The event database that <span class="accent">never forgets.</span></h1>
-    <p class="sub">An open-source, bi-temporal, causal, AI-first event database. Every fact knows its time, cause, source, and trustworthiness — and your agents can reason over all of it.</p>
+    <h1>Memory for AI that <span class="accent">never forgets.</span></h1>
+    <p class="sub">Centauri is an open-source <b>bi-temporal, causal event database</b> — the system of record your AI agents reason over. Every fact knows its time, cause, source, and trustworthiness.</p>
     <ul class="checks">
+      <li><b>Agent-native memory</b> — built-in MCP server; any agent queries it directly, no tokens to remember</li>
       <li>Query <b>what was true</b> and <b>what you believed</b> at any moment in time</li>
       <li>Tamper-evident by design — a SHA-256 chain over every committed fact</li>
-      <li>Ask in plain English; built-in MCP server; ranked BM25 + vector search</li>
       <li>One binary, zero dependencies, PostgreSQL-style free license</li>
     </ul>
     <div class="btns">
@@ -274,9 +274,9 @@
 <section id="ask"><div class="wrap">
   <div class="kicker">Ask Centauri</div>
   <h2>Ask a question — get an answer <span class="rule">and the query</span>.</h2>
-  <p class="lead">Centauri is built for the agent era: plain-English questions compile to CeQL with deterministic rules (no tokens, no API key), and agents speak CeQL natively over MCP. Try it — ask about the product, or pose a data question and watch it become a query.</p>
+  <p class="lead">This assistant <b>indexes the entire page</b> — every reference entry, example, and feature — and answers with Centauri's own BM25 search. <b>No LLM, no API key, no token cost</b>: it runs entirely in your browser, and it's the same engine you'd self-host. Ask about the product, or pose a data question and watch it become a query.</p>
   <div class="ask">
-    <div class="ask-head">🤖 Centauri Assistant <span class="b">powered by Centauri SEARCH (BM25) · runs in your browser</span></div>
+    <div class="ask-head">🤖 Centauri Assistant <span class="b">powered by Centauri SEARCH (BM25) · 0 tokens · runs in your browser</span></div>
     <div class="ask-body">
       <div class="ask-in">
         <input id="ask-q" placeholder="e.g. Does Centauri scale? or: why did the price of toy:robot change?" value="What problems does Centauri solve?">
@@ -747,10 +747,53 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
       a:"Centauri is by <b>Centauri LLC</b>, sponsored by <b>Proxima360</b> — the nearest star to your data. Source is on <a href='https://github.com/aniljacobv-lab/centauri'>GitHub</a>."},
     {q:"Roadmap future plans",t:"roadmap future encryption clustering plans coming soon next managed cloud",
       a:"On the roadmap: encryption-at-rest with crypto-erasure, an ANN index for vectors at scale, and a fully managed Centauri Cloud. Single-node clustering/sharding is intentionally out of scope — partition by tenant instead."},
+    {q:"Can it do compute and analytics",t:"compute computation analytics calculate calculation processing aggregate aggregation sum avg average group by having cepl procedure topology math run analysis",
+      a:"Yes — Centauri runs real computation inside the engine: <b>aggregations</b> (<code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/<code>GROUP BY</code>/<code>HAVING</code>), <b>topology</b> (persistent homology, sheaf consistency), <b>BM25 search</b>, vector similarity, and <b>CePL stored procedures</b> for custom logic — all in pure Go over your in-memory working set. It's analytical, not a distributed compute grid; for heavy ETL, pair it with a warehouse."},
+    {q:"How do I write or insert or update data",t:"write insert add put update record create save data ingest load import csv pump",
+      a:"Writing is one act: <code>PUT subject SET field=value, …</code>. Insert and update are the same — a new fact supersedes the old, and the old stays in history. Bulk-load with the SDK's <code>db.pump('data.csv')</code> or the HTTP ingest endpoint."},
+    {q:"Is it production ready and stable",t:"production ready stable stability maturity reliable battle tested beta enterprise",
+      a:"Centauri is young (v0.3.0). Use it as the system of record for facts, audit, and lineage <em>alongside</em> your proven operational store — not as the sole database for a critical transactional workload yet. It ships with a deterministic test suite, a tamper-evident log, and chain-verified backups."},
+    {q:"GDPR right to be forgotten erasure if nothing is deleted",t:"gdpr erasure right to be forgotten delete privacy compliance forget personal data retention ccpa",
+      a:"Deletion is two-layered: <code>RETIRE</code> stops a fact from applying (history kept), and <b>crypto-erasure</b> (on the roadmap) destroys the key for a subject's encrypted payloads — rendering them unrecoverable while preserving the tamper-evident chain. That satisfies right-to-be-forgotten without breaking auditability."},
+    {q:"Do I still need Elasticsearch",t:"elasticsearch opensearch elastic lucene search engine replace need separate cluster",
+      a:"For ranked keyword search over your events, Centauri's native <b>BM25 SEARCH</b> (plus hybrid vector) often removes the need for a separate Elasticsearch cluster — and keeps it bi-temporal and zero-dependency. For massive document corpora or advanced analyzers, a dedicated search engine still wins; Centauri isn't trying to replace one."},
+    {q:"Is Centauri a vector database",t:"vector database vectordb pinecone weaviate qdrant chroma milvus pgvector embedding store ann approximate nearest neighbor semantic index",
+      a:"Not a <em>dedicated</em> vector database — but it has vector search built in. Embeddings are stored as supersedable, model-attributed facts; <code>SIMILAR TO</code> does cosine search and <code>SEARCH … SIMILAR TO … ALPHA</code> does hybrid keyword+vector. For billion-scale pure ANN, a dedicated vector DB (Pinecone, Weaviate, pgvector) still wins; Centauri shines when vectors live <em>next to</em> bi-temporal, causal, provenance-tagged facts."},
+    {q:"Is Centauri a graph database",t:"graph database neo4j relationships edges nodes cypher gremlin property graph network",
+      a:"Not a general property-graph database, but causality is first-class: causal links are edges, and <code>WHY</code> / <code>EFFECTS</code> walk them. Think lineage/causal graph over events — not a Neo4j-style engine for arbitrary node/edge analytics."},
+    {q:"Is Centauri a time-series database",t:"time series timeseries tsdb influxdb prometheus timescale metrics telemetry sensor high frequency",
+      a:"It's temporal (bi-temporal) and detects periodicity and drift — but it's not a metrics TSDB for high-frequency telemetry. Use a TSDB (Influx, Prometheus, Timescale) for the firehose; use Centauri for the facts and decisions that need time-travel, cause, and trust."},
+    {q:"What kind or type of database is Centauri relational document key-value ledger",t:"what kind type category relational document key value keyvalue ledger blockchain nosql sql rdbms oltp olap store",
+      a:"Centauri is an <b>event database</b>: the atom is an immutable, bi-temporal, causal fact — not a row, document, or key-value pair. Its facets and flexible values can model relational or document-like data, and its tamper-evident hash chain gives ledger-like integrity (without being a blockchain). It's the system of record for <em>change</em>, beside your operational store."},
   ];
   function tok(s){const o=[];let b="";for(const ch of s.toLowerCase()){if(/[a-z0-9]/.test(ch))b+=ch;else if(b){o.push(b);b="";}}if(b)o.push(b);return o;}
   function uniq(a){const s=new Set(),o=[];for(const x of a)if(!s.has(x)){s.add(x);o.push(x);}return o;}
+  // Grab all the data on the page — reference rows, example cards, feature
+  // cards — and index it too, so the assistant answers about anything here,
+  // with zero tokens. (Same idea as RAG, but the retrieval is the product.)
+  try{
+    document.querySelectorAll('#reference table.ref tbody tr').forEach(tr=>{
+      const td=tr.querySelectorAll('td');if(td.length<3)return;
+      const s=td[0].innerText.replace(/\s+/g,' ').trim(),d=td[1].innerText.trim(),ex=td[2].innerText.trim();
+      if(s)KB.push({q:s+' — '+d,t:s+' '+d,a:'<b>'+s+'</b> — '+d+'<br><code>'+ex.replace(/</g,'&lt;')+'</code>'});
+    });
+    document.querySelectorAll('#examples .excard').forEach(c=>{
+      const q=((c.querySelector('.q2')||{}).innerText||'').trim(),
+            tg=[...c.querySelectorAll('.t2')].map(t=>t.innerText).join(' '),
+            code=((c.querySelector('pre')||{}).innerText||'').trim();
+      if(q)KB.push({q:q,t:q+' '+tg,a:q+'<br><code>'+code.replace(/</g,'&lt;')+'</code>'});
+    });
+    document.querySelectorAll('.feat').forEach(f=>{const h=f.querySelector('h3'),p=f.querySelector('p');
+      if(h&&p)KB.push({q:h.innerText.trim(),t:h.innerText,a:p.innerHTML});});
+  }catch(e){}
   const docs=KB.map(e=>tok(e.q+" "+e.t));
+  // vocabulary + edit-distance≤1 correction, so "centuri"/"vektor"/"databse" still match
+  const VOCAB=(()=>{const s=new Set();docs.forEach(d=>d.forEach(w=>s.add(w)));return [...s];})();
+  function within1(a,b){if(a===b)return true;const la=a.length,lb=b.length;if(Math.abs(la-lb)>1)return false;
+    let i=0,j=0,diff=0;while(i<la&&j<lb){if(a[i]===b[j]){i++;j++;}else{if(++diff>1)return false;if(la>lb)i++;else if(lb>la)j++;else{i++;j++;}}}
+    return diff+(la-i)+(lb-j)<=1;}
+  const SYN={db:"database",dbs:"databases",pg:"postgres",postgre:"postgresql",postgres:"postgresql",vektor:"vector",k8s:"kubernetes",rdbms:"relational"};
+  function correct(t){if(SYN[t])return SYN[t];if(t.length<4||VOCAB.includes(t))return t;for(const w of VOCAB){if(Math.abs(w.length-t.length)<=1&&within1(t,w))return w;}return t;}
   function rankBM25(qterms,k1,b){
     k1=1.5;b=0.75;const n=docs.length,qset=new Set(qterms),df={},tfs=[];let total=0;
     for(const d of docs){total+=d.length;const tf={};for(const w of d)if(qset.has(w))tf[w]=(tf[w]||0)+1;for(const w in tf)df[w]=(df[w]||0)+1;tfs.push(tf);}
@@ -760,17 +803,30 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
       for(const t in tf){const f=tf[t];s+=idf[t]*(f*(k1+1))/(f+k1*(1-b+b*dl/avg));}out.push({i,s});}
     out.sort((a,b)=>b.s-a.s);return out;
   }
+  const STOP=new Set("the is it its a an of to do does did can could would should how what why where when which who with for and or but my me i you your our this that these those are was were be been on in at as by from will not no yes".split(" "));
   const a=document.getElementById('ask-a'),inp=document.getElementById('ask-q');
+  function logGap(q){try{const k='centauri_unanswered',l=JSON.parse(localStorage.getItem(k)||'[]');l.push({q,at:Date.now()});localStorage.setItem(k,JSON.stringify(l.slice(-200)));}catch(e){}}
   function answer(text){
-    const r=rankBM25(uniq(tok(text)));
+    const terms=uniq(tok(text).map(correct)).filter(w=>w.length>1&&!STOP.has(w));
+    const r=terms.length?rankBM25(terms):[];
     let html='<div class="q">Q: '+text.replace(/</g,'&lt;')+'</div>';
-    if(r.length && r[0].s>=0.5){html+=KB[r[0].i].a;}
-    else{html+="I don't have a canned answer for that yet — try asking about features, install, scaling, search, topology, AI, or how Centauri compares to other databases. (This assistant retrieves from a knowledge base ranked by Centauri's BM25 search.)";}
+    if(r.length && r[0].s>=0.6){
+      html+=KB[r[0].i].a;
+      const rel=r.slice(1,3).filter(x=>x.s>=0.8);
+      if(rel.length)html+='<div style="margin-top:12px;font-size:13px;color:var(--dim)">Related: '+
+        rel.map(x=>'<span class="chip rel" data-q="'+KB[x.i].q.replace(/"/g,'&quot;')+'">'+KB[x.i].q+'</span>').join(' ')+'</div>';
+    }
+    else{
+      logGap(text);
+      const issue='https://github.com/aniljacobv-lab/centauri/issues/new?title='+encodeURIComponent('FAQ: '+text)+'&body='+encodeURIComponent('Question the assistant could not answer — suggest it be added to the knowledge base:\n\n> '+text+'\n');
+      html+="I haven't learned that one yet — I've <b>logged the question</b> so Centauri can learn it. You can <a href='"+issue+"' target='_blank' rel='noopener'>teach it the answer →</a>. Meanwhile, try asking about features, search, topology, AI, scaling, or how Centauri compares.";
+    }
     const tr=ceqlTranslate(text);
     if(!tr.err && (text.includes(':')||/\b(why|history|search|pending|disagree|shape|drift|consistency|context|stats|as of|as known|similar)\b/i.test(text))){
       html+='<div style="margin-top:10px;color:var(--dim);font-size:13.5px">As a data query, that compiles to:</div><div class="ceql">'+ceqlHL(tr.q)+'</div>';
     }
     a.innerHTML=html;a.classList.add('show');
+    a.querySelectorAll('.rel').forEach(c=>c.onclick=()=>{inp.value=c.dataset.q;answer(c.dataset.q);});
   }
   document.getElementById('ask-go').onclick=()=>answer(inp.value);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')answer(inp.value);});

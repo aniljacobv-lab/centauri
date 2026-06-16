@@ -166,6 +166,9 @@ func Entries() []Entry {
 		{"ai", "similar", "SIMILAR TO <event-id> TOP <k> MIN <score>", "SIMILAR TO 0193fa2e-77c1 TOP 5 MIN 0.7",
 			"Semantic search over embeddings: events that look like this one",
 			[]string{"similar", "like this", "lookalike", "semantic search", "vector"}},
+		{"ai", "ask", "ASK '<question>'", "ASK 'does it scale?'",
+			"The self-learning assistant: answers from kb:* knowledge facts via BM25, or logs the question as a kb_gap:* fact for an agent to answer and teach — Centauri as the gateway and the memory",
+			[]string{"ask", "question", "assistant", "help", "faq", "learn", "teach", "knowledge base"}},
 
 		// ---- AGGREGATION ----
 		{"agg", "count", "FACTS COUNT(*) OF <pattern>", "FACTS COUNT(*) OF item:*/store:4001",

@@ -63,6 +63,7 @@ One language. Three speakers: humans, AI agents, and legacy systems.</div>
 <a href="#live">10. Standing queries: WATCH</a>
 <a href="#ai">11. AI: SIMILAR &amp; CONTEXT</a>
 <a href="#search">11¾. Full-text search: SEARCH (BM25 + hybrid)</a>
+<a href="#ask-stmt">11⅞. The self-learning assistant: ASK</a>
 <a href="#ops">12. Operations: PENDING, DISAGREE…</a>
 <a href="#topology">12½. Topology: SHAPE, CONSISTENCY, CYCLES, DRIFT</a>
 <a href="#rosetta">13. The Rosetta Stone</a>
@@ -262,6 +263,27 @@ everything else, and it can blend with vector similarity for hybrid retrieval.</
 corpus (high IDF), normalized for document length. Pair it with <code>SIMILAR</code>'s vectors and you
 get hybrid retrieval — the recall of semantics with the precision of keywords, which is exactly what
 good RAG pipelines want.</div>
+
+<h2 id="ask-stmt">11⅞. The self-learning assistant — ASK</h2>
+<p>Centauri can be its own knowledge base. Q&amp;A live as ordinary facts
+(<code>kb:&lt;slug&gt;</code>, facet <code>knowledge</code>); <span class="kw">ASK</span>
+retrieves the best answer with the same BM25 ranker as <span class="kw">SEARCH</span>.
+When it can't answer confidently, it records the question as a
+<code>kb_gap:&lt;slug&gt;</code> fact — which an AI agent can later answer over MCP by
+appending a new <code>kb:</code> fact, so the same question is answered from the
+database forever after. The gateway and the memory are the same system.</p>
+<pre><code><span class="kw">ASK</span> <span class="lit">'does it scale?'</span>          <span class="cm">-- answers from kb:* facts, or…</span>
+                              <span class="cm">-- logs kb_gap:does-it-scale on a miss</span>
+
+<span class="cm">-- the learning loop, all in Centauri:</span>
+<span class="kw">FACTS OF</span> kb_gap:*                <span class="cm">-- 1. what couldn't we answer?</span>
+<span class="kw">PUT</span> kb:does-it-scale <span class="kw">FACET</span> knowledge   <span class="cm">-- 2. an agent teaches the answer</span>
+  <span class="kw">SET</span> question=<span class="lit">'does it scale?'</span>, answer=<span class="lit">'Single-node, in-RAM working set…'</span>
+<span class="kw">ASK</span> <span class="lit">'does it scale?'</span>          <span class="cm">-- 3. now answered from the database</span></code></pre>
+<div class="box">Agents reach this through the normal <code>centauri_ceql</code> MCP tool — no
+special endpoint. Because the knowledge is just facts, it's versioned and
+bi-temporal: you can ask what the assistant <i>would have answered</i> last month
+with <code>FACTS OF kb:* AS KNOWN AT …</code>.</div>
 
 <h2 id="ops">12. Operations</h2>
 <pre><code><span class="kw">PROFILE OF</span> item:*                <span class="cm">-- what does my data look like? fields, types,</span>

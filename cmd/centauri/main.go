@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/proxima360/centauri/internal/api"
+	"github.com/proxima360/centauri/internal/assistant"
 	"github.com/proxima360/centauri/internal/catalog"
 	"github.com/proxima360/centauri/internal/ceql"
 	"github.com/proxima360/centauri/internal/mcp"
@@ -174,6 +175,9 @@ func main() {
 		if n, err := catalog.SeedIfEmpty(*data, time.Now().UnixMicro()); err == nil {
 			fmt.Printf("command catalog: %d commands\n", n)
 		}
+		if n, err := assistant.SeedIfEmpty(st, time.Now().UnixMicro()); err == nil {
+			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
+		}
 		fmt.Printf("your data:  %s\ndashboard:  http://localhost%s  (opening in your browser…)\n", *data, *addr)
 		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
 		go func() {
@@ -206,6 +210,9 @@ func main() {
 			log.Printf("catalog: %v (autocomplete falls back to built-ins)", err)
 		} else {
 			fmt.Printf("command catalog: %d commands in ceql-catalog\n", n)
+		}
+		if n, err := assistant.SeedIfEmpty(st, time.Now().UnixMicro()); err == nil {
+			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
 		}
 		fmt.Printf("data: %s\nlistening on %s\n", *data, *addr)
 		fmt.Println(`try:  curl 'localhost:7771/v1/stats'

@@ -17,7 +17,8 @@ import (
 func (q *Query) IsWrite() bool {
 	// EXPLAIN never writes — it only shows the plan of its inner query.
 	// RUN counts as a write because procedures may PUT.
-	return q.Kind == KPut || q.Kind == KDefineSchema || q.Kind == KRun
+	// ASK may append a kb_gap fact on a miss, so it counts as a write.
+	return q.Kind == KPut || q.Kind == KDefineSchema || q.Kind == KRun || q.Kind == KAsk
 }
 
 // Execute runs a CeQL query against a store. now is the server clock
@@ -116,6 +117,8 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		return execDrift(st, q)
 	case KSearch:
 		return execSearch(st, q)
+	case KAsk:
+		return execAsk(st, q, now)
 	case KFacts, KHistory:
 		return execRead(st, q)
 	}

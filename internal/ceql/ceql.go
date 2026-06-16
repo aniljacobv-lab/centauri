@@ -50,6 +50,9 @@ const (
 
 	// Search — native BM25 full-text + hybrid keyword/vector (see bm25.go).
 	KSearch Kind = "search"
+
+	// Ask — the self-learning assistant over kb:* facts (see assistant.go).
+	KAsk Kind = "ask"
 )
 
 // Field is one projection item: a value/meta field or an aggregate.
@@ -401,6 +404,11 @@ func (p *parser) statement() (*Query, error) {
 		return p.driftStmt()
 	case p.eat("SEARCH"):
 		return p.searchStmt()
+	case p.eat("ASK"):
+		if p.peek().k != tStr {
+			return nil, fmt.Errorf("ASK needs a quoted question, e.g. ASK 'does it scale?'")
+		}
+		return &Query{Kind: KAsk, Text: p.next().s}, nil
 	case p.eat("WATCH"):
 		return p.watchStmt()
 	case p.eat("RUN"):

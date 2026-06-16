@@ -1426,6 +1426,15 @@ function renderQueryResult(r, out, meta){
       };
       break;
     }
+    case "assistant":
+      if (r.learned) {
+        h = `<h3>🤖 ${esc(r.question)}</h3><div class="mini">${esc(r.answer)}</div>
+          <div class="mini" style="margin-top:8px;color:var(--dim)">from <a href="#" onclick="select(${jsAttr(r.source)});return false">${esc(r.source)}</a> · score ${(+r.score).toFixed(2)}</div>`;
+      } else {
+        h = `<h3>🤖 ${esc(r.question)}</h3><div class="mini">${esc(r.note)}</div>
+          <div class="mini" style="margin-top:6px">logged as <code>${esc(r.gap)}</code> — answer it: <code>PUT kb:&lt;slug&gt; FACET knowledge SET question='…', answer='…'</code></div>`;
+      }
+      break;
     case "search":
       h = `<h3>🔎 ${(r.hits || []).length} result(s) for “${esc(r.query)}”${r.hybrid ? " (hybrid)" : ""}</h3>
         <div class="mini" style="margin-bottom:8px">terms: ${(r.terms || []).map(esc).join(", ")}</div>` +
