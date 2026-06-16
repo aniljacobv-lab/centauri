@@ -68,6 +68,7 @@ One language. Three speakers: humans, AI agents, and legacy systems.</div>
 <a href="#topology">12½. Topology: SHAPE, CONSISTENCY, CYCLES, DRIFT</a>
 <a href="#rosetta">13. The Rosetta Stone</a>
 <a href="#agents">14. For agents: the JSON AST</a>
+<a href="#connect">14½. Connect your LLM (MCP &amp; function calling)</a>
 <a href="#grammar">15. Grammar reference</a>
 <a href="#cepl">16½. Procedures (CePL)</a>
 <a href="#practice">16. Best practices</a>
@@ -491,6 +492,40 @@ tool takes <code>{"q": "…"}</code> — so any MCP-speaking agent (Claude inclu
 can query Centauri natively. The workflow that makes this future-proof:
 call <code>EXPLAIN &lt;query&gt;</code> once to learn the AST shape, then emit
 ASTs directly.</p>
+
+<h2 id="connect">14½. Connect your LLM</h2>
+<p>Every model reaches Centauri the same way: <b>one tool that POSTs CeQL</b> to
+the HTTP API, or — for MCP-native clients — the built-in MCP server. Write the
+tool once; only the registration changes per provider.</p>
+
+<h3>The universal tool</h3>
+<pre><code><span class="cm"># Python — the same function for every provider below</span>
+import requests
+def centauri_query(ceql):
+    return requests.post(<span class="lit">"http://localhost:7771/v1/query"</span>,
+        headers={<span class="lit">"Authorization"</span>: <span class="lit">"Bearer TOKEN"</span>},
+        json={<span class="lit">"q"</span>: ceql}).text</code></pre>
+
+<h3>Claude / Anthropic — zero code (native MCP)</h3>
+<pre><code><span class="cm">// add to your MCP client config (Claude Desktop / Code)</span>
+{ <span class="lit">"mcpServers"</span>: { <span class="lit">"centauri"</span>: { <span class="lit">"command"</span>: <span class="lit">"centauri"</span>, <span class="lit">"args"</span>: [<span class="lit">"mcp"</span>] } } }</code></pre>
+<p>Claude then has all 20 Centauri tools — no glue code at all. Any MCP host works the same way.</p>
+
+<h3>OpenAI · Gemini · Grok · Mistral · local runners</h3>
+<pre><code><span class="cm"># OpenAI and anything OpenAI-compatible — only base_url changes</span>
+from openai import OpenAI
+OpenAI()                                         <span class="cm"># OpenAI (gpt-4o)</span>
+OpenAI(base_url=<span class="lit">"https://api.x.ai/v1"</span>)         <span class="cm"># Grok / xAI (grok-2)</span>
+OpenAI(base_url=<span class="lit">"http://localhost:11434/v1"</span>)   <span class="cm"># Ollama, local (llama3.1)</span>
+<span class="cm"># …Mistral, Together, Groq, Fireworks, OpenRouter, LM Studio, vLLM too.</span>
+<span class="cm"># register centauri_query in tools=[...] and route the tool call to it.</span>
+
+<span class="cm"># Gemini (function calling)</span>
+genai.GenerativeModel(<span class="lit">"gemini-2.0-pro"</span>, tools=[centauri_query])</code></pre>
+<div class="box">MCP-native clients (Claude, and any MCP host) get the richest path — 20 typed
+tools, no code. Everything else calls the single <code>centauri_query</code> tool over
+HTTP; Grok, Mistral, Together, Groq, OpenRouter and local runners (Ollama, LM Studio,
+vLLM, llama.cpp) are all OpenAI-compatible, so only the <code>base_url</code> differs.</div>
 
 <h2 id="grammar">15. Grammar reference (EBNF-ish)</h2>
 <pre><code>statement   = facts | history | subjects | put | correct | retire | pending

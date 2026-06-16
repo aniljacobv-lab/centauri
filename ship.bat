@@ -17,6 +17,10 @@ REM Single source of truth for the assistant KB: docs\kb.json is canonical;
 REM keep the copy embedded into the binary in sync before building.
 if exist docs\kb.json copy /Y docs\kb.json internal\assistant\kb.json >nul
 
+REM The CeQL Book is embedded for the dashboard (internal\api\ceql.html) and
+REM also served statically by the website (docs\ceql.html). Keep them in sync.
+if exist internal\api\ceql.html copy /Y internal\api\ceql.html docs\ceql.html >nul
+
 echo === 1/4  go vet ^& go test =====================================
 go vet ./...
 if errorlevel 1 goto :failed

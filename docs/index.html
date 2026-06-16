@@ -347,6 +347,62 @@ row = db.context(<span class="lit">"item:100001/store:4001"</span>,
 <span class="fn">centauri_trace</span>({event, direction:<span class="lit">"cause"</span>}) <span class="cm">// WHY</span>
 <span class="fn">centauri_genesis</span>({scenario})        <span class="cm">// build a DB</span></pre>
     </div>
+    <div>
+      <h3>5 · Connect any LLM over HTTP (Gemini, GPT, Claude…)</h3>
+      <pre><span class="cm"># expose ONE tool that POSTs CeQL — works with any model</span>
+curl -s localhost:7771/v1/query \
+  -H <span class="lit">'Authorization: Bearer TOKEN'</span> \
+  -d <span class="lit">'{"q":"FACTS OF item:100001/store:4001 WHY"}'</span></pre>
+    </div>
+    <div>
+      <h3>6 · Gemini function calling (Python)</h3>
+      <pre><span class="cm"># pip install google-generativeai requests</span>
+import google.generativeai as genai, requests
+def <span class="fn">centauri_query</span>(ceql: str) -> str:
+    <span class="lit">"""Run a CeQL query against Centauri and return JSON."""</span>
+    return requests.post(<span class="lit">"http://localhost:7771/v1/query"</span>,
+        headers={<span class="lit">"Authorization"</span>: <span class="lit">"Bearer TOKEN"</span>},
+        json={<span class="lit">"q"</span>: ceql}).text
+m = genai.GenerativeModel(<span class="lit">"gemini-2.0-pro"</span>, tools=[centauri_query])
+chat = m.start_chat(enable_automatic_function_calling=True)
+print(chat.send_message(
+  <span class="lit">"What did item:100001/store:4001 cost on 2026-03-01?"</span>).text)
+<span class="cm"># Gemini auto-calls centauri_query(ceql) and grounds its answer.</span></pre>
+    </div>
+    <div>
+      <h3>7 · OpenAI / GPT (function calling)</h3>
+      <pre><span class="cm"># same centauri_query() as above; register it as a tool</span>
+tools=[{<span class="lit">"type"</span>:<span class="lit">"function"</span>,<span class="lit">"function"</span>:{
+  <span class="lit">"name"</span>:<span class="lit">"centauri_query"</span>,
+  <span class="lit">"parameters"</span>:{<span class="lit">"type"</span>:<span class="lit">"object"</span>,
+    <span class="lit">"properties"</span>:{<span class="lit">"ceql"</span>:{<span class="lit">"type"</span>:<span class="lit">"string"</span>}}}}}]
+OpenAI().chat.completions.create(model=<span class="lit">"gpt-4o"</span>, tools=tools, messages=[...])
+<span class="cm"># then dispatch the tool call to centauri_query(args["ceql"])</span></pre>
+    </div>
+    <div>
+      <h3>8 · Claude / Anthropic (MCP — zero code)</h3>
+      <pre><span class="cm"># Claude speaks MCP natively — just add this to the config:</span>
+{ <span class="lit">"mcpServers"</span>: {
+    <span class="lit">"centauri"</span>: { <span class="lit">"command"</span>: <span class="lit">"centauri"</span>, <span class="lit">"args"</span>: [<span class="lit">"mcp"</span>] }
+} }
+<span class="cm"># Claude Desktop/Code now has all 20 Centauri tools. No code.</span></pre>
+    </div>
+    <div>
+      <h3>9 · Grok / xAI (OpenAI-compatible)</h3>
+      <pre>from openai import OpenAI
+client = OpenAI(api_key=<span class="lit">"XAI_KEY"</span>,
+                base_url=<span class="lit">"https://api.x.ai/v1"</span>)  <span class="cm"># model "grok-2"</span>
+<span class="cm"># same centauri_query tool. Identical pattern works for</span>
+<span class="cm"># Mistral, Together, Groq, Fireworks, OpenRouter, DeepSeek…</span></pre>
+    </div>
+    <div>
+      <h3>10 · Local / self-hosted LLMs (Ollama, LM Studio, vLLM)</h3>
+      <pre>from openai import OpenAI
+client = OpenAI(base_url=<span class="lit">"http://localhost:11434/v1"</span>,  <span class="cm"># Ollama</span>
+                api_key=<span class="lit">"ollama"</span>)                       <span class="cm"># model "llama3.1"</span>
+<span class="cm"># same centauri_query tool — fully offline &amp; private.</span>
+<span class="cm"># LM Studio → :1234/v1 · vLLM → :8000/v1 · llama.cpp → :8080/v1</span></pre>
+    </div>
   </div>
   <p style="color:var(--faint);font-size:13.5px;margin-top:18px">All 20 MCP tools are documented in <a href="ceql.html">The CeQL Book</a> · the JSON AST is the same shape CeQL parses to, so anything you can type, an agent can emit.</p>
 </div></section>
