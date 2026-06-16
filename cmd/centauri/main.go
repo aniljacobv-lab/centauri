@@ -430,14 +430,28 @@ func usage() {
 	fmt.Print(banner)
 	fmt.Println(`usage: centauri <command> [flags]
 
-  seed    populate with synthetic price-change events
-  desktop the friendly start: data in your user profile, browser opens itself
-  serve   HTTP/JSON API (writes + queries + SSE watch + log shipping)
-  mcp     Model Context Protocol server on stdio (for AI agents)
-  follow  replicate a primary's log into a read-only follower
-  verify  recompute the tamper-evidence chain over a log file
-  backup  copy a database to -to <file> and verify the copy's chain
-  merge   reconcile diverged copies into one: merge -to merged.log a.log b.log
-  export  write a CeQL result to CSV/JSONL: -q "FACTS OF *" -format csv -to facts.csv`)
+Commands
+  desktop  one-click start: data in your profile, dashboard opens in your browser
+  serve    HTTP/JSON API — writes, queries, SSE watch, log shipping
+  mcp      Model Context Protocol server on stdio (connect AI agents)
+  seed     populate with synthetic price-change demo data
+  follow   replicate a primary's log into a read-only follower
+  verify   recompute the tamper-evidence hash chain over a log file
+  backup   copy a database to -to <file> and verify the copy's chain
+  merge    reconcile diverged copies: merge -to merged.log a.log b.log
+  export   write a CeQL result: export -q "FACTS OF *" -format csv -to out.csv
+
+Common flags
+  -data <path>    log file to use            (default centauri.log)
+  -addr <:port>   listen address (serve)     (default :7771)
+  -token <tok>    HTTP API bearer token      (or set $CENTAURI_TOKEN)
+  -lazy           keep payloads on disk so data can exceed RAM (serve/desktop)
+
+Examples
+  centauri desktop                 # try it now — opens the dashboard
+  centauri serve -lazy -token s3cr # API server, payloads on disk
+  centauri merge -to all.log a.log b.log
+
+Learn CeQL: run 'centauri desktop' and open the textbook at /ceql.`)
 	os.Exit(1)
 }
