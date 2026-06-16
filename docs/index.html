@@ -281,7 +281,7 @@
     <div class="feat"><div class="fi">🪙</div><h3>No license, no per-core fees</h3><p>Free and open source. No seats, no cores, no support contract — you pay only for the hardware you already own.</p></div>
     <div class="feat"><div class="fi">🔓</div><h3>Zero lock-in</h3><p>One open file (JSONL) you can read, move, back up, or delete; an open query language; <code>centauri export</code> any time. Walk away with everything.</p></div>
   </div>
-  <div class="honest" style="margin-top:24px"><b>Honest status:</b> today your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder. Larger-than-RAM storage, log segmentation, and a "bring your own bucket" (S3/GCS/Azure) backend are designed and on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-own-your-data.md">roadmap</a>.</div>
+  <div class="honest" style="margin-top:24px"><b>Honest status:</b> your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder — now with a <b>single-writer lock</b> (safe on shared/synced storage) and <code>centauri merge</code> to reconcile copies edited on two devices. <code>--lazy</code> keeps payloads on disk so a dataset can exceed RAM (only the index stays resident). Log segmentation and a "bring your own bucket" (S3/GCS/Azure) backend are next on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-own-your-data.md">roadmap</a>.</div>
 </div></section>
 
 <!-- ASK AI -->

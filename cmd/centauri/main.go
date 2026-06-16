@@ -70,6 +70,7 @@ func main() {
 	format := fs.String("format", "csv", "export format: csv | jsonl (export)")
 	primary := fs.String("primary", "", "primary base URL to replicate from (follow)")
 	interval := fs.Duration("interval", 2*time.Second, "poll interval (follow)")
+	lazy := fs.Bool("lazy", false, "keep event payloads on disk instead of RAM (serve/desktop; lets data exceed RAM)")
 	_ = fs.Parse(os.Args[2:])
 
 	// backup copies the committed log (safe while the server runs — the
@@ -144,7 +145,7 @@ func main() {
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
 	st, err := store.OpenOptions(*data, store.Options{NoSync: cmd == "seed",
-		Lock: cmd == "serve" || cmd == "desktop"})
+		Lock: cmd == "serve" || cmd == "desktop", LazyPayloads: *lazy})
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
@@ -184,7 +185,7 @@ func main() {
 					*data = filepath.Join(dir, "centauri.log")
 					// reopen the store at the profile location
 					st.Close()
-					st, err = store.OpenOptions(*data, store.Options{Lock: true})
+					st, err = store.OpenOptions(*data, store.Options{Lock: true, LazyPayloads: *lazy})
 					if err != nil {
 						log.Fatalf("open store: %v", err)
 					}
