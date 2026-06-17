@@ -60,6 +60,9 @@ const (
 	KSnapshot Kind = "snapshot" // name the current point so you can return to it
 	KRollback Kind = "rollback" // restore matching subjects to a past point
 	KDiff     Kind = "diff"     // what changed between two points in time
+
+	// Causal pattern query over the WHY graph (see match.go).
+	KMatch Kind = "match"
 )
 
 // Field is one projection item: a value/meta field or an aggregate.
@@ -162,6 +165,11 @@ type Query struct {
 	Last bool   `json:"last,omitempty"` // ROLLBACK (TO LAST): revert the most recent commit
 	From int64  `json:"from,omitempty"` // DIFF lower bound (valid-time, UnixMicro)
 	To   int64  `json:"to,omitempty"`   // DIFF upper bound (valid-time, UnixMicro)
+
+	// Causal MATCH (Subject = the "from" pattern; Depth/Limit reused)
+	MatchTo string `json:"match_to,omitempty"` // the target subject pattern
+	Via     string `json:"via,omitempty"`      // causal link-type filter ("" = any)
+	Dir     string `json:"dir,omitempty"`      // "effect" (CAUSES) | "cause" (CAUSED BY)
 }
 
 // ---------------------------------------------------------------------
@@ -422,6 +430,8 @@ func (p *parser) statement() (*Query, error) {
 			return nil, fmt.Errorf("ASK needs a quoted question, e.g. ASK 'does it scale?'")
 		}
 		return &Query{Kind: KAsk, Text: p.next().s}, nil
+	case p.eat("MATCH"):
+		return p.matchStmt()
 	case p.eat("SNAPSHOT"):
 		if p.peek().k != tStr {
 			return nil, fmt.Errorf("SNAPSHOT needs a quoted name, e.g. SNAPSHOT 'before-import'")
@@ -1233,6 +1243,58 @@ func (p *parser) watchStmt() (*Query, error) {
 				return nil, err
 			}
 			q.EvType = strings.ToUpper(t)
+		default:
+			return q, nil
+		}
+	}
+}
+
+// MATCH <fromPattern> (CAUSES | CAUSED BY) <toPattern> [VIA <type>] [DEPTH n] [LIMIT n]
+// A causal pattern query: find paths through the WHY graph from events whose
+// subject matches <fromPattern> to events matching <toPattern>.
+func (p *parser) matchStmt() (*Query, error) {
+	q := &Query{Kind: KMatch, Depth: 3}
+	from, err := p.word("a subject pattern (e.g. item:*)")
+	if err != nil {
+		return nil, err
+	}
+	q.Subject = from
+	switch {
+	case p.eat("CAUSES"):
+		q.Dir = "effect"
+	case p.eat("CAUSED"):
+		if err := p.expect("BY"); err != nil {
+			return nil, err
+		}
+		q.Dir = "cause"
+	default:
+		return nil, fmt.Errorf("MATCH expects CAUSES or CAUSED BY after the first pattern")
+	}
+	to, err := p.word("a target subject pattern")
+	if err != nil {
+		return nil, err
+	}
+	q.MatchTo = to
+	for {
+		switch {
+		case p.eat("VIA"):
+			v, err := p.word("a causal link type (TRIGGERED, SUPERSEDES, CORRECTS, …)")
+			if err != nil {
+				return nil, err
+			}
+			q.Via = strings.ToUpper(v)
+		case p.eat("DEPTH"):
+			n, err := p.intTok("a depth")
+			if err != nil {
+				return nil, err
+			}
+			q.Depth = n
+		case p.eat("LIMIT"):
+			n, err := p.intTok("a limit")
+			if err != nil {
+				return nil, err
+			}
+			q.Limit = n
 		default:
 			return q, nil
 		}

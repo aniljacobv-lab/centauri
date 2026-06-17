@@ -468,6 +468,10 @@ function renderResult(r, meta){
         (hs.length? tableLite(["subject","score","relevance","recency","trust","central"],
           hs.map(x=>{ const e=x.event||{}; return [linkSubj(e.subject),(+x.score).toFixed(3),sbar(x.relevance),sbar(x.recency),sbar(x.trust),sbar(x.centrality)]; }))
           : `<div class="muted">No matches.</div>`); break; }
+    case "match": { const ms=r.rows||[]; rows=ms.length;
+      h=`<h3 class="rt">🧬 ${ms.length} causal path(s) <span class="muted small">— ${esc(r.note||"")}</span></h3>`+
+        (ms.length? tableLite(["from","via","hops","to"], ms.map(x=>[linkSubj(x.from),`<span class="badge">${esc(x.via)}</span>`,String(x.hops),linkSubj(x.to)]))
+          : `<div class="muted">No causal paths matched.</div>`); break; }
     case "assistant":
       h=`<h3 class="rt">✨ Copilot</h3>`+(r.answer?`<div class="answer">${md(r.answer)}</div>`
         :`<div class="muted">I don't have a confident answer for “${esc(r.question||"")}”. Try rephrasing, or open the <a href="/ceql">Book</a>.</div>`); break;

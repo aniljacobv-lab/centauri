@@ -1509,6 +1509,17 @@ function renderQueryResult(r, out, meta){
             : `<div class="mini">No changes between those two points.</div>`);
       break;
     }
+    case "match": {
+      const rows = r.rows || [];
+      h = `<h3>🧬 ${rows.length} causal path(s)${r.note ? ` <span class="mini">— ${esc(r.note)}</span>` : ""}</h3>` +
+          (rows.length ? `<table><tr><th>from</th><th>via</th><th>hops</th><th>to</th></tr>` +
+            rows.slice(0, 300).map(m => `<tr>
+              <td><a href="#" onclick="select(${jsAttr(m.from)});return false">${esc(m.from)}</a></td>
+              <td><span class="badge b-type">${esc(m.via)}</span></td><td>${m.hops}</td>
+              <td><a href="#" onclick="select(${jsAttr(m.to)});return false">${esc(m.to)}</a></td></tr>`).join("") + `</table>`
+            : `<div class="mini">No causal paths matched.</div>`);
+      break;
+    }
     default:
       h = `<h3>${esc(r.kind || "result")}</h3><pre>${esc(JSON.stringify(r, null, 2))}</pre>`;
   }

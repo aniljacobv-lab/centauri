@@ -138,6 +138,9 @@ func Entries() []Entry {
 		{"txn", "diff", "DIFF [OF <pattern>] BETWEEN '<t1>' AND '<t2>'", "DIFF OF toy:* BETWEEN '2026-03-01' AND '2026-03-15'",
 			"Preview what changed between two points before you roll back",
 			[]string{"diff", "what changed", "compare", "changes between", "delta"}},
+		{"graph", "match", "MATCH <from> (CAUSES | CAUSED BY) <to> [VIA <type>] [DEPTH n]", "MATCH item:* CAUSES register:* VIA TRIGGERED DEPTH 3",
+			"Causal pattern search across the WHY graph — which things led to which",
+			[]string{"match", "what caused", "lineage between", "causal pattern", "led to", "traces from to"}},
 
 		// ---- SCHEMA ----
 		{"schema", "define", "DEFINE SCHEMA <id> (<field> <type> [REQUIRED] [MIN n] [MAX n] [UNIT 'u'], ...)",

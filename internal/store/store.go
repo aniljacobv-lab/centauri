@@ -824,6 +824,42 @@ func (s *Store) Trace(eventID, direction string, maxDepth int) []TraceNode {
 	return out
 }
 
+// TraceVia is Trace restricted to causal edges of a single link type.
+// via=="" or "*" follows every type (identical to Trace). Read-only.
+// Powers the CeQL MATCH operator's VIA filter.
+func (s *Store) TraceVia(eventID, direction string, maxDepth int, via string) []TraceNode {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	anyType := via == "" || via == "*"
+	var out []TraceNode
+	seen := map[string]bool{}
+	var walk func(id string, depth int, edge model.LinkType)
+	walk = func(id string, depth int, edge model.LinkType) {
+		if depth > maxDepth || seen[id] {
+			return
+		}
+		seen[id] = true
+		if e, ok := s.events[id]; ok {
+			out = append(out, TraceNode{Event: s.hydrate(e), Link: edge, Depth: depth})
+		}
+		if direction == "cause" {
+			for _, l := range s.causalIn[id] {
+				if anyType || string(l.Type) == via {
+					walk(l.From, depth+1, l.Type)
+				}
+			}
+		} else {
+			for _, l := range s.causalOut[id] {
+				if anyType || string(l.Type) == via {
+					walk(l.To, depth+1, l.Type)
+				}
+			}
+		}
+	}
+	walk(eventID, 0, "")
+	return out
+}
+
 // CausalEdges returns a copy of every causal link in the lineage graph
 // (read-only). The topology engine uses it to detect cycles — a directed
 // cycle here is a data-integrity alarm, since lineage must be acyclic.

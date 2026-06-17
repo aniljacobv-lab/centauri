@@ -128,6 +128,8 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		return execRollback(st, q, now)
 	case KDiff:
 		return execDiff(st, q)
+	case KMatch:
+		return execMatch(st, q)
 	case KFacts, KHistory:
 		return execRead(st, q)
 	}

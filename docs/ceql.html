@@ -57,6 +57,7 @@ One language. Three speakers: humans, AI agents, and legacy systems.</div>
 <a href="#facts">4. Reading: FACTS</a>
 <a href="#time">5. Time travel</a>
 <a href="#why-op">6. Causality: WHY &amp; EFFECTS</a>
+<a href="#match">6½. Causal patterns: MATCH</a>
 <a href="#writing">7. Writing: PUT, CORRECT, RETIRE</a>
 <a href="#txn">7½. Reversible transactions: SNAPSHOT, ROLLBACK, DIFF</a>
 <a href="#agg">8. Aggregation</a>
@@ -188,6 +189,28 @@ chain (what triggered it, what it superseded). Or trace one event directly:</p>
 <div class="box">No other query language has this operator, because no other
 database stores causes. In SQL, “why is the price wrong?” is a war room.
 Here it's seven characters.</div>
+
+<h2 id="match">6½. Causal patterns — MATCH</h2>
+<p><code>WHY</code> and <code>EFFECTS</code> start from one known event.
+<span class="kw">MATCH</span> works at the set level: find every causal path between
+two <em>patterns</em>. It walks the lineage graph outbound (<code>CAUSES</code>)
+or inbound (<code>CAUSED BY</code>), optionally restricted to one link type.</p>
+<pre><code><span class="cm">-- which intents triggered a register flip?</span>
+<span class="kw">MATCH</span> item:* <span class="kw">CAUSES</span> register:* <span class="kw">VIA</span> TRIGGERED <span class="kw">DEPTH</span> 3
+
+<span class="cm">-- what corrected this item?</span>
+<span class="kw">MATCH</span> item:100001/store:4001 <span class="kw">CAUSED BY</span> * <span class="kw">VIA</span> CORRECTS
+
+<span class="cm">-- any lineage between two namespaces, up to 5 hops</span>
+<span class="kw">MATCH</span> intent:* <span class="kw">CAUSES</span> pdt:* <span class="kw">DEPTH</span> 5 <span class="kw">LIMIT</span> 50</code></pre>
+<p>Each row is a path: <code>from</code> / <code>to</code> subjects, their event
+ids, the number of <code>hops</code>, and the connecting <code>via</code> link
+type. <code>VIA</code> filters the edge type (<code>TRIGGERED</code>,
+<code>SUPERSEDES</code>, <code>CORRECTS</code>, <code>DISTRIBUTED_AS</code>,
+<code>ACTIVATED_BY</code>, <code>ENRICHED_FROM</code>); omit it for any type.</p>
+<div class="box">This is graph pattern-matching over causation — the kind of
+question a graph database can ask about <em>references</em>, but here it's about
+<em>why things happened</em>, and it's bi-temporal like everything else.</div>
 
 <h2 id="writing">7. Writing: PUT, CORRECT, RETIRE</h2>
 <pre><code><span class="kw">PUT</span> subject [<span class="kw">FACET</span> f] [<span class="kw">TYPE</span> t] <span class="kw">SET</span> k=v, k=v, …
