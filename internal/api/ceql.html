@@ -292,6 +292,13 @@ everything else, and it can blend with vector similarity for hybrid retrieval.</
 corpus (high IDF), normalized for document length. Pair it with <code>SIMILAR</code>'s vectors and you
 get hybrid retrieval — the recall of semantics with the precision of keywords, which is exactly what
 good RAG pipelines want.</div>
+<p><b>Multi-signal ranking.</b> Relevance is the base, but the final order also folds in three
+things a plain inverted index (Postgres FTS, Elasticsearch) has no way to know: <b>recency</b> (how
+fresh the fact is), <b>trust</b> (confidence × provenance — a scan-verified fact outranks an AI guess),
+and <b>causal centrality</b> (how connected the fact is in the WHY graph). Keyword/semantic relevance
+stays dominant; these mostly settle near-ties. Every hit returns its signal breakdown
+(<code>relevance</code>, <code>recency</code>, <code>trust</code>, <code>centrality</code>) so the
+ranking is explainable, not a black box.</p>
 
 <h2 id="ask-stmt">11⅞. The self-learning assistant — ASK</h2>
 <p>Centauri can be its own knowledge base. Q&amp;A live as ordinary facts

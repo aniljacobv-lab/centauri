@@ -27,7 +27,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -111,7 +110,11 @@ type Store struct {
 	enrichments    map[string][]*model.Enrichment // target_event -> enrichments
 	supersededAt   map[string]supersessionNote    // event_id -> when supersession was recorded
 	subjects       map[string]bool
-	schemas        map[string][]*model.Schema // schema_id -> versions ascending
+	// subjectFacets indexes which facets exist per subject so facet-less
+	// reads (Current/AsOf/History "OF subject") enumerate just that
+	// subject's facets instead of scanning every (subject|facet) stream.
+	subjectFacets map[string]map[string]struct{}
+	schemas       map[string][]*model.Schema // schema_id -> versions ascending
 	vectors        map[string][]float32       // event_id -> latest embedding
 
 	subs    map[int]chan *model.Event // watch subscribers
@@ -144,6 +147,7 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		enrichments:    map[string][]*model.Enrichment{},
 		supersededAt:   map[string]supersessionNote{},
 		subjects:       map[string]bool{},
+		subjectFacets:  map[string]map[string]struct{}{},
 		schemas:        map[string][]*model.Schema{},
 		vectors:        map[string][]float32{},
 		subs:           map[int]chan *model.Event{},
@@ -309,6 +313,10 @@ func (s *Store) apply(r *record) {
 		e := r.Event
 		s.events[e.EventID] = e
 		s.subjects[e.Subject] = true
+		if s.subjectFacets[e.Subject] == nil {
+			s.subjectFacets[e.Subject] = map[string]struct{}{}
+		}
+		s.subjectFacets[e.Subject][e.Facet] = struct{}{}
 		k := key(e.Subject, e.Facet)
 		ids := s.bySubjectFacet[k]
 		// insert keeping EffectiveTime ascending order
@@ -769,9 +777,8 @@ func (s *Store) Disagreements(field string) map[string][]*model.Event {
 
 func (s *Store) currentLocked(subject string) []*model.Event {
 	var out []*model.Event
-	prefix := subject + "|"
-	for k, id := range s.open {
-		if strings.HasPrefix(k, prefix) {
+	for f := range s.subjectFacets[subject] {
+		if id, ok := s.open[key(subject, f)]; ok {
 			out = append(out, s.events[id])
 		}
 	}
@@ -912,6 +919,15 @@ func (s *Store) MaxRecordedTime() int64 {
 	return max
 }
 
+// CausalDegree returns how many causal links touch an event (inbound +
+// outbound) — a cheap centrality signal: hub facts that explain, or were
+// explained by, many others rank as more significant. Read-only.
+func (s *Store) CausalDegree(eventID string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.causalIn[eventID]) + len(s.causalOut[eventID])
+}
+
 // Stats returns basic counters.
 func (s *Store) Stats() map[string]int {
 	s.mu.RLock()
@@ -937,15 +953,9 @@ func (s *Store) facetsFor(subject, facet string) []string {
 	if facet != "" {
 		return []string{facet}
 	}
-	set := map[string]bool{}
-	prefix := subject + "|"
-	for k := range s.bySubjectFacet {
-		if strings.HasPrefix(k, prefix) {
-			set[strings.TrimPrefix(k, prefix)] = true
-		}
-	}
-	var out []string
-	for f := range set {
+	fs := s.subjectFacets[subject]
+	out := make([]string, 0, len(fs))
+	for f := range fs {
 		out = append(out, f)
 	}
 	sort.Strings(out)

@@ -151,6 +151,50 @@ func blendHybrid(bm, vec map[int]float64, alpha float64) map[int]float64 {
 	return out
 }
 
+// provWeight ranks how much a fact's origin is trusted — physical
+// verification beats human entry beats a feed beats inference.
+func provWeight(p model.Provenance) float64 {
+	switch p {
+	case model.ScanVerified:
+		return 1.0
+	case model.HumanEntry:
+		return 0.85
+	case model.SystemFeed:
+		return 0.70
+	case model.AIInferred:
+		return 0.50
+	}
+	return 0.60
+}
+
+// combineSignals folds Centauri-native signals into a base relevance score
+// (BM25, or the hybrid keyword+vector blend, already in [0,1]). Keyword /
+// semantic relevance stays dominant; the extra signals — recency, trust
+// (confidence × provenance), and causal centrality — mainly order near-ties.
+// This is information a plain inverted index (Postgres FTS, Elasticsearch)
+// has no way to use: how fresh a fact is, how much it's trusted, and how
+// central it is in the causal graph. Returns the final score plus each
+// normalized signal so callers can show *why* a hit ranked where it did.
+func combineSignals(st *store.Store, events []*model.Event, base map[int]float64) (final, rec, trust, cen map[int]float64) {
+	recRaw, trustRaw, cenRaw := map[int]float64{}, map[int]float64{}, map[int]float64{}
+	for d := range base {
+		e := events[d]
+		t := e.EffectiveTime
+		if t == 0 {
+			t = e.RecordedTime
+		}
+		recRaw[d] = float64(t)
+		trustRaw[d] = e.Confidence * provWeight(e.Provenance)
+		cenRaw[d] = float64(st.CausalDegree(e.EventID))
+	}
+	rec, trust, cen = minMax(recRaw), minMax(trustRaw), minMax(cenRaw)
+	final = map[int]float64{}
+	for d, b := range base {
+		final[d] = 0.70*b + 0.12*rec[d] + 0.12*trust[d] + 0.06*cen[d]
+	}
+	return final, rec, trust, cen
+}
+
 func cosine32(a, b []float32) float64 {
 	if len(a) == 0 || len(b) == 0 || len(a) != len(b) {
 		return 0
@@ -205,7 +249,7 @@ func execSearch(st *store.Store, q *Query) (map[string]any, error) {
 	for _, r := range ranked {
 		bm[r.Doc] = r.Score
 	}
-	var score map[int]float64
+	var base map[int]float64
 	vec := map[int]float64{}
 	if hybrid {
 		qv := st.Vector(q.EventID)
@@ -219,10 +263,13 @@ func execSearch(st *store.Store, q *Query) (map[string]any, error) {
 		if alpha <= 0 || alpha > 1 {
 			alpha = 0.5
 		}
-		score = blendHybrid(bm, vec, alpha)
+		base = blendHybrid(bm, vec, alpha)
 	} else {
-		score = bm
+		base = minMax(bm)
 	}
+	// Fold in the signals only a temporal, causal store has: freshness,
+	// trust, and causal centrality. Relevance still dominates.
+	score, rec, trust, cen := combineSignals(st, events, base)
 
 	order := make([]int, 0, len(score))
 	for d := range score {
@@ -243,16 +290,20 @@ func execSearch(st *store.Store, q *Query) (map[string]any, error) {
 	}
 	hits := make([]map[string]any, 0, len(order))
 	for _, d := range order {
-		m := map[string]any{"event": events[d], "score": score[d], "bm25": bm[d]}
+		m := map[string]any{"event": events[d], "score": score[d],
+			"bm25": bm[d], "relevance": base[d],
+			"recency": rec[d], "trust": trust[d], "centrality": cen[d]}
 		if hybrid {
 			m["vector"] = vec[d]
 		}
 		hits = append(hits, m)
 	}
-	note := fmt.Sprintf("%d match(es) for %q across %d documents", len(hits), q.Text, len(events))
+	kind := "keyword"
 	if hybrid {
-		note += " (hybrid keyword+vector)"
+		kind = "hybrid keyword+vector"
 	}
+	note := fmt.Sprintf("%d match(es) for %q across %d documents — ranked by %s relevance + recency + trust + causal centrality",
+		len(hits), q.Text, len(events), kind)
 	return map[string]any{
 		"kind": "search", "query": q.Text, "terms": qterms,
 		"hybrid": hybrid, "hits": hits, "note": note,

@@ -310,6 +310,9 @@ function fmtVal(v){
 }
 // light markdown for copilot answers (**bold**, `code`)
 function md(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>"); }
+// a tiny 0..1 signal bar
+function sbar(v){ v=Math.max(0,Math.min(1,+v||0));
+  return "<span style='display:inline-block;width:46px;height:7px;background:#1c2535;border-radius:3px;vertical-align:middle'><span style='display:block;height:7px;border-radius:3px;background:var(--accent);width:"+(v*100).toFixed(0)+"%'></span></span>"; }
 
 // ---------------- boot ----------------
 async function boot(){
@@ -458,6 +461,13 @@ function renderResult(r, meta){
       h=`<h3 class="rt">🔀 ${cs.length} change(s)</h3>`+(cs.length?
         tableLite(["subject","facet","change","before","after"], cs.map(c=>[linkSubj(c.subject),esc(c.facet),bd(c.change),fmtVal(c.before),fmtVal(c.after)]))
         :`<div class="muted">No changes between those points.</div>`); break; }
+    case "search": { const hs=r.hits||[]; rows=hs.length;
+      LASTGRID={columns:["subject","score","relevance","recency","trust","centrality"],
+        rows:hs.map(x=>{const e=x.event||{}; return [e.subject,(+x.score).toFixed(4),(+x.relevance).toFixed(4),(+x.recency).toFixed(4),(+x.trust).toFixed(4),(+x.centrality).toFixed(4)];})};
+      h=`<h3 class="rt">🔎 ${hs.length} match(es) <span class="muted small">— ${esc(r.note||"")}</span></h3>`+
+        (hs.length? tableLite(["subject","score","relevance","recency","trust","central"],
+          hs.map(x=>{ const e=x.event||{}; return [linkSubj(e.subject),(+x.score).toFixed(3),sbar(x.relevance),sbar(x.recency),sbar(x.trust),sbar(x.centrality)]; }))
+          : `<div class="muted">No matches.</div>`); break; }
     case "assistant":
       h=`<h3 class="rt">✨ Copilot</h3>`+(r.answer?`<div class="answer">${md(r.answer)}</div>`
         :`<div class="muted">I don't have a confident answer for “${esc(r.question||"")}”. Try rephrasing, or open the <a href="/ceql">Book</a>.</div>`); break;

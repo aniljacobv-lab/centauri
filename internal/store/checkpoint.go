@@ -52,6 +52,7 @@ func (s *Store) resetState() {
 	s.enrichments = map[string][]*model.Enrichment{}
 	s.supersededAt = map[string]supersessionNote{}
 	s.subjects = map[string]bool{}
+	s.subjectFacets = map[string]map[string]struct{}{}
 	s.schemas = map[string][]*model.Schema{}
 	s.vectors = map[string][]float32{}
 	s.chainHash = [32]byte{}
@@ -167,6 +168,15 @@ func (s *Store) tryLoadCheckpoint(f *os.File) int64 {
 	s.enrichments = orMapE(cp.Enrichments)
 	s.subjects = orMapB(cp.Subjects)
 	s.schemas = orMapSc(cp.Schemas)
+	// subjectFacets is derived state: rebuild it from the restored events
+	// (pre-checkpoint events are not re-applied, so apply() won't fill it).
+	s.subjectFacets = map[string]map[string]struct{}{}
+	for _, e := range s.events {
+		if s.subjectFacets[e.Subject] == nil {
+			s.subjectFacets[e.Subject] = map[string]struct{}{}
+		}
+		s.subjectFacets[e.Subject][e.Facet] = struct{}{}
+	}
 	s.supersededAt = map[string]supersessionNote{}
 	for id, t := range cp.SupersededAt {
 		s.supersededAt[id] = supersessionNote{recordedTime: t}
