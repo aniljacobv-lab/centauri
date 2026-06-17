@@ -1,0 +1,25 @@
+metadataSpecVersion: "1.0"
+data:
+  connectorType: source
+  definitionId: 938eb753-6e4c-414f-abde-aa93bccd1d2a
+  dockerRepository: airbyte/source-centauri
+  dockerImageTag: 0.1.0
+  name: Centauri
+  icon: centauri.svg
+  license: PostgreSQL
+  githubIssueLabel: source-centauri
+  documentationUrl: https://github.com/proxima360/centauri/tree/main/connectors/airbyte/source_centauri
+  releaseStage: alpha
+  supportLevel: community
+  releaseDate: "2026-06-17"
+  tags:
+    - language:python
+  connectorSubtype: database
+  ab_internal:
+    sl: 100
+    ql: 100
+  registryOverrides:
+    oss:
+      enabled: true
+    cloud:
+      enabled: false

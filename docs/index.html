@@ -227,6 +227,7 @@
     <a href="#playground">Playground</a>
     <a href="#reference">CeQL Reference</a>
     <a href="#sql">From SQL</a>
+    <a href="#integrations">Integrations</a>
     <a href="#examples">Examples</a>
     <a href="#docs">Docs</a>
     <a href="#download">Download</a>
@@ -569,6 +570,19 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
     </tbody>
   </table></div>
   <p class="lead" style="margin-top:18px"><b>What CeQL adds that SQL can't:</b> <code>AS KNOWN AT</code> (replay what you <em>believed</em>, not just what was true), <code>WHY</code> / <code>EFFECTS</code> (causal lineage), <code>SHAPE</code> / <code>CONSISTENCY</code> / <code>DRIFT</code> (topology), tamper-evident <code>verify</code>, hybrid keyword+vector <code>SEARCH</code>, and a native agent interface (MCP).</p>
+</div></section>
+
+<!-- INTEGRATIONS -->
+<section id="integrations"><div class="wrap">
+  <div class="kicker">Integrations</div>
+  <h2>Get data in and out — without lock-in.</h2>
+  <p class="lead">Centauri is the system of record beside your operational stores, so moving data across the boundary is first-class. Two open paths: native Airbyte connectors and a resumable change stream.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">⤵</div><h3>Airbyte destination</h3><p>Point any of Airbyte's 300+ sources — Postgres, MongoDB, Stripe, Salesforce, files — at the Centauri destination, and every row lands as a bi-temporal fact. One connector instead of N importers.</p></div>
+    <div class="feat"><div class="fi">⤴</div><h3>Airbyte source</h3><p>Stream facts out to any warehouse or lake. It rides the CDC endpoint, so Centauri's byte-offset cursor becomes Airbyte incremental state — only new facts, never duplicates.</p></div>
+    <div class="feat"><div class="fi">🔁</div><h3>Change Data Capture</h3><p><code>GET /v1/changes?from=&lt;cursor&gt;</code> returns committed facts in order plus a cursor to resume from. Tail the database from any language; the append-only log <em>is</em> the stream.</p></div>
+  </div>
+  <p class="lead" style="margin-top:18px">The connectors are standalone (pure-stdlib Python, no Airbyte CDK) and never link into the single binary — the zero-dependency core is untouched. <a href="https://github.com/proxima360/centauri/tree/main/connectors/airbyte">Connector source &amp; quickstart →</a></p>
 </div></section>
 
 <!-- EXAMPLES ACROSS DOMAINS -->
