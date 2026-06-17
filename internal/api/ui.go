@@ -17,6 +17,12 @@ var uiHTML []byte
 //go:embed ceql.html
 var ceqlHTML []byte
 
+// Centauri Studio — the AI-first IDE (object explorer, CeQL editor,
+// time-travel, causal trace, rollback), served at /studio.
+//
+//go:embed studio.html
+var studioHTML []byte
+
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(uiHTML)
@@ -25,4 +31,9 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCeqlBook(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(ceqlHTML)
+}
+
+func (s *Server) handleStudio(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(studioHTML)
 }

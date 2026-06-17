@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri Studio</title>
+<style>
+  :root{
+    --bg:#0b0f15; --panel:#111722; --panel2:#0e131c; --raised:#16202e;
+    --border:#222c3a; --border2:#2c3848; --text:#d7e0ee; --dim:#8595aa; --faint:#5b6b80;
+    --accent:#5eb0ff; --accent2:#9a7bff; --good:#46d39a; --warn:#ffb454; --bad:#ff6b81;
+    --ai:#b98bff; --aiglow:#7d5cff55;
+    --mono:ui-monospace,"SF Mono",Consolas,"Roboto Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --lw:266px; --rw:332px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--text);font:13px/1.5 var(--sans);overflow:hidden}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  code,.mono{font-family:var(--mono)}
+  button{font:inherit;cursor:pointer;color:var(--text);background:var(--raised);
+    border:1px solid var(--border2);border-radius:6px;padding:5px 10px}
+  button:hover{border-color:var(--accent);color:#fff}
+  button.primary{background:linear-gradient(180deg,#2b7fe0,#2369c9);border-color:#2b7fe0;color:#fff;font-weight:600}
+  button.ai{background:linear-gradient(180deg,#7d5cff,#6b46d6);border-color:#7d5cff;color:#fff;font-weight:600;box-shadow:0 0 12px var(--aiglow)}
+  button.ghost{background:transparent;border-color:transparent;color:var(--dim);padding:4px 7px}
+  button.ghost:hover{background:var(--raised);color:var(--text)}
+  input,select,textarea{font:inherit;color:var(--text);background:var(--panel2);
+    border:1px solid var(--border2);border-radius:6px;padding:5px 8px;outline:none}
+  input:focus,textarea:focus{border-color:var(--accent)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#26313f;border-radius:5px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-thumb:hover{background:#33414f}
+
+  #app{display:flex;flex-direction:column;height:100vh}
+  header.top{display:flex;align-items:center;gap:13px;padding:0 14px;height:46px;
+    background:linear-gradient(180deg,#121a26,#0d141d);border-bottom:1px solid var(--border);flex:none}
+  .brand{font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+  .brand .logo{width:18px;height:18px;border-radius:5px;
+    background:radial-gradient(circle at 30% 30%,#7fc1ff,#5e6bff 60%,#9a7bff);box-shadow:0 0 10px #5e6bff66}
+  .brand small{color:var(--dim);font-weight:500}
+  .top .stat{color:var(--dim);font-size:12px}
+  .top .stat b{color:var(--text)}
+  .top .grow{flex:1}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--bad);display:inline-block;margin-right:5px}
+  .dot.ok{background:var(--good);box-shadow:0 0 7px var(--good)}
+  .sepv{width:1px;height:22px;background:var(--border2)}
+
+  #main{flex:1;display:grid;grid-template-columns:var(--lw) 5px 1fr 5px var(--rw);min-height:0}
+  .col{min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--panel)}
+  .col.left{border-right:1px solid var(--border)}
+  .col.right{border-left:1px solid var(--border);background:var(--panel2)}
+  .splitter{cursor:col-resize;background:transparent}
+  .splitter:hover{background:var(--accent)}
+  .pane-h{display:flex;align-items:center;gap:6px;padding:7px 10px;font-size:11px;
+    text-transform:uppercase;letter-spacing:.8px;color:var(--dim);border-bottom:1px solid var(--border);flex:none}
+  .pane-h .grow{flex:1}
+
+  .explorer{flex:1;overflow:auto;padding:4px 0}
+  .filterbox{padding:8px 9px;border-bottom:1px solid var(--border)}
+  .filterbox input{width:100%}
+  .tree .grp{padding:5px 10px;color:var(--dim);font-size:11px;text-transform:uppercase;
+    letter-spacing:.5px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+  .tree .grp:hover{color:var(--text)}
+  .tree .grp .count{margin-left:auto;color:var(--faint);font-size:10px;background:var(--raised);border-radius:9px;padding:0 7px}
+  .tree .node{padding:3px 10px 3px 26px;cursor:pointer;font-family:var(--mono);font-size:12px;
+    color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid transparent}
+  .tree .node:hover{background:var(--raised)}
+  .tree .node.sel{background:#15263b;border-left-color:var(--accent);color:#fff}
+  .tree .node .ic{color:var(--dim);margin-right:6px}
+  .tree .empty{padding:6px 26px;color:var(--faint);font-size:11px}
+
+  .col.center{background:var(--panel2)}
+  .aibar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,#141021,#0e131c)}
+  .aibar .spark{color:var(--ai)}
+  .aibar input{flex:1;border-color:#3a2d5c;background:#120e1d}
+  .aibar input:focus{border-color:var(--ai);box-shadow:0 0 0 2px var(--aiglow)}
+  .aibar .note{color:var(--ai);font-size:11px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+  .toolbar{display:flex;align-items:center;gap:7px;padding:7px 9px;border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
+  .toolbar .sep{width:1px;height:20px;background:var(--border2);margin:0 2px}
+  .toolbar label{color:var(--dim);font-size:11px}
+  .ttbanner{display:none;align-items:center;gap:8px;padding:5px 10px;background:#1a2336;border-bottom:1px solid var(--border);color:var(--accent);font-size:12px}
+  .ttbanner.on{display:flex}
+  .editor-wrap{flex:none;position:relative;border-bottom:1px solid var(--border)}
+  #editor{width:100%;height:158px;resize:vertical;border:0;background:#0a0e14;color:#e6edf6;
+    font-family:var(--mono);font-size:13.5px;line-height:1.55;padding:10px 12px;tab-size:2}
+  .hint{position:absolute;right:12px;bottom:8px;color:var(--faint);font-size:11px;pointer-events:none}
+
+  .results{flex:1;display:flex;flex-direction:column;min-height:0}
+  .tabs{display:flex;gap:2px;padding:0 8px;border-bottom:1px solid var(--border);flex:none;background:var(--panel)}
+  .tab{padding:8px 12px;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;font-size:12px}
+  .tab:hover{color:var(--text)}
+  .tab.on{color:#fff;border-bottom-color:var(--accent)}
+  .tabpane{flex:1;overflow:auto;padding:12px;display:none}
+  .tabpane.on{display:block}
+  .statusbar{flex:none;display:flex;gap:14px;padding:5px 12px;border-top:1px solid var(--border);color:var(--dim);font-size:11px;background:var(--panel)}
+  .statusbar .grow{flex:1}
+
+  table.grid{border-collapse:collapse;width:100%;font-size:12px}
+  .grid th{position:sticky;top:0;background:#0f1620;text-align:left;padding:7px 9px;border-bottom:1px solid var(--border2);
+    color:var(--dim);font-weight:600;cursor:pointer;white-space:nowrap;z-index:1}
+  .grid th:hover{color:var(--text)}
+  .grid td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:top;font-family:var(--mono);font-size:12px}
+  .grid tr:hover td{background:#10171f}
+  .grid td.subj a{color:var(--accent)}
+  .badge{display:inline-block;border-radius:5px;padding:1px 7px;font-size:10.5px;background:#221a3a;color:var(--accent2)}
+  .b-good{background:#0f2f1c;color:var(--good)} .b-bad{background:#3a1518;color:var(--bad)}
+  .kv{font-family:var(--mono);font-size:12px}
+  .kv .k{color:var(--accent2)} .kv .s{color:var(--good)} .kv .n{color:#ffd479}
+  h3.rt{margin:0 0 9px;font-size:14px}
+  .muted{color:var(--dim)} .small{font-size:11px}
+  .err{color:var(--bad);font-family:var(--mono);white-space:pre-wrap}
+  .pill{display:inline-block;background:var(--raised);border:1px solid var(--border2);border-radius:20px;
+    padding:2px 10px;margin:3px 4px 0 0;font-size:11px;cursor:pointer}
+  .pill:hover{border-color:var(--accent)}
+  .answer{background:#150f24;border:1px solid #2e2350;border-radius:8px;padding:12px 14px;line-height:1.6}
+  .answer code{background:#211a38;padding:1px 5px;border-radius:4px;color:var(--ai)}
+
+  .insp-head{padding:10px;border-bottom:1px solid var(--border)}
+  .insp-head .subj{font-family:var(--mono);font-size:13px;color:#fff;word-break:break-all}
+  .insp-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .insp-tabs{display:flex;gap:2px;padding:0 6px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .insp-tabs .tab{padding:7px 8px;font-size:11px}
+  .insp-body{flex:1;overflow:auto;padding:10px}
+  .field{margin:0 0 10px}
+  .field .l{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .field .v{font-family:var(--mono);font-size:12px;word-break:break-word}
+  .tl{border-left:2px solid var(--border2);margin-left:6px;padding-left:12px}
+  .tl .ev{position:relative;margin:0 0 12px}
+  .tl .ev::before{content:"";position:absolute;left:-17px;top:4px;width:8px;height:8px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 0 3px var(--panel2)}
+  .empty-state{color:var(--dim);text-align:center;padding:30px 14px;font-size:12px}
+
+  .modal-bg{position:fixed;inset:0;background:#0008;display:none;align-items:flex-start;justify-content:center;z-index:50}
+  .modal-bg.on{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--border2);border-radius:10px;margin-top:78px;
+    width:560px;max-width:92vw;box-shadow:0 20px 60px #000a;overflow:hidden}
+  .modal h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px}
+  .modal .body{padding:12px 14px;max-height:60vh;overflow:auto}
+  .palrow{padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;gap:10px;align-items:baseline}
+  .palrow:hover,.palrow.on{background:var(--raised)}
+  .palrow .cmd{font-family:var(--mono);color:var(--accent);font-size:12px;white-space:nowrap}
+  .palrow .d{color:var(--dim);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#13202e;
+    border:1px solid var(--border2);border-radius:8px;padding:9px 16px;font-size:12px;z-index:60;opacity:0;transition:opacity .2s;box-shadow:0 8px 30px #0008}
+  .toast.on{opacity:1}
+  .kbd{font-family:var(--mono);font-size:10.5px;background:var(--raised);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand"><span class="logo"></span>Centauri <small>Studio</small></div>
+    <span class="stat"><span id="dot" class="dot"></span><span id="conn">connecting…</span></span>
+    <div class="grow"></div>
+    <span class="stat">events <b id="s-events">–</b></span>
+    <span class="stat">subjects <b id="s-subjects">–</b></span>
+    <span class="stat">links <b id="s-links">–</b></span>
+    <div class="sepv"></div>
+    <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
+    <button class="ghost" onclick="openToken()" title="API token">🔑</button>
+    <a href="/" title="Classic dashboard"><button class="ghost">▦ Dashboard</button></a>
+    <a href="/ceql" title="CeQL textbook"><button class="ghost">📖 Book</button></a>
+  </header>
+
+  <div id="main">
+    <!-- LEFT -->
+    <div class="col left">
+      <div class="pane-h">Object Explorer <span class="grow"></span><button class="ghost" onclick="boot()" title="Refresh">⟳</button></div>
+      <div class="filterbox"><input id="filter" placeholder="Filter objects…   (⌘K palette)" oninput="renderTree()"></div>
+      <div class="explorer"><div class="tree" id="tree"></div></div>
+    </div>
+    <div class="splitter" data-side="left"></div>
+
+    <!-- CENTER -->
+    <div class="col center">
+      <div class="aibar">
+        <span class="spark">✨</span>
+        <input id="aiprompt" placeholder="Ask in plain English…  e.g. “what was the price of item:1 yesterday” or “does Centauri scale?”"
+               onkeydown="if(event.key==='Enter')askAI()">
+        <button class="ai" onclick="askAI()">Ask Copilot</button>
+        <span class="note" id="ainote"></span>
+      </div>
+      <div class="toolbar">
+        <button class="primary" onclick="runEditor()">▶ Run <span class="kbd">⌘⏎</span></button>
+        <button class="ghost" onclick="runEditor(true)" title="Run selected text / current statement">Run stmt</button>
+        <button class="ghost" onclick="explainCurrent()" title="Show the plan">🧭 Explain</button>
+        <div class="sep"></div>
+        <label>Time travel</label>
+        <input type="datetime-local" id="asof" style="width:178px" onchange="applyTimeTravel()" title="View the database AS OF this moment">
+        <button class="ghost" onclick="clearTimeTravel()" title="Back to now">live</button>
+        <div class="sep"></div>
+        <button class="ghost" onclick="snapshotNow()" title="Name the current point">📌 Snapshot</button>
+        <button class="ghost" onclick="exportData('csv')">⭳ CSV</button>
+        <button class="ghost" onclick="exportData('json')">⭳ JSON</button>
+        <div class="grow" style="flex:1"></div>
+        <button class="ghost" onclick="openPalette()">⌘K</button>
+      </div>
+      <div class="ttbanner" id="ttbanner"></div>
+      <div class="editor-wrap">
+        <textarea id="editor" spellcheck="false" placeholder="FACTS OF item:*&#10;-- ⌘⏎ run · ; separates statements · click a subject on the left"></textarea>
+        <div class="hint">CeQL · ⌘⏎ run · ; = multi</div>
+      </div>
+      <div class="results">
+        <div class="tabs">
+          <div class="tab on" data-pane="res" onclick="showTab('res')">Results</div>
+          <div class="tab" data-pane="msg" onclick="showTab('msg')">Messages</div>
+          <div class="tab" data-pane="hist" onclick="showTab('hist')">History</div>
+        </div>
+        <div class="tabpane on" id="pane-res"><div class="empty-state">Run a query, ask the Copilot, or pick an object on the left.<br><br>
+          <span class="pill" onclick="runInto('FACTS OF *')">FACTS OF *</span>
+          <span class="pill" onclick="runInto('STATS')">STATS</span>
+          <span class="pill" onclick="runInto('SUBJECTS')">SUBJECTS</span></div></div>
+        <div class="tabpane" id="pane-msg"><div class="muted small">Server messages appear here.</div></div>
+        <div class="tabpane" id="pane-hist"></div>
+        <div class="statusbar"><span id="st-rows">ready</span><span class="grow"></span><span id="st-ms"></span><span id="st-clock"></span></div>
+      </div>
+    </div>
+    <div class="splitter" data-side="right"></div>
+
+    <!-- RIGHT -->
+    <div class="col right">
+      <div class="pane-h">Inspector</div>
+      <div id="inspector" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="empty-state">Select a subject to inspect its facts, history, causal trace and full agent context.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="tokenmodal"><div class="modal"><h3>API token</h3><div class="body">
+  <p class="muted small">If the server was started with a token, paste it here. Stored only in this browser.</p>
+  <input id="tokenin" placeholder="bearer token" style="width:100%" onkeydown="if(event.key==='Enter')saveToken()">
+  <div style="margin-top:12px;text-align:right"><button class="ghost" onclick="closeModal('tokenmodal')">Cancel</button>
+    <button class="primary" onclick="saveToken()">Save</button></div>
+</div></div></div>
+
+<div class="modal-bg" id="palmodal"><div class="modal"><h3>Command palette <span class="muted small" style="font-weight:400">— CeQL templates &amp; objects</span></h3><div class="body">
+  <input id="palin" placeholder="Type a command or subject…" style="width:100%" oninput="renderPalette()" onkeydown="palKey(event)">
+  <div id="pallist" style="margin-top:10px"></div>
+</div></div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+let TOKEN = localStorage.getItem("centauri_token") || "";
+let DB = localStorage.getItem("centauri_db") || "";
+let SUBJECTS = [], SCHEMAS = [], SELECTED = null, OPEN = {}, LASTGRID = null, INSPTAB = "facts", ASOF = "";
+
+function qs(extra){
+  const q = new URLSearchParams();
+  for (const k in (extra||{})) if (extra[k]!=="" && extra[k]!=null) q.set(k, extra[k]);
+  if (TOKEN) q.set("token", TOKEN);
+  if (DB) q.set("db", DB);
+  const s = q.toString(); return s ? "?"+s : "";
+}
+async function handle(resp){
+  if (resp.status === 401){ openToken(); throw new Error("token required"); }
+  const data = await resp.json().catch(()=>({error:resp.statusText}));
+  if (!resp.ok) throw new Error(data.error || resp.statusText);
+  return data;
+}
+async function apiGet(path, params){ return handle(await fetch(path + qs(params))); }
+async function query(text){
+  return handle(await fetch("/v1/query"+qs(), {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:text})}));
+}
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function jsAttr(s){ return "'"+String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")+"'"; }
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),2200); }
+function fmtUS(us){ if(!us) return ""; const d=new Date(us/1000); return isNaN(d)?"":d.toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}); }
+function fmtVal(v){
+  if (v==null) return "<span class='muted'>—</span>";
+  if (typeof v!=="object") return esc(String(v));
+  return "<span class='kv'>"+Object.entries(v).map(([k,val])=>{
+    const cls = typeof val==="number"?"n":(typeof val==="string"?"s":"");
+    return "<span class='k'>"+esc(k)+"</span>=<span class='"+cls+"'>"+esc(typeof val==="object"?JSON.stringify(val):String(val))+"</span>";
+  }).join("  ")+"</span>";
+}
+// light markdown for copilot answers (**bold**, `code`)
+function md(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>"); }
+
+// ---------------- boot ----------------
+async function boot(){
+  try{
+    const st = await apiGet("/v1/stats");
+    document.getElementById("s-events").textContent = st.events ?? "–";
+    document.getElementById("s-subjects").textContent = st.subjects ?? "–";
+    document.getElementById("s-links").textContent = st.links ?? "–";
+    document.getElementById("dot").classList.add("ok");
+    document.getElementById("conn").textContent = "connected"+(DB?" · "+DB:"");
+  }catch(e){
+    document.getElementById("dot").classList.remove("ok");
+    document.getElementById("conn").textContent = "offline — set a token?";
+  }
+  try{ const r = await apiGet("/v1/subjects"); SUBJECTS = (r.subjects||r||[]); }catch(e){ SUBJECTS=[]; }
+  try{ const r = await query("SCHEMAS"); SCHEMAS = (r.schemas||[]); }catch(e){ SCHEMAS=[]; }
+  renderTree();
+}
+
+// ---------------- explorer ----------------
+function groupOf(s){ const p=s.split(/[:/]/)[0]; return (p==="proc"||p==="snapshot"||p==="rollback")?p:"item"; }
+function renderTree(){
+  const f = (document.getElementById("filter").value||"").toLowerCase();
+  const buckets = {};
+  for (const s of SUBJECTS){
+    if (f && !s.toLowerCase().includes(f)) continue;
+    const g = groupOf(s);
+    (buckets[g] = buckets[g] || []).push(s);
+  }
+  const meta = {item:["Subjects","◆"],proc:["Procedures","⚙"],snapshot:["Snapshots","📌"],rollback:["Rollbacks","↩"]};
+  let h = "";
+  for (const gk of ["item","proc","snapshot","rollback"]){
+    const items = buckets[gk]; if (!items) continue; items.sort();
+    const col = OPEN[gk]===false;
+    h += `<div class="grp" onclick="toggleGrp('${gk}')">${col?"▸":"▾"} ${meta[gk][1]} ${meta[gk][0]}<span class="count">${items.length}</span></div>`;
+    if (!col) h += items.slice(0,1500).map(nodeHTML).join("");
+  }
+  const schemas = SCHEMAS.filter(s=>!f || (s.id||s.title||"").toLowerCase().includes(f));
+  if (schemas.length){
+    const col = OPEN._schemas===false;
+    h += `<div class="grp" onclick="toggleGrp('_schemas')">${col?"▸":"▾"} 🧩 Schemas<span class="count">${schemas.length}</span></div>`;
+    if (!col) h += schemas.map(s=>{ const id=s.id||s.title||"schema";
+      return `<div class="node" onclick="runInto(${jsAttr('SCHEMA '+id)})"><span class="ic">▤</span>${esc(id)}</div>`; }).join("");
+  }
+  document.getElementById("tree").innerHTML = h || "<div class='empty'>No objects"+(f?` match "${esc(f)}"`:" yet")+".</div>";
+}
+function nodeHTML(s){ return `<div class="node${SELECTED===s?' sel':''}" title="${esc(s)}" onclick="selectSubject(${jsAttr(s)})"><span class="ic">·</span>${esc(s)}</div>`; }
+function toggleGrp(k){ OPEN[k] = OPEN[k]===false; renderTree(); }
+
+// ---------------- editor ----------------
+const editor = document.getElementById("editor");
+editor.value = localStorage.getItem("centauri_studio_q") || "FACTS OF *";
+editor.addEventListener("input", ()=>localStorage.setItem("centauri_studio_q", editor.value));
+editor.addEventListener("keydown", e=>{
+  if ((e.metaKey||e.ctrlKey) && e.key==="Enter"){ e.preventDefault(); runEditor(); }
+  if (e.key==="Tab"){ e.preventDefault(); const s=editor.selectionStart,en=editor.selectionEnd;
+    editor.value=editor.value.slice(0,s)+"  "+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; }
+});
+function setEditor(t){ editor.value=t; editor.focus(); localStorage.setItem("centauri_studio_q",t); }
+function runInto(t){ setEditor(t); runEditor(); }
+function currentStatements(selOnly){
+  let txt = editor.value;
+  if (selOnly){ const s=editor.selectionStart,e=editor.selectionEnd; if (e>s) txt=txt.slice(s,e); }
+  return txt.split(/;\s*\n?/).map(x=>x.trim()).filter(Boolean);
+}
+async function runEditor(selOnly){
+  const stmts = currentStatements(selOnly);
+  if (!stmts.length){ toast("Nothing to run"); return; }
+  const pane = document.getElementById("pane-res"); showTab("res"); pane.innerHTML="";
+  let totalMs=0, lastRows=null;
+  for (const stmt of stmts){
+    const t0=performance.now();
+    try{
+      const r = await query(stmt); const ms=performance.now()-t0; totalMs+=ms;
+      lastRows = renderResult(r, {q:stmt, ms, stack:stmts.length>1});
+      pushHistory(stmt); logMsg("✓ "+stmt+"  ("+ms.toFixed(0)+" ms)");
+      if (r && ["put","rollback","snapshot","schema_defined"].includes(r.kind)) boot();
+    }catch(err){
+      pane.insertAdjacentHTML(stmts.length>1?"beforeend":"afterbegin",
+        `<div style="margin-bottom:10px"><div class="muted small mono">CeQL› ${esc(stmt)}</div><div class="err">✗ ${esc(err.message)}</div></div>`);
+      logMsg("✗ "+stmt+" — "+err.message);
+    }
+  }
+  document.getElementById("st-ms").textContent = totalMs?totalMs.toFixed(0)+" ms":"";
+  document.getElementById("st-rows").textContent = lastRows!=null? lastRows+" row(s)":"done";
+}
+async function explainCurrent(){
+  const stmts=currentStatements(); if(!stmts.length){ toast("Write a query first"); return; }
+  runInto("EXPLAIN "+stmts[0]);
+}
+
+// ---------------- AI copilot ----------------
+const aiIn = document.getElementById("aiprompt");
+function aiNote(t,bad){ const n=document.getElementById("ainote"); n.textContent=t||""; n.style.color=bad?"var(--bad)":"var(--ai)"; }
+async function askAI(){
+  const text = aiIn.value.trim(); if(!text) return;
+  aiNote("✨ thinking…");
+  try{
+    const resp = await fetch("/v1/assist"+qs(), {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
+    if (resp.ok){
+      const d = await resp.json();
+      setEditor(d.ceql);
+      aiNote(d.valid? "✓ that's valid CeQL" : "✨ translated"+(d.note?" — "+d.note:""));
+      runEditor();
+    } else {
+      // not translatable to a query → answer as a knowledge question
+      const r = await query("ASK '"+text.replace(/'/g,"")+"'");
+      showTab("res");
+      renderResult(r, {q:"ASK '"+text+"'"});
+      aiNote("answered from the knowledge base");
+    }
+  }catch(e){ aiNote("✗ "+e.message, true); }
+}
+
+// ---------------- time travel ----------------
+function applyTimeTravel(){
+  const v=document.getElementById("asof").value;
+  ASOF = v? new Date(v).toISOString() : "";
+  const b=document.getElementById("ttbanner");
+  if (ASOF){ b.classList.add("on"); b.innerHTML = `🕒 Viewing the database <b>as of ${esc(new Date(v).toLocaleString())}</b> — explorer &amp; inspector are time-travelled. <a href="#" onclick="clearTimeTravel();return false">back to now</a>`; }
+  else b.classList.remove("on");
+  if (SELECTED) loadInspector();
+}
+function clearTimeTravel(){ document.getElementById("asof").value=""; applyTimeTravel(); }
+function asofClause(){ return ASOF? " AS OF '"+ASOF+"'" : ""; }
+
+// ---------------- result rendering ----------------
+function renderResult(r, meta){
+  const pane=document.getElementById("pane-res"); let h="", rows=null;
+  const head = meta&&meta.q ? `<div class="muted small mono" style="margin-bottom:6px">CeQL› ${esc(meta.q)}${meta.ms?`  <span style="color:var(--good)">(${meta.ms.toFixed(0)} ms)</span>`:""}</div>` : "";
+  switch ((r||{}).kind){
+    case "events": rows=(r.events||[]).length;
+      h=`<h3 class="rt">${rows} event(s)${r.note?` <span class="muted small">— ${esc(r.note)}</span>`:""}</h3>`+eventsGrid(r.events||[]); break;
+    case "rows": rows=(r.rows||[]).length; h=`<h3 class="rt">${rows} row(s)</h3>`+tableGrid(r.columns||[], r.rows||[]); break;
+    case "subjects": rows=(r.subjects||[]).length;
+      h=`<h3 class="rt">${rows} subject(s)</h3>`+(r.subjects||[]).slice(0,500).map(s=>`<div class="kv" style="padding:2px 0">${linkSubj(s)}</div>`).join(""); break;
+    case "put": toast("Saved on "+r.subject);
+      h=`<h3 class="rt">✓ Saved</h3><div class="kv">event <code>${esc(r.event_id)}</code> on ${linkSubj(r.subject)} <span class="muted">(${esc(r.facet)})</span></div>`; break;
+    case "snapshot": toast("Snapshot “"+r.name+"”");
+      h=`<h3 class="rt">📌 Snapshot “${esc(r.name)}”</h3><div class="muted small">${esc(r.note||"")}</div>`; break;
+    case "rollback": if(r.reverted) toast("Rolled back "+r.reverted); rows=r.reverted||0;
+      h=`<h3 class="rt">↩ Rollback to ${esc(r.target||"a point")} — ${r.reverted||0} restored</h3><div class="muted small">${esc(r.note||"")}</div>`+
+        ((r.changes||[]).length?tableLite(["subject","facet","action"], r.changes.map(c=>[linkSubj(c.subject),esc(c.facet),esc(c.action)])):""); break;
+    case "diff": { const cs=r.changes||[]; rows=cs.length;
+      const bd=k=>`<span class="badge ${k==='added'?'b-good':k==='removed'?'b-bad':''}">${esc(k)}</span>`;
+      h=`<h3 class="rt">🔀 ${cs.length} change(s)</h3>`+(cs.length?
+        tableLite(["subject","facet","change","before","after"], cs.map(c=>[linkSubj(c.subject),esc(c.facet),bd(c.change),fmtVal(c.before),fmtVal(c.after)]))
+        :`<div class="muted">No changes between those points.</div>`); break; }
+    case "assistant":
+      h=`<h3 class="rt">✨ Copilot</h3>`+(r.answer?`<div class="answer">${md(r.answer)}</div>`
+        :`<div class="muted">I don't have a confident answer for “${esc(r.question||"")}”. Try rephrasing, or open the <a href="/ceql">Book</a>.</div>`); break;
+    case "trace":
+      h=`<h3 class="rt">Causal ${esc(r.direction||"")} chain</h3>`+(r.trace||[]).map(n=>`<div class="kv" style="margin-left:${(n.depth||0)*18}px;padding:2px 0">${n.depth?"↑ ":"● "}${esc(n.event.subject)} <span class="muted">${esc(n.event.facet)}/${esc(n.event.type)}</span> ${fmtVal(n.event.value)}</div>`).join(""); break;
+    case "schemas": rows=(r.schemas||[]).length;
+      h=`<h3 class="rt">${rows} schema(s)</h3>`+(r.schemas||[]).map(s=>`<div class="field"><div class="l">${esc(s.id||s.title||"schema")} ${s.version?"v"+s.version:""}</div><div class="v">${(s.fields||[]).map(f=>esc(f.name||f.Name||"")).join(", ")}</div></div>`).join(""); break;
+    case "consistency":
+      h=`<h3 class="rt">${r.consistent?"✓":"⚡"} Consistency — ${esc(r.note||"")}</h3>`+tableLite(["facet",esc(r.field||"value")],Object.entries(r.facets||{}).map(([f,v])=>[esc(f)+(f===r.outlier?" ⚠":""),esc(String(v))])); break;
+    default:
+      h=`<h3 class="rt">${esc((r&&r.kind)||"result")}</h3><pre class="kv" style="white-space:pre-wrap">${esc(JSON.stringify(r,null,2))}</pre>`;
+  }
+  const card=`<div style="margin-bottom:14px">${head}${h}</div>`;
+  if (meta&&meta.stack) pane.insertAdjacentHTML("beforeend",card); else pane.innerHTML=card;
+  return rows;
+}
+function linkSubj(s){ return `<a href="#" onclick="selectSubject(${jsAttr(s)});return false">${esc(s)}</a>`; }
+function eventsGrid(events){
+  if (!events.length) return "<div class='muted'>No facts.</div>";
+  const fields=[]; for (const e of events) for (const k in (e.value||{})) if(!fields.includes(k)) fields.push(k);
+  LASTGRID = {columns:["subject","facet","type",...fields,"effective","confidence"],
+    rows: events.map(e=>[e.subject,e.facet,e.type,...fields.map(f=>(e.value||{})[f]??""),fmtUS(e.effective_time),e.confidence])};
+  const cols=["subject","facet","type",...fields,"effective","conf","why"];
+  let h=`<div style="overflow:auto"><table class="grid"><thead><tr>`+cols.map((c,i)=>`<th onclick="sortGrid(${i})">${esc(c)}</th>`).join("")+`</tr></thead><tbody>`;
+  h += events.map(e=>{
+    const vals=fields.map(f=>{ const v=(e.value||{})[f]; return `<td>${v==null?"<span class='muted'>—</span>":esc(typeof v==="object"?JSON.stringify(v):String(v))}</td>`; }).join("");
+    return `<tr><td class="subj">${linkSubj(e.subject)}</td><td>${esc(e.facet)}</td><td><span class="badge">${esc(e.type)}</span></td>${vals}<td>${esc(fmtUS(e.effective_time))}</td><td>${e.confidence!=null?(+e.confidence).toFixed(2):""}</td><td>${e.event_id?`<a href="#" title="trace cause" onclick="runInto(${jsAttr('WHY '+e.event_id)});return false">↑why</a>`:""}</td></tr>`;
+  }).join("");
+  return h+"</tbody></table></div>";
+}
+function tableGrid(columns, rows){
+  LASTGRID={columns,rows};
+  let h=`<div style="overflow:auto"><table class="grid"><thead><tr>`+columns.map((c,i)=>`<th onclick="sortGrid(${i})">${esc(c)}</th>`).join("")+`</tr></thead><tbody>`;
+  h += rows.map(r=>`<tr>`+r.map(c=>`<td>${esc(typeof c==="object"?JSON.stringify(c):String(c==null?"":c))}</td>`).join("")+`</tr>`).join("");
+  return h+"</tbody></table></div>";
+}
+function tableLite(cols, rows){
+  return `<div style="overflow:auto"><table class="grid"><thead><tr>`+cols.map(c=>`<th>${c}</th>`).join("")+`</tr></thead><tbody>`+
+    rows.map(r=>`<tr>`+r.map(c=>`<td>${c}</td>`).join("")+`</tr>`).join("")+`</tbody></table></div>`;
+}
+let SORT={col:-1,dir:1};
+function sortGrid(i){
+  if(!LASTGRID) return; SORT.dir=SORT.col===i?-SORT.dir:1; SORT.col=i;
+  LASTGRID.rows.sort((a,b)=>{ const x=a[i],y=b[i],nx=parseFloat(x),ny=parseFloat(y);
+    if(!isNaN(nx)&&!isNaN(ny)) return (nx-ny)*SORT.dir; return String(x).localeCompare(String(y))*SORT.dir; });
+  document.getElementById("pane-res").innerHTML=`<h3 class="rt">${LASTGRID.rows.length} row(s) <span class="muted small">sorted by ${esc(LASTGRID.columns[i])}</span></h3>`+tableGrid(LASTGRID.columns,LASTGRID.rows);
+}
+
+// ---------------- export ----------------
+function exportData(fmt){
+  if(!LASTGRID||!LASTGRID.rows.length){ toast("Nothing to export"); return; }
+  let blob,name;
+  if(fmt==="csv"){
+    const e2=v=>{ v=v==null?"":(typeof v==="object"?JSON.stringify(v):String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    const lines=[LASTGRID.columns.map(e2).join(",")].concat(LASTGRID.rows.map(r=>r.map(e2).join(",")));
+    blob=new Blob([lines.join("\n")],{type:"text/csv"}); name="centauri-export.csv";
+  } else {
+    const objs=LASTGRID.rows.map(r=>Object.fromEntries(LASTGRID.columns.map((c,i)=>[c,r[i]])));
+    blob=new Blob([JSON.stringify(objs,null,2)],{type:"application/json"}); name="centauri-export.json";
+  }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); toast("Exported "+name);
+}
+
+// ---------------- inspector ----------------
+async function selectSubject(s){ SELECTED=s; INSPTAB="facts";
+  document.querySelectorAll(".tree .node").forEach(n=>n.classList.toggle("sel", n.title===s));
+  renderInspector(); loadInspector(); }
+function renderInspector(){
+  if(!SELECTED){ document.getElementById("inspector").innerHTML=`<div class="empty-state">Select a subject to inspect.</div>`; return; }
+  const tabs=[["facts","Facts"],["history","History"],["trace","Trace"],["context","Context"],["raw","Raw"]];
+  document.getElementById("inspector").innerHTML=`
+    <div class="insp-head"><div class="subj">${esc(SELECTED)}</div>
+      <div class="insp-actions">
+        <button class="ghost" onclick="runInto(${jsAttr('FACTS OF '+SELECTED)})">Query</button>
+        <button class="ghost" onclick="rollbackSubject()">↩ Rewind…</button>
+        <button class="ghost" onclick="copyText(${jsAttr(SELECTED)})">Copy</button>
+      </div></div>
+    <div class="insp-tabs">${tabs.map(([k,l])=>`<div class="tab${INSPTAB===k?' on':''}" onclick="inspTab('${k}')">${l}</div>`).join("")}</div>
+    <div class="insp-body" id="insp-body"><div class="muted small">loading…</div></div>`;
+}
+function inspTab(k){ INSPTAB=k; renderInspector(); loadInspector(); }
+async function loadInspector(){
+  const body=document.getElementById("insp-body"); if(!body) return;
+  try{
+    if(INSPTAB==="facts"){
+      const r=await query("FACTS OF "+SELECTED+asofClause()); const evs=r.events||[];
+      body.innerHTML=(ASOF?`<div class="muted small" style="margin-bottom:8px">as of ${esc(fmtUS(Date.parse(ASOF)*1000))}</div>`:"")+
+        (evs.length? evs.map(factCard).join("") : "<div class='muted small'>No facts at this point.</div>");
+    } else if(INSPTAB==="history"){
+      const r=await query("HISTORY OF "+SELECTED); const evs=r.events||[];
+      body.innerHTML=evs.length?`<div class="tl">`+evs.map(e=>`<div class="ev"><div class="kv"><span class="badge">${esc(e.type)}</span> ${esc(e.facet)}</div><div class="kv">${fmtVal(e.value)}</div><div class="muted small">${esc(fmtUS(e.effective_time))}</div></div>`).join("")+`</div>`:"<div class='muted small'>No history.</div>";
+    } else if(INSPTAB==="trace"){
+      const r=await query("FACTS OF "+SELECTED+" WHY DEPTH 4"); const evs=r.events||[], why=r.why||{};
+      let h=""; for(const e of evs){ const ch=why[e.event_id]||[];
+        h+=`<div class="field"><div class="l">${esc(e.facet)}</div>`+(ch.length?`<div class="tl">`+ch.map(n=>`<div class="ev kv">${esc((n.via||"")+" ")}${esc(n.event?n.event.subject:"")} ${fmtVal(n.event?n.event.value:null)}</div>`).join("")+`</div>`:"<div class='muted small'>no recorded causes</div>")+`</div>`; }
+      body.innerHTML=h||"<div class='muted small'>Nothing to trace.</div>";
+    } else if(INSPTAB==="context"){
+      let r; try{ r=await apiGet("/v1/context",{subject:SELECTED}); }catch(e){ r=await query("CONTEXT FOR "+SELECTED); }
+      body.innerHTML=`<pre class="kv" style="white-space:pre-wrap">${esc(JSON.stringify(r,null,2))}</pre>`;
+    } else {
+      const r=await query("FACTS OF "+SELECTED+asofClause());
+      body.innerHTML=`<pre class="kv" style="white-space:pre-wrap">${esc(JSON.stringify(r,null,2))}</pre>`;
+    }
+  }catch(e){ body.innerHTML=`<div class="err">✗ ${esc(e.message)}</div>`; }
+}
+function factCard(e){
+  return `<div class="field"><div class="l">${esc(e.facet)} <span class="badge">${esc(e.type)}</span></div>`+
+    Object.entries(e.value||{}).map(([k,v])=>`<div class="v"><span class="muted">${esc(k)}</span> = ${esc(typeof v==="object"?JSON.stringify(v):String(v))}</div>`).join("")+
+    `<div class="muted small" style="margin-top:4px">${esc(e.provenance||"")} · conf ${e.confidence!=null?(+e.confidence).toFixed(2):"?"} · ${esc(fmtUS(e.effective_time))}${e.event_id?` · <a href="#" onclick="runInto(${jsAttr('WHY '+e.event_id)});return false">why</a>`:""}</div></div>`;
+}
+function rollbackSubject(){
+  if(!SELECTED) return;
+  const when=prompt("Rewind "+SELECTED+" to which point?\nEnter a date (2026-03-15), LAST, or a snapshot name:","LAST");
+  if(when==null) return; const w=when.trim();
+  let stmt = /^last$/i.test(w) ? "ROLLBACK OF "+SELECTED+" TO LAST"
+    : /^\d{4}-\d{2}-\d{2}/.test(w) ? "ROLLBACK OF "+SELECTED+" TO '"+w+"'"
+    : "ROLLBACK OF "+SELECTED+" TO SNAPSHOT '"+w+"'";
+  runInto(stmt);
+}
+function copyText(t){ navigator.clipboard && navigator.clipboard.writeText(t); toast("Copied"); }
+function snapshotNow(){ const n=prompt("Name this snapshot:","snap-"+new Date().toISOString().slice(0,16).replace(/[:T]/g,"")); if(n) runInto("SNAPSHOT '"+n+"'"); }
+
+// ---------------- tabs / messages / history ----------------
+function showTab(k){
+  document.querySelectorAll(".results .tab").forEach(t=>t.classList.toggle("on",t.dataset.pane===k));
+  document.querySelectorAll(".results .tabpane").forEach(p=>p.classList.toggle("on",p.id==="pane-"+k));
+}
+function logMsg(m){ const p=document.getElementById("pane-msg"); if(p.querySelector(".muted")) p.innerHTML="";
+  p.insertAdjacentHTML("afterbegin", `<div class="mono small" style="padding:2px 0;color:${m[0]==='✗'?'var(--bad)':'var(--dim)'}">${esc(new Date().toLocaleTimeString())}  ${esc(m)}</div>`); }
+function pushHistory(stmt){ let h=JSON.parse(localStorage.getItem("centauri_studio_hist")||"[]");
+  h=[stmt,...h.filter(x=>x!==stmt)].slice(0,50); localStorage.setItem("centauri_studio_hist",JSON.stringify(h)); renderHistory(); }
+function renderHistory(){ const h=JSON.parse(localStorage.getItem("centauri_studio_hist")||"[]");
+  document.getElementById("pane-hist").innerHTML=h.length?h.map(s=>`<div class="mono small" style="padding:3px 0;cursor:pointer;border-bottom:1px solid var(--border)" onclick="setEditor(${jsAttr(s)})">${esc(s)}</div>`).join(""):"<div class='muted small'>No history yet.</div>"; }
+
+// ---------------- palette ----------------
+const TEMPLATES=[
+  ["FACTS OF item:*","read current facts (wildcards ok)"],
+  ["FACTS price_cents, trust OF item:* WHERE price_cents > 700","project + filter"],
+  ["FACTS OF item:1 AS OF '2026-03-15'","time travel — what was true then"],
+  ["FACTS OF item:1 AS OF '2026-03-15' AS KNOWN AT '2026-03-01'","what you believed then"],
+  ["HISTORY OF item:1","full never-erased timeline"],
+  ["PUT item:1 SET price_cents=500","write a fact (insert = update)"],
+  ["CORRECT item:1 SET price_cents=495","fix a mistake (audit-friendly)"],
+  ["RETIRE item:1","retire (history kept; no DELETE)"],
+  ["SNAPSHOT 'before-import'","name the current point"],
+  ["DIFF OF item:* BETWEEN '2026-03-01' AND '2026-03-15'","what changed between two moments"],
+  ["ROLLBACK","undo the last commit"],
+  ["ROLLBACK TO SNAPSHOT 'before-import'","return to a named point"],
+  ["SEARCH 'late markdown' OF item:*","ranked full-text (BM25)"],
+  ["SHAPE OF item:* ON price_cents","topology — clusters, loops, voids"],
+  ["CONSISTENCY OF item:1 ON price_cents","do a subject's facets agree?"],
+  ["DRIFT OF item:* ON price_cents BUCKETS 6","distribution drift over time"],
+  ["CONTEXT FOR item:1","everything an agent needs in one call"],
+  ["WATCH ALL","stream new facts as they commit"],
+  ["PROFILE OF item:*","what does my data look like?"],
+  ["STATS","store counters"], ["SCHEMAS","list validation schemas"],
+];
+let PAL=[], PALI=0;
+function openPalette(){ document.getElementById("palmodal").classList.add("on"); const i=document.getElementById("palin"); i.value=""; renderPalette(); setTimeout(()=>i.focus(),30); }
+function renderPalette(){
+  const f=(document.getElementById("palin").value||"").toLowerCase();
+  const cmds=TEMPLATES.filter(([c,d])=>!f||(c+" "+d).toLowerCase().includes(f)).map(([c,d])=>({c,d,run:c}));
+  const subs=SUBJECTS.filter(s=>f&&s.toLowerCase().includes(f)).slice(0,8).map(s=>({c:"FACTS OF "+s,d:"inspect subject",run:"FACTS OF "+s}));
+  PAL=cmds.concat(subs); PALI=0;
+  document.getElementById("pallist").innerHTML=PAL.length?PAL.map((p,i)=>`<div class="palrow${i===0?' on':''}" data-i="${i}" onclick="palPick(${i})"><span class="cmd">${esc(p.c)}</span><span class="d">${esc(p.d)}</span></div>`).join(""):"<div class='muted small'>No matches.</div>";
+}
+function palKey(e){ if(e.key==="ArrowDown"){e.preventDefault();palMove(1);} else if(e.key==="ArrowUp"){e.preventDefault();palMove(-1);} else if(e.key==="Enter"){e.preventDefault();palPick(PALI);} else if(e.key==="Escape"){closeModal("palmodal");} }
+function palMove(d){ PALI=Math.max(0,Math.min(PAL.length-1,PALI+d));
+  document.querySelectorAll("#pallist .palrow").forEach((r,i)=>r.classList.toggle("on",i===PALI));
+  const el=document.querySelector(`#pallist .palrow[data-i="${PALI}"]`); if(el) el.scrollIntoView({block:"nearest"}); }
+function palPick(i){ const p=PAL[i]; if(!p) return; closeModal("palmodal"); runInto(p.run); }
+
+// ---------------- token / modals ----------------
+function openToken(){ document.getElementById("tokenin").value=TOKEN; document.getElementById("tokenmodal").classList.add("on"); }
+function saveToken(){ TOKEN=document.getElementById("tokenin").value.trim(); localStorage.setItem("centauri_token",TOKEN); closeModal("tokenmodal"); boot(); }
+function closeModal(id){ document.getElementById(id).classList.remove("on"); }
+document.querySelectorAll(".modal-bg").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m) m.classList.remove("on"); }));
+
+const dbEl=document.getElementById("db"); dbEl.value=DB;
+dbEl.addEventListener("change", ()=>{ DB=dbEl.value.trim(); localStorage.setItem("centauri_db",DB); boot(); });
+document.addEventListener("keydown", e=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); openPalette(); } });
+
+// ---------------- splitters ----------------
+document.querySelectorAll(".splitter").forEach(sp=>{
+  sp.addEventListener("mousedown", e=>{
+    e.preventDefault();
+    const side=sp.dataset.side, startX=e.clientX;
+    const startLw=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--lw"));
+    const startRw=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--rw"));
+    const move=ev=>{
+      if(side==="left"){ let w=Math.max(190,Math.min(480,startLw+(ev.clientX-startX))); document.documentElement.style.setProperty("--lw",w+"px"); }
+      else { let w=Math.max(240,Math.min(560,startRw-(ev.clientX-startX))); document.documentElement.style.setProperty("--rw",w+"px"); }
+    };
+    const up=()=>{ document.removeEventListener("mousemove",move); document.removeEventListener("mouseup",up); document.body.style.cursor=""; };
+    document.body.style.cursor="col-resize"; document.addEventListener("mousemove",move); document.addEventListener("mouseup",up);
+  });
+});
+
+setInterval(()=>{ document.getElementById("st-clock").textContent=new Date().toLocaleTimeString(); }, 1000);
+renderHistory(); boot();
+</script>
+</body>
+</html>

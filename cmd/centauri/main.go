@@ -200,6 +200,7 @@ func main() {
 			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
 		}
 		fmt.Printf("your data:  %s\ndashboard:  http://localhost%s  (opening in your browser…)\n", *data, *addr)
+		fmt.Printf("studio:     http://localhost%s/studio  (the AI-first IDE)\n", *addr)
 		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
 		go func() {
 			time.Sleep(1200 * time.Millisecond)
