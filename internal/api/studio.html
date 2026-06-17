@@ -147,6 +147,19 @@
     border:1px solid var(--border2);border-radius:8px;padding:9px 16px;font-size:12px;z-index:60;opacity:0;transition:opacity .2s;box-shadow:0 8px 30px #0008}
   .toast.on{opacity:1}
   .kbd{font-family:var(--mono);font-size:10.5px;background:var(--raised);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--dim)}
+
+  /* causal graph */
+  #pane-graph{padding:0;position:relative;overflow:hidden}
+  .gtoolbar{position:absolute;top:8px;left:8px;right:8px;z-index:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .gtoolbar input{width:220px;background:#0b1019cc;backdrop-filter:blur(3px)}
+  .gtoolbar .legend{margin-left:auto;display:flex;gap:12px;font-size:11px;color:var(--dim);background:#0b1019aa;padding:3px 9px;border-radius:14px;backdrop-filter:blur(3px)}
+  .gtoolbar .lg{display:inline-flex;align-items:center;gap:5px}
+  .gtoolbar .sw{width:9px;height:9px;border-radius:50%;display:inline-block}
+  #gcanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  #gcanvas.drag{cursor:grabbing}
+  .gtip{position:absolute;pointer-events:none;background:#0d141d;border:1px solid var(--border2);border-radius:6px;
+    padding:6px 9px;font-size:11px;font-family:var(--mono);color:var(--text);display:none;z-index:3;max-width:300px;box-shadow:0 6px 20px #0008}
+  .gempty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px;text-align:center;padding:20px}
 </style>
 </head>
 <body>
@@ -206,6 +219,7 @@
       <div class="results">
         <div class="tabs">
           <div class="tab on" data-pane="res" onclick="showTab('res')">Results</div>
+          <div class="tab" data-pane="graph" onclick="showTab('graph')">🕸 Causal Graph</div>
           <div class="tab" data-pane="msg" onclick="showTab('msg')">Messages</div>
           <div class="tab" data-pane="hist" onclick="showTab('hist')">History</div>
         </div>
@@ -213,6 +227,21 @@
           <span class="pill" onclick="runInto('FACTS OF *')">FACTS OF *</span>
           <span class="pill" onclick="runInto('STATS')">STATS</span>
           <span class="pill" onclick="runInto('SUBJECTS')">SUBJECTS</span></div></div>
+        <div class="tabpane" id="pane-graph">
+          <div class="gtoolbar">
+            <input id="gfocus" placeholder="focus subject (e.g. item:1)…" onkeydown="if(event.key==='Enter')buildGraph(this.value.trim())">
+            <button class="ghost" onclick="buildGraph(document.getElementById('gfocus').value.trim())" title="Rebuild">⟳ Build</button>
+            <span class="legend">
+              <span class="lg"><span class="sw" style="background:#5eb0ff"></span>observed</span>
+              <span class="lg"><span class="sw" style="background:#ffb454"></span>correction</span>
+              <span class="lg"><span class="sw" style="background:#9a7bff"></span>intent</span>
+              <span class="lg"><span class="sw" style="background:#46d39a"></span>distributed</span>
+            </span>
+          </div>
+          <canvas id="gcanvas"></canvas>
+          <div class="gtip" id="gtip"></div>
+          <div class="gempty" id="gempty">Pick a subject on the left (or type one above), then build the causal graph — it walks supersessions and causal links into an interactive map.</div>
+        </div>
         <div class="tabpane" id="pane-msg"><div class="muted small">Server messages appear here.</div></div>
         <div class="tabpane" id="pane-hist"></div>
         <div class="statusbar"><span id="st-rows">ready</span><span class="grow"></span><span id="st-ms"></span><span id="st-clock"></span></div>
@@ -495,7 +524,8 @@ function exportData(fmt){
 // ---------------- inspector ----------------
 async function selectSubject(s){ SELECTED=s; INSPTAB="facts";
   document.querySelectorAll(".tree .node").forEach(n=>n.classList.toggle("sel", n.title===s));
-  renderInspector(); loadInspector(); }
+  renderInspector(); loadInspector();
+  if (document.getElementById("pane-graph").classList.contains("on")) buildGraph(s); }
 function renderInspector(){
   if(!SELECTED){ document.getElementById("inspector").innerHTML=`<div class="empty-state">Select a subject to inspect.</div>`; return; }
   const tabs=[["facts","Facts"],["history","History"],["trace","Trace"],["context","Context"],["raw","Raw"]];
@@ -503,6 +533,7 @@ function renderInspector(){
     <div class="insp-head"><div class="subj">${esc(SELECTED)}</div>
       <div class="insp-actions">
         <button class="ghost" onclick="runInto(${jsAttr('FACTS OF '+SELECTED)})">Query</button>
+        <button class="ghost" onclick="showTab('graph');buildGraph(${jsAttr(SELECTED)})">🕸 Graph</button>
         <button class="ghost" onclick="rollbackSubject()">↩ Rewind…</button>
         <button class="ghost" onclick="copyText(${jsAttr(SELECTED)})">Copy</button>
       </div></div>
@@ -555,6 +586,7 @@ function snapshotNow(){ const n=prompt("Name this snapshot:","snap-"+new Date().
 function showTab(k){
   document.querySelectorAll(".results .tab").forEach(t=>t.classList.toggle("on",t.dataset.pane===k));
   document.querySelectorAll(".results .tabpane").forEach(p=>p.classList.toggle("on",p.id==="pane-"+k));
+  if (k==="graph") setTimeout(()=>{ if(GRAPH.nodes.length){ sizeCanvas(); startSim(); } else buildGraph(); }, 40);
 }
 function logMsg(m){ const p=document.getElementById("pane-msg"); if(p.querySelector(".muted")) p.innerHTML="";
   p.insertAdjacentHTML("afterbegin", `<div class="mono small" style="padding:2px 0;color:${m[0]==='✗'?'var(--bad)':'var(--dim)'}">${esc(new Date().toLocaleTimeString())}  ${esc(m)}</div>`); }
@@ -626,6 +658,120 @@ document.querySelectorAll(".splitter").forEach(sp=>{
     document.body.style.cursor="col-resize"; document.addEventListener("mousemove",move); document.addEventListener("mouseup",up);
   });
 });
+
+// ---------------- causal graph ----------------
+const GRAPH={nodes:[],edges:[],idx:{},raf:null,alpha:0,drag:null,moved:false,hover:null,focus:null,W:600,H:400};
+const TYPE_COLOR={OBSERVED:"#5eb0ff",CORRECTION:"#ffb454",INTENT:"#9a7bff",DISTRIBUTED:"#46d39a",ACTIVATED:"#3aa0d8"};
+const VIA_COLOR={SUPERSEDES:"#5b6b80",CORRECTS:"#ffb454",TRIGGERED:"#9a7bff",DISTRIBUTED_AS:"#46d39a",ACTIVATED_BY:"#3aa0d8",ENRICHED_FROM:"#5eb0ff"};
+function guessFocus(){
+  if (SELECTED) return SELECTED;
+  const m=(editor.value||"").match(/\b(?:OF|FOR)\s+([^\s;]+)/i);
+  if (m && !m[1].includes("*")) return m[1];
+  return (SUBJECTS.find(s=>!/^(snapshot|rollback):/.test(s)))||null;
+}
+function shortLabel(s){ s=String(s||""); return s.length>20? "…"+s.slice(-19):s; }
+async function buildGraph(subject){
+  const gempty=document.getElementById("gempty");
+  const focus = (subject&&String(subject).trim()) || guessFocus();
+  if (!focus){ gempty.style.display="flex"; gempty.textContent="Select a subject (or run a query), then build the graph."; return; }
+  GRAPH.focus=focus; const gf=document.getElementById("gfocus"); if(gf) gf.value=focus;
+  gempty.style.display="flex"; gempty.textContent="Building causal graph for "+focus+"…";
+  let b;
+  try{ b=await apiGet("/v1/context",{subject:focus}); }
+  catch(e){ try{ b=await query("CONTEXT FOR "+focus); }catch(_){ gempty.textContent="✗ "+e.message; return; } }
+  const nodes={}, edges=[], eseen={};
+  const add=ev=>{ if(!ev||!ev.event_id) return; if(!nodes[ev.event_id]) nodes[ev.event_id]={id:ev.event_id,subj:ev.subject,facet:ev.facet,type:ev.type,value:ev.value,eff:ev.effective_time}; };
+  (b.facts||[]).forEach(add); (b.history||[]).forEach(add);
+  const causes=b.causes||{};
+  for (const fid in causes){
+    const chain=causes[fid]||[]; const stack=[];
+    for (const n of chain){ const ev=n.event; if(!ev||!ev.event_id) continue; add(ev);
+      const d=n.depth||0; stack[d]=ev.event_id; stack.length=d+1;
+      if (d>0 && stack[d-1]){ const key=ev.event_id+">"+stack[d-1];
+        if(!eseen[key]){ eseen[key]=1; edges.push({from:ev.event_id,to:stack[d-1],via:n.via||""}); } }
+    }
+  }
+  GRAPH.nodes=Object.values(nodes);
+  if (GRAPH.nodes.length>140) GRAPH.nodes=GRAPH.nodes.slice(0,140);
+  GRAPH.idx={}; GRAPH.nodes.forEach((n,i)=>GRAPH.idx[n.id]=i);
+  GRAPH.edges=edges.filter(e=>GRAPH.idx[e.from]!=null&&GRAPH.idx[e.to]!=null);
+  if (!GRAPH.nodes.length){ gempty.style.display="flex"; gempty.textContent="No events for "+focus+" yet."; return; }
+  gempty.style.display="none";
+  initLayout(); startSim();
+}
+function sizeCanvas(){
+  const c=document.getElementById("gcanvas"), pane=document.getElementById("pane-graph"); if(!c||!pane) return;
+  const w=pane.clientWidth||600, h=pane.clientHeight||400, dpr=window.devicePixelRatio||1;
+  c.width=w*dpr; c.height=h*dpr; c.style.width=w+"px"; c.style.height=h+"px";
+  c.getContext("2d").setTransform(dpr,0,0,dpr,0,0); GRAPH.W=w; GRAPH.H=h;
+}
+function initLayout(){
+  sizeCanvas(); const W=GRAPH.W,H=GRAPH.H,R=Math.min(W,H)*0.32;
+  GRAPH.nodes.forEach((n,i)=>{ const a=i/GRAPH.nodes.length*Math.PI*2;
+    n.x=W/2+Math.cos(a)*R*(0.6+Math.random()*0.4); n.y=H/2+Math.sin(a)*R*(0.6+Math.random()*0.4); n.vx=0; n.vy=0; });
+  GRAPH.alpha=1;
+}
+function startSim(){ cancelAnimationFrame(GRAPH.raf);
+  const step=()=>{ tickGraph(); drawGraph(); if(GRAPH.alpha>0.02||GRAPH.drag) GRAPH.raf=requestAnimationFrame(step); };
+  step();
+}
+function tickGraph(){
+  const ns=GRAPH.nodes,W=GRAPH.W,H=GRAPH.H,krep=2600,kspr=0.022,L=92,kc=0.016;
+  for (let i=0;i<ns.length;i++){ const a=ns[i]; a.fx=0; a.fy=0; if(a===GRAPH.drag) continue;
+    for (let j=0;j<ns.length;j++){ if(i===j) continue; const b=ns[j];
+      let dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy||0.01, d=Math.sqrt(d2), f=krep/d2;
+      a.fx+=dx/d*f; a.fy+=dy/d*f; }
+    a.fx+=(W/2-a.x)*kc; a.fy+=(H/2-a.y)*kc;
+  }
+  for (const e of GRAPH.edges){ const a=ns[GRAPH.idx[e.from]], b=ns[GRAPH.idx[e.to]]; if(!a||!b) continue;
+    let dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)||0.01, f=(d-L)*kspr, ux=dx/d, uy=dy/d;
+    if(a!==GRAPH.drag){ a.fx+=ux*f; a.fy+=uy*f; } if(b!==GRAPH.drag){ b.fx-=ux*f; b.fy-=uy*f; }
+  }
+  for (const a of ns){ if(a===GRAPH.drag) continue;
+    a.vx=(a.vx+a.fx*GRAPH.alpha)*0.86; a.vy=(a.vy+a.fy*GRAPH.alpha)*0.86; a.x+=a.vx; a.y+=a.vy;
+    a.x=Math.max(18,Math.min(W-18,a.x)); a.y=Math.max(18,Math.min(H-18,a.y)); }
+  GRAPH.alpha*=0.975;
+}
+function drawArrow(ctx,ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay,d=Math.sqrt(dx*dx+dy*dy)||1,ux=dx/d,uy=dy/d;
+  const tx=bx-ux*8, ty=by-uy*8, s=4;
+  ctx.beginPath(); ctx.moveTo(tx,ty);
+  ctx.lineTo(tx-uy*s-ux*s, ty+ux*s-uy*s); ctx.lineTo(tx+uy*s-ux*s, ty-ux*s-uy*s);
+  ctx.closePath(); ctx.fill();
+}
+function drawGraph(){
+  const c=document.getElementById("gcanvas"); if(!c) return; const ctx=c.getContext("2d");
+  ctx.clearRect(0,0,GRAPH.W,GRAPH.H);
+  for (const e of GRAPH.edges){ const a=GRAPH.nodes[GRAPH.idx[e.from]], b=GRAPH.nodes[GRAPH.idx[e.to]]; if(!a||!b) continue;
+    const col=VIA_COLOR[e.via]||"#33415a"; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1.2; ctx.globalAlpha=0.65;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); drawArrow(ctx,a.x,a.y,b.x,b.y); }
+  ctx.globalAlpha=1;
+  for (const n of GRAPH.nodes){ const col=TYPE_COLOR[n.type]||"#7e8ca3", r=(n===GRAPH.hover)?7:5;
+    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2); ctx.fillStyle=col;
+    if(n.subj===SELECTED){ ctx.shadowColor=col; ctx.shadowBlur=12; } ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle="#0b0f15"; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle="#9fb0c6"; ctx.font="10px ui-monospace,monospace"; ctx.fillText(shortLabel(n.subj), n.x+9, n.y+3); }
+}
+function graphPos(e){ const c=document.getElementById("gcanvas"), r=c.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function nodeAt(x,y){ for (let i=GRAPH.nodes.length-1;i>=0;i--){ const n=GRAPH.nodes[i]; if((n.x-x)**2+(n.y-y)**2<=64) return n; } return null; }
+(function wireGraph(){
+  const c=document.getElementById("gcanvas"), tip=document.getElementById("gtip"); if(!c) return;
+  c.addEventListener("mousedown", e=>{ const p=graphPos(e), n=nodeAt(p.x,p.y);
+    if(n){ GRAPH.drag=n; GRAPH.moved=false; c.classList.add("drag"); GRAPH.alpha=Math.max(GRAPH.alpha,0.6); startSim(); } });
+  c.addEventListener("mousemove", e=>{ const p=graphPos(e);
+    if(GRAPH.drag){ GRAPH.drag.x=p.x; GRAPH.drag.y=p.y; GRAPH.moved=true; return; }
+    const n=nodeAt(p.x,p.y); GRAPH.hover=n;
+    if(n){ tip.style.display="block"; tip.style.left=Math.min(p.x+12,GRAPH.W-260)+"px"; tip.style.top=(p.y+12)+"px";
+      tip.innerHTML="<b>"+esc(n.subj)+"</b><br>"+esc(n.facet||"")+" · "+esc(n.type||"")+"<br>"+(n.value?esc(JSON.stringify(n.value)):"")+"<br><span style='color:var(--dim)'>"+esc((n.id||"").slice(0,12))+"</span>";
+      if(GRAPH.alpha<0.03) drawGraph();
+    } else { tip.style.display="none"; if(GRAPH.alpha<0.03) drawGraph(); }
+  });
+  const end=e=>{ if(GRAPH.drag){ const n=GRAPH.drag; GRAPH.drag=null; c.classList.remove("drag");
+      if(!GRAPH.moved){ selectSubject(n.subj); buildGraph(n.subj); } else { GRAPH.alpha=Math.max(GRAPH.alpha,0.3); startSim(); } } };
+  c.addEventListener("mouseup", end);
+  c.addEventListener("mouseleave", ()=>{ tip.style.display="none"; });
+  window.addEventListener("resize", ()=>{ if(document.getElementById("pane-graph").classList.contains("on")){ sizeCanvas(); drawGraph(); } });
+})();
 
 setInterval(()=>{ document.getElementById("st-clock").textContent=new Date().toLocaleTimeString(); }, 1000);
 renderHistory(); boot();
