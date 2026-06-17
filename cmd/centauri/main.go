@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,7 +68,7 @@ func main() {
 	readToken := fs.String("read-token", os.Getenv("CENTAURI_READ_TOKEN"), "second token granting read-only access (serve)")
 	to := fs.String("to", "", "destination file (backup, export)")
 	query := fs.String("q", "FACTS OF *", "CeQL query selecting what to export (export)")
-	format := fs.String("format", "csv", "export format: csv | jsonl (export)")
+	format := fs.String("format", "table", "output format: table | csv | jsonl | json | yaml | plain (export)")
 	primary := fs.String("primary", "", "primary base URL to replicate from (follow)")
 	interval := fs.Duration("interval", 2*time.Second, "poll interval (follow)")
 	lazy := fs.Bool("lazy", false, "keep event payloads on disk instead of RAM (serve/desktop; lets data exceed RAM)")
@@ -119,6 +120,13 @@ func main() {
 			*data, records, size, head)
 		fmt.Println("\nRecord this chain head somewhere external. If a future verify")
 		fmt.Println("reproduces it, the history is byte-for-byte intact (tamper-evident).")
+		return
+	}
+
+	// doctor is a read-only health check: it never opens the store for
+	// writing, so it is safe to run against a live database.
+	if cmd == "doctor" {
+		runDoctor(*data, *to)
 		return
 	}
 
@@ -210,9 +218,6 @@ func main() {
 		apiSrv = srv
 		log.Fatal(http.ListenAndServe(*addr, srv.Routes()))
 	case "export":
-		if *to == "" {
-			log.Fatal("export: -to <file> is required (e.g. -to facts.csv)")
-		}
 		if err := runExport(st, *query, *format, *to); err != nil {
 			log.Fatalf("export: %v", err)
 		}
@@ -341,8 +346,9 @@ func openBrowser(url string) {
 	_ = c.Start()
 }
 
-// runExport runs a CeQL read and writes the events as CSV or JSONL —
-// the bridge to warehouses, Excel, and pandas.
+// runExport runs a CeQL read and writes the events in the chosen format.
+// With -to empty or "-", it prints to stdout (handy for ad-hoc queries);
+// otherwise it writes the file and prints a one-line summary.
 func runExport(st *store.Store, query, format, to string) error {
 	now := time.Now().UnixMicro()
 	q, err := ceql.Parse(query, now)
@@ -357,14 +363,36 @@ func runExport(st *store.Store, query, format, to string) error {
 	if !ok {
 		return fmt.Errorf("-q must be a query returning events (FACTS/HISTORY without projection); got kind %v", res["kind"])
 	}
-	f, err := os.Create(to)
-	if err != nil {
+	toStdout := to == "" || to == "-"
+	var w *bufio.Writer
+	var f *os.File
+	if toStdout {
+		w = bufio.NewWriter(os.Stdout)
+	} else {
+		f, err = os.Create(to)
+		if err != nil {
+			return err
+		}
+		w = bufio.NewWriter(f)
+	}
+	if err := formatEvents(events, format, w); err != nil {
 		return err
 	}
-	defer f.Close()
-	w := bufio.NewWriter(f)
-	defer w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	if f != nil {
+		if err := f.Close(); err != nil {
+			return err
+		}
+		fmt.Printf("exported %d events -> %s (%s)\n", len(events), to, format)
+	}
+	return nil
+}
 
+// formatEvents renders events to w in one of: csv, jsonl, json, table,
+// yaml, plain. Pure (no I/O beyond w) so it is unit-testable.
+func formatEvents(events []*model.Event, format string, w io.Writer) error {
 	switch format {
 	case "jsonl":
 		enc := json.NewEncoder(w)
@@ -373,19 +401,12 @@ func runExport(st *store.Store, query, format, to string) error {
 				return err
 			}
 		}
+	case "json":
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(events)
 	case "csv":
-		// columns: fixed metadata + the union of value fields, sorted.
-		fieldSet := map[string]bool{}
-		for _, e := range events {
-			for k := range e.Value {
-				fieldSet[k] = true
-			}
-		}
-		var fields []string
-		for k := range fieldSet {
-			fields = append(fields, k)
-		}
-		sort.Strings(fields)
+		fields := valueFields(events)
 		cw := csv.NewWriter(w)
 		header := append([]string{"subject", "facet", "type", "effective_time",
 			"recorded_time", "confidence", "provenance", "event_id"}, fields...)
@@ -397,34 +418,188 @@ func runExport(st *store.Store, query, format, to string) error {
 				strconv.FormatInt(e.EffectiveTime, 10), strconv.FormatInt(e.RecordedTime, 10),
 				strconv.FormatFloat(e.Confidence, 'f', -1, 64), string(e.Provenance), e.EventID}
 			for _, k := range fields {
-				v, ok := e.Value[k]
-				if !ok {
-					row = append(row, "")
-					continue
-				}
-				switch t := v.(type) {
-				case string:
-					row = append(row, t)
-				case float64:
-					row = append(row, strconv.FormatFloat(t, 'f', -1, 64))
-				default:
-					b, _ := json.Marshal(v)
-					row = append(row, string(b))
-				}
+				row = append(row, cellString(e.Value[k]))
 			}
 			if err := cw.Write(row); err != nil {
 				return err
 			}
 		}
 		cw.Flush()
-		if err := cw.Error(); err != nil {
-			return err
+		return cw.Error()
+	case "table":
+		fields := valueFields(events)
+		cols := append([]string{"subject", "facet", "type"}, fields...)
+		rows := make([][]string, 0, len(events))
+		for _, e := range events {
+			r := []string{e.Subject, e.Facet, string(e.Type)}
+			for _, k := range fields {
+				r = append(r, cellString(e.Value[k]))
+			}
+			rows = append(rows, r)
+		}
+		width := make([]int, len(cols))
+		for i, c := range cols {
+			width[i] = len(c)
+		}
+		for _, r := range rows {
+			for i, c := range r {
+				if len(c) > width[i] {
+					width[i] = len(c)
+				}
+			}
+		}
+		writeRow := func(cells []string) {
+			parts := make([]string, len(cells))
+			for i, c := range cells {
+				parts[i] = c + strings.Repeat(" ", width[i]-len(c))
+			}
+			fmt.Fprintln(w, strings.TrimRight(strings.Join(parts, "  "), " "))
+		}
+		writeRow(cols)
+		seps := make([]string, len(cols))
+		for i := range seps {
+			seps[i] = strings.Repeat("-", width[i])
+		}
+		fmt.Fprintln(w, strings.Join(seps, "  "))
+		for _, r := range rows {
+			writeRow(r)
+		}
+	case "yaml":
+		for _, e := range events {
+			fmt.Fprintf(w, "- subject: %s\n  facet: %s\n  type: %s\n  effective_time: %d\n  confidence: %s\n",
+				e.Subject, e.Facet, string(e.Type), e.EffectiveTime, strconv.FormatFloat(e.Confidence, 'f', -1, 64))
+			if len(e.Value) > 0 {
+				fmt.Fprintln(w, "  value:")
+				for _, k := range sortedKeys(e.Value) {
+					fmt.Fprintf(w, "    %s: %s\n", k, cellString(e.Value[k]))
+				}
+			}
+		}
+	case "plain":
+		for _, e := range events {
+			var kvs []string
+			for _, k := range sortedKeys(e.Value) {
+				kvs = append(kvs, k+"="+cellString(e.Value[k]))
+			}
+			fmt.Fprintf(w, "%s [%s/%s] %s (conf %.2f)\n",
+				e.Subject, e.Facet, string(e.Type), strings.Join(kvs, " "), e.Confidence)
 		}
 	default:
-		return fmt.Errorf("unknown format %q (csv | jsonl)", format)
+		return fmt.Errorf("unknown format %q (csv | jsonl | json | table | yaml | plain)", format)
 	}
-	fmt.Printf("exported %d events -> %s (%s)\n", len(events), to, format)
 	return nil
+}
+
+// valueFields is the sorted union of value-field names across events.
+func valueFields(events []*model.Event) []string {
+	set := map[string]bool{}
+	for _, e := range events {
+		for k := range e.Value {
+			set[k] = true
+		}
+	}
+	var fs []string
+	for k := range set {
+		fs = append(fs, k)
+	}
+	sort.Strings(fs)
+	return fs
+}
+
+func sortedKeys(m map[string]any) []string {
+	var ks []string
+	for k := range m {
+		ks = append(ks, k)
+	}
+	sort.Strings(ks)
+	return ks
+}
+
+func cellString(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	default:
+		b, _ := json.Marshal(v)
+		return string(b)
+	}
+}
+
+// runDoctor prints a read-only health report: log presence, tamper-evidence
+// chain integrity, checkpoint freshness, and writer-lock status. Exits
+// non-zero if any check FAILs (e.g. a broken hash chain). Safe to run
+// against a live server — it never opens the store for writing.
+func runDoctor(data, reportTo string) {
+	var b strings.Builder
+	pass, warn, fail := 0, 0, 0
+	line := func(status, msg string) {
+		switch status {
+		case "PASS":
+			pass++
+		case "WARN":
+			warn++
+		case "FAIL":
+			fail++
+		}
+		fmt.Fprintf(&b, "[%s] %s\n", status, msg)
+	}
+	fmt.Fprintf(&b, "Centauri doctor — %s\n%s\n%s\n", data,
+		time.Now().Format("2006-01-02 15:04:05"), strings.Repeat("-", 64))
+
+	fi, statErr := os.Stat(data)
+	if statErr != nil {
+		line("FAIL", fmt.Sprintf("log file: %v", statErr))
+	} else {
+		line("PASS", fmt.Sprintf("log file present — %d bytes, modified %s",
+			fi.Size(), fi.ModTime().Format("2006-01-02 15:04:05")))
+		head, _, records, err := store.VerifyChain(data)
+		switch {
+		case err != nil:
+			line("FAIL", fmt.Sprintf("tamper-evidence chain: %v", err))
+		case records == 0:
+			line("PASS", "empty log (new database) — chain trivially intact")
+		default:
+			line("PASS", fmt.Sprintf("tamper-evidence chain intact — %d records, head %s", records, shortHash(head)))
+		}
+		if cfi, err := os.Stat(data + ".checkpoint"); err == nil {
+			if cfi.ModTime().Before(fi.ModTime()) {
+				line("WARN", "checkpoint older than the log — it is rebuilt on next open (slower cold start)")
+			} else {
+				line("PASS", fmt.Sprintf("checkpoint present (%d bytes) — fast restart enabled", cfi.Size()))
+			}
+		} else {
+			line("WARN", "no checkpoint — the next open replays the full log")
+		}
+		if _, err := os.Stat(data + ".lock"); err == nil {
+			line("WARN", fmt.Sprintf("writer lock present — a server is running, or a crash left it stale (delete %s.lock if no server is up)", data))
+		} else {
+			line("PASS", "no writer lock — safe to start a server")
+		}
+	}
+	fmt.Fprintf(&b, "%s\ndoctor: %d passed, %d warning(s), %d failed\n",
+		strings.Repeat("-", 64), pass, warn, fail)
+	fmt.Print(b.String())
+	if reportTo != "" {
+		if err := os.WriteFile(reportTo, []byte(b.String()), 0o644); err != nil {
+			log.Printf("doctor: could not write report to %s: %v", reportTo, err)
+		} else {
+			fmt.Printf("report written to %s\n", reportTo)
+		}
+	}
+	if fail > 0 {
+		os.Exit(1)
+	}
+}
+
+func shortHash(h string) string {
+	if len(h) > 16 {
+		return h[:16] + "…"
+	}
+	return h
 }
 
 func usage() {
@@ -438,21 +613,26 @@ Commands
   seed     populate with synthetic price-change demo data
   follow   replicate a primary's log into a read-only follower
   verify   recompute the tamper-evidence hash chain over a log file
+  doctor   read-only health check (chain, checkpoint, lock); safe on a live DB
   backup   copy a database to -to <file> and verify the copy's chain
   merge    reconcile diverged copies: merge -to merged.log a.log b.log
-  export   write a CeQL result: export -q "FACTS OF *" -format csv -to out.csv
+  export   run a CeQL query and print/write results in a chosen format
 
 Common flags
   -data <path>    log file to use            (default centauri.log)
   -addr <:port>   listen address (serve)     (default :7771)
   -token <tok>    HTTP API bearer token      (or set $CENTAURI_TOKEN)
   -lazy           keep payloads on disk so data can exceed RAM (serve/desktop)
+  -format <fmt>   table | csv | jsonl | json | yaml | plain (export)
+  -to <file>      output file ('-' or omitted = stdout)  (export/backup/merge)
 
 Examples
   centauri desktop                 # try it now — opens the dashboard
+  centauri doctor                  # is my database healthy?
+  centauri export -q "FACTS OF item:*" -format table   # query to the terminal
   centauri serve -lazy -token s3cr # API server, payloads on disk
-  centauri merge -to all.log a.log b.log
 
-Learn CeQL: run 'centauri desktop' and open the textbook at /ceql.`)
+CDC: tail new facts over HTTP — GET /v1/changes?from=<cursor> returns events
+plus a cursor to resume from. Learn CeQL at /ceql (run 'centauri desktop').`)
 	os.Exit(1)
 }

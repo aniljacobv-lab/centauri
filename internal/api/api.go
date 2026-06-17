@@ -130,6 +130,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/similar", s.handleSimilarPost)
 	mux.HandleFunc("GET /v1/watch", s.handleWatch)
 	mux.HandleFunc("GET /v1/log", s.handleLog)
+	mux.HandleFunc("GET /v1/changes", s.handleChanges)
 	mux.HandleFunc("POST /v1/query", s.handleQuery)
 	mux.HandleFunc("GET /v1/query", s.handleQuery)
 	mux.HandleFunc("POST /v1/assist", s.handleAssist)
@@ -1078,6 +1079,38 @@ func (s *Server) handleArchitectApply(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleLog ships raw committed log bytes for replication: ?from=12345
+// handleChanges is CDC: GET /v1/changes?from=<byteOffset> returns the fact
+// events committed at or after the offset, in commit order, plus a cursor
+// to resume from. Start at from=0; save "cursor"; poll again with it to get
+// only new facts. "caught_up" is true once you've reached the log's end.
+func (s *Server) handleChanges(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r)
+	if st == nil {
+		return
+	}
+	var from int64
+	if v := r.URL.Query().Get("from"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 0 {
+			httpErr(w, 400, "from must be a non-negative byte offset (0 = from the beginning)")
+			return
+		}
+		from = n
+	}
+	events, cursor, err := st.Changes(from)
+	if err != nil {
+		httpErr(w, 400, err.Error())
+		return
+	}
+	if events == nil {
+		events = []*model.Event{}
+	}
+	writeJSON(w, map[string]any{
+		"events": events, "cursor": cursor,
+		"log_size": st.LogSize(), "caught_up": cursor == st.LogSize(),
+	})
+}
+
 func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {
 	st := s.dbOr(w, r)
 	if st == nil {
