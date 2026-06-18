@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/proxima360/centauri/internal/architect"
@@ -95,7 +96,7 @@ func (s *Server) handle(req *rpcRequest) rpcResponse {
 	case "ping":
 		return rpcResponse{ID: req.ID, Result: map[string]any{}}
 	case "tools/list":
-		return rpcResponse{ID: req.ID, Result: map[string]any{"tools": toolDefs()}}
+		return rpcResponse{ID: req.ID, Result: map[string]any{"tools": append(toolDefs(), s.procedureTools()...)}}
 	case "tools/call":
 		var params struct {
 			Name      string         `json:"name"`
@@ -120,6 +121,43 @@ func (s *Server) handle(req *rpcRequest) rpcResponse {
 }
 
 // ---- tool definitions ----
+
+// procedureTools exposes each stored CePL procedure as its own MCP tool —
+// a named, parameterized, server-side operation (the "safe tool" pattern
+// from MCP Toolbox). An agent calls proc_reprice(item, pct) directly instead
+// of emitting raw CeQL, and a scoped token can be confined to just these.
+func (s *Server) procedureTools() []map[string]any {
+	out := []map[string]any{}
+	for _, subj := range s.st.Subjects() {
+		if !strings.HasPrefix(subj, "proc:") {
+			continue
+		}
+		cur := s.st.Current(subj, "procedure")
+		if len(cur) == 0 {
+			continue
+		}
+		name := strings.TrimPrefix(subj, "proc:")
+		var params []string
+		if raw, ok := cur[0].Value["params"].([]any); ok {
+			for _, p := range raw {
+				if ps, ok := p.(string); ok {
+					params = append(params, ps)
+				}
+			}
+		}
+		props := map[string]any{}
+		for _, p := range params {
+			props[p] = map[string]any{"description": "argument " + p}
+		}
+		out = append(out, map[string]any{
+			"name": "proc_" + name,
+			"description": "CePL procedure " + name + "(" + strings.Join(params, ", ") +
+				") — runs server-side, returns the result plus a step-by-step trace.",
+			"inputSchema": obj(props, params...),
+		})
+	}
+	return out
+}
 
 func obj(props map[string]any, required ...string) map[string]any {
 	schema := map[string]any{"type": "object", "properties": props}
@@ -399,6 +437,15 @@ func (s *Server) callTool(name string, args map[string]any) (string, error) {
 		return asJSON(s.st.Subjects())
 	case "centauri_stats":
 		return asJSON(s.st.Stats())
+	}
+	// Dynamic per-procedure tools: proc_<name>(args) runs a stored CePL
+	// procedure with the call's arguments as its parameters.
+	if strings.HasPrefix(name, "proc_") {
+		res, err := proc.RunStored(s.st, strings.TrimPrefix(name, "proc_"), args, time.Now().UnixMicro())
+		if err != nil {
+			return "", err
+		}
+		return asJSON(res)
 	}
 	return "", fmt.Errorf("unknown tool %q", name)
 }

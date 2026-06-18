@@ -180,7 +180,7 @@
     <span class="stat">links <b id="s-links">–</b></span>
     <div class="sepv"></div>
     <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
-    <button class="ghost" onclick="openConnect()" title="Connect from your language / procedures">🔌 Connect</button>
+    <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
     <button class="ghost" onclick="openToken()" title="API token">🔑</button>
     <a href="/" title="Classic dashboard"><button class="ghost">▦ Dashboard</button></a>
     <a href="/ceql" title="CeQL textbook"><button class="ghost">📖 Book</button></a>
@@ -235,7 +235,8 @@
         <div class="tabpane on" id="pane-res"><div class="empty-state">Run a query, ask the Copilot, or pick an object on the left.<br><br>
           <span class="pill" onclick="runInto('FACTS OF *')">FACTS OF *</span>
           <span class="pill" onclick="runInto('STATS')">STATS</span>
-          <span class="pill" onclick="runInto('SUBJECTS')">SUBJECTS</span></div></div>
+          <span class="pill" onclick="runInto('SUBJECTS')">SUBJECTS</span>
+          <div class="muted small" style="margin-top:14px">Connecting from code? <a href="#" onclick="openConnect();return false">🔌 Connect &amp; SDKs →</a> (Python · Go · JS · HTTP · MCP)</div></div></div>
         <div class="tabpane" id="pane-graph">
           <div class="gtoolbar">
             <input id="gfocus" placeholder="focus subject (e.g. item:1)…" onkeydown="if(event.key==='Enter')buildGraph(this.value.trim())">

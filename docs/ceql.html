@@ -690,6 +690,11 @@ the data.</div>
 or the <code>centauri_define_procedure</code> MCP tool), then call it from anywhere —
 including the query bar:</p>
 <pre><code><span class="kw">RUN</span> duty_estimate <span class="kw">WITH</span> item=<span class="lit">'100001'</span>, units=3</code></pre>
+<div class="box"><b>Procedures are agent tools.</b> Every stored procedure is also
+auto-exposed over MCP as its own typed tool — <code>proc_duty_estimate(item, units)</code> —
+so an agent sees a curated, parameterized operation instead of raw query access.
+Pair that with a <a href="#ops">scoped token</a> and you've defined a safe,
+production-ready surface for an agent: named tools, fixed logic, prefix-limited reach.</div>
 <p><b>The steps:</b> <code>LET x = &lt;CeQL query&gt;</code> binds results
 (<code>FIRST</code> takes the first fact as a record: <code>x.price_cents</code>,
 <code>x.confidence</code>…); <code>LET y = &lt;arithmetic&gt;</code> computes
