@@ -105,6 +105,13 @@
   .grid td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:top;font-family:var(--mono);font-size:12px}
   .grid tr:hover td{background:#10171f}
   .grid td.subj a{color:var(--accent)}
+  .gridbar{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .gridbar .gridpager{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .grid tr.filters th{padding:3px 5px;background:#0c1219}
+  .grid tr.filters input{width:100%;min-width:52px;padding:2px 5px;font-size:11px;background:#0a0e14;border:1px solid var(--border2);color:var(--text)}
+  .grid td.edit{cursor:pointer}
+  .grid td.edit:hover{background:#13202e;outline:1px solid var(--accent2)}
+  button[disabled]{opacity:.4;cursor:default}
   .badge{display:inline-block;border-radius:5px;padding:1px 7px;font-size:10.5px;background:#221a3a;color:var(--accent2)}
   .b-good{background:#0f2f1c;color:var(--good)} .b-bad{background:#3a1518;color:var(--bad)}
   .kv{font-family:var(--mono);font-size:12px}
@@ -200,6 +207,7 @@
         <button class="primary" onclick="runEditor()">▶ Run <span class="kbd">⌘⏎</span></button>
         <button class="ghost" onclick="runEditor(true)" title="Run selected text / current statement">Run stmt</button>
         <button class="ghost" onclick="explainCurrent()" title="Show the plan">🧭 Explain</button>
+        <button class="ghost" onclick="formatCeQL()" title="Tidy the query">✦ Format</button>
         <div class="sep"></div>
         <label>Time travel</label>
         <input type="datetime-local" id="asof" style="width:178px" onchange="applyTimeTravel()" title="View the database AS OF this moment">
@@ -403,6 +411,16 @@ async function explainCurrent(){
   const stmts=currentStatements(); if(!stmts.length){ toast("Write a query first"); return; }
   runInto("EXPLAIN "+stmts[0]);
 }
+const CEQL_KW=new Set(["FACTS","OF","FACET","AS","KNOWN","AT","WHERE","AND","OR","NOT","IN","LIKE","MATCHES","GROUP","BY","ORDER","DESC","LIMIT","OFFSET","HAVING","WHY","EFFECTS","DEPTH","PUT","CORRECT","RETIRE","SET","EFFECTIVE","CONFIDENCE","PROVENANCE","SCHEMA","REF","HISTORY","SUBJECTS","PENDING","OLDER","THAN","DAYS","DISAGREE","STATS","SCHEMAS","DEFINE","SHAPE","CONSISTENCY","CYCLES","DRIFT","SEARCH","SIMILAR","TO","ALPHA","ASK","WATCH","ALL","RUN","WITH","CONTEXT","FOR","PROFILE","EXPLAIN","SNAPSHOT","ROLLBACK","LAST","DIFF","BETWEEN","MATCH","CAUSES","CAUSED","VIA","COUNT","SUM","AVG","MEDIAN","STDDEV","LISTAGG"]);
+// Tidy the query: capitalize keywords and collapse spacing, leaving quoted
+// literals untouched. Cosmetic — never changes what the query does.
+function formatCeQL(){
+  const parts=editor.value.split(/('(?:[^'\\]|\\.)*')/); // odd indices are quoted strings
+  const out=parts.map((p,i)=> i%2===1 ? p :
+    p.replace(/[A-Za-z_]+/g, w=> CEQL_KW.has(w.toUpperCase()) ? w.toUpperCase() : w).replace(/[ \t]+/g," ")
+  ).join("");
+  setEditor(out.trim());
+}
 
 // ---------------- AI copilot ----------------
 const aiIn = document.getElementById("aiprompt");
@@ -444,9 +462,10 @@ function renderResult(r, meta){
   const pane=document.getElementById("pane-res"); let h="", rows=null;
   const head = meta&&meta.q ? `<div class="muted small mono" style="margin-bottom:6px">CeQL› ${esc(meta.q)}${meta.ms?`  <span style="color:var(--good)">(${meta.ms.toFixed(0)} ms)</span>`:""}</div>` : "";
   switch ((r||{}).kind){
-    case "events": rows=(r.events||[]).length;
-      h=`<h3 class="rt">${rows} event(s)${r.note?` <span class="muted small">— ${esc(r.note)}</span>`:""}</h3>`+eventsGrid(r.events||[]); break;
-    case "rows": rows=(r.rows||[]).length; h=`<h3 class="rt">${rows} row(s)</h3>`+tableGrid(r.columns||[], r.rows||[]); break;
+    case "events": rows=(r.events||[]).length; gridFromEvents(r.events||[]);
+      h=`<h3 class="rt">${rows} event(s)${r.note?` <span class="muted small">— ${esc(r.note)}</span>`:""}</h3><div id="gridwrap">${gridHTML()}</div>`; break;
+    case "rows": rows=(r.rows||[]).length; gridFromRows(r.columns||[], r.rows||[]);
+      h=`<h3 class="rt">${rows} row(s)</h3><div id="gridwrap">${gridHTML()}</div>`; break;
     case "subjects": rows=(r.subjects||[]).length;
       h=`<h3 class="rt">${rows} subject(s)</h3>`+(r.subjects||[]).slice(0,500).map(s=>`<div class="kv" style="padding:2px 0">${linkSubj(s)}</div>`).join(""); break;
     case "put": toast("Saved on "+r.subject);
@@ -473,7 +492,8 @@ function renderResult(r, meta){
         (ms.length? tableLite(["from","via","hops","to"], ms.map(x=>[linkSubj(x.from),`<span class="badge">${esc(x.via)}</span>`,String(x.hops),linkSubj(x.to)]))
           : `<div class="muted">No causal paths matched.</div>`); break; }
     case "assistant":
-      h=`<h3 class="rt">✨ Copilot</h3>`+(r.answer?`<div class="answer">${md(r.answer)}</div>`
+      h=`<h3 class="rt">✨ Copilot</h3>`+(r.answer?`<div class="answer">${md(r.answer)}</div>`+
+        (r.source?`<div class="muted small" style="margin-top:8px">source: <a href="#" onclick="selectSubject(${jsAttr(r.source)});return false">${esc(r.source)}</a>${r.score?` · score ${(+r.score).toFixed(2)}`:""}</div>`:"")
         :`<div class="muted">I don't have a confident answer for “${esc(r.question||"")}”. Try rephrasing, or open the <a href="/ceql">Book</a>.</div>`); break;
     case "trace":
       h=`<h3 class="rt">Causal ${esc(r.direction||"")} chain</h3>`+(r.trace||[]).map(n=>`<div class="kv" style="margin-left:${(n.depth||0)*18}px;padding:2px 0">${n.depth?"↑ ":"● "}${esc(n.event.subject)} <span class="muted">${esc(n.event.facet)}/${esc(n.event.type)}</span> ${fmtVal(n.event.value)}</div>`).join(""); break;
@@ -489,35 +509,99 @@ function renderResult(r, meta){
   return rows;
 }
 function linkSubj(s){ return `<a href="#" onclick="selectSubject(${jsAttr(s)});return false">${esc(s)}</a>`; }
-function eventsGrid(events){
-  if (!events.length) return "<div class='muted'>No facts.</div>";
+
+// ---- interactive grid (DBeaver-style: sort, per-column filter, paging,
+//      row→inspector, editable value cells that emit a superseding PUT) ----
+let GRID = null;          // {cols:[{key,label,field?}], rows:[{subject,facet,eventId,cells:{key:val}}], editable}
+let GRIDV = {sort:{key:null,dir:1}, filters:{}, page:0, size:50, chart:false};
+
+function gridFromEvents(events){
   const fields=[]; for (const e of events) for (const k in (e.value||{})) if(!fields.includes(k)) fields.push(k);
-  LASTGRID = {columns:["subject","facet","type",...fields,"effective","confidence"],
-    rows: events.map(e=>[e.subject,e.facet,e.type,...fields.map(f=>(e.value||{})[f]??""),fmtUS(e.effective_time),e.confidence])};
-  const cols=["subject","facet","type",...fields,"effective","conf","why"];
-  let h=`<div style="overflow:auto"><table class="grid"><thead><tr>`+cols.map((c,i)=>`<th onclick="sortGrid(${i})">${esc(c)}</th>`).join("")+`</tr></thead><tbody>`;
-  h += events.map(e=>{
-    const vals=fields.map(f=>{ const v=(e.value||{})[f]; return `<td>${v==null?"<span class='muted'>—</span>":esc(typeof v==="object"?JSON.stringify(v):String(v))}</td>`; }).join("");
-    return `<tr><td class="subj">${linkSubj(e.subject)}</td><td>${esc(e.facet)}</td><td><span class="badge">${esc(e.type)}</span></td>${vals}<td>${esc(fmtUS(e.effective_time))}</td><td>${e.confidence!=null?(+e.confidence).toFixed(2):""}</td><td>${e.event_id?`<a href="#" title="trace cause" onclick="runInto(${jsAttr('WHY '+e.event_id)});return false">↑why</a>`:""}</td></tr>`;
+  const cols=[{key:"subject",label:"subject"},{key:"facet",label:"facet"},{key:"type",label:"type"}]
+    .concat(fields.map(f=>({key:"v_"+f,label:f,field:f})))
+    .concat([{key:"effective",label:"effective"},{key:"conf",label:"conf"}]);
+  const rows=events.map(e=>{
+    const cells={subject:e.subject,facet:e.facet,type:e.type,
+      effective:fmtUS(e.effective_time),conf:e.confidence!=null?(+e.confidence).toFixed(2):""};
+    for (const f of fields){ const v=(e.value||{})[f]; cells["v_"+f]=v==null?"":(typeof v==="object"?JSON.stringify(v):String(v)); }
+    return {subject:e.subject,facet:e.facet,eventId:e.event_id,cells};
+  });
+  GRID={cols,rows,editable:true}; GRIDV={sort:{key:null,dir:1},filters:{},page:0,size:50,chart:false};
+}
+function gridFromRows(columns, rawRows){
+  const cols=columns.map(c=>({key:c,label:c}));
+  const rows=rawRows.map(r=>{ const cells={}; columns.forEach((c,i)=>cells[c]=r[i]==null?"":(typeof r[i]==="object"?JSON.stringify(r[i]):String(r[i]))); return {cells}; });
+  GRID={cols,rows,editable:false}; GRIDV={sort:{key:null,dir:1},filters:{},page:0,size:50,chart:false};
+}
+function gridView(){
+  let rows=GRID.rows;
+  const f=GRIDV.filters;
+  rows=rows.filter(r=>GRID.cols.every(c=>{ const q=(f[c.key]||"").toLowerCase(); return !q || String(r.cells[c.key]??"").toLowerCase().includes(q); }));
+  if (GRIDV.sort.key){ const k=GRIDV.sort.key, d=GRIDV.sort.dir;
+    rows=rows.slice().sort((a,b)=>{ const x=a.cells[k],y=b.cells[k],nx=parseFloat(x),ny=parseFloat(y);
+      if(!isNaN(nx)&&!isNaN(ny)) return (nx-ny)*d; return String(x).localeCompare(String(y))*d; }); }
+  return rows;
+}
+function gridHTML(){
+  if (!GRID || !GRID.rows.length) return "<div class='muted'>No rows.</div>";
+  const view=gridView();
+  // keep export in sync with the current filter/sort
+  LASTGRID={columns:GRID.cols.map(c=>c.label), rows:view.map(r=>GRID.cols.map(c=>r.cells[c.key]))};
+  const pages=Math.max(1,Math.ceil(view.length/GRIDV.size));
+  if (GRIDV.page>=pages) GRIDV.page=pages-1;
+  const start=GRIDV.page*GRIDV.size, page=view.slice(start,start+GRIDV.size);
+  const arrow=k=>GRIDV.sort.key===k?(GRIDV.sort.dir>0?" ▲":" ▼"):"";
+  let h="";
+  const numField=GRID.cols.find(c=>c.field && view.some(r=>r.cells[c.key]!=="" && !isNaN(parseFloat(r.cells[c.key]))));
+  h+=`<div class="gridbar"><span class="mini">${view.length} of ${GRID.rows.length} row(s)</span>`+
+     (numField?`<button class="ghost" onclick="gridToggleChart()">${GRIDV.chart?"▦ Table":"📊 Chart"}</button>`:"")+
+     `<span class="gridpager">`+
+       `<button class="ghost" onclick="gridPage(-1)" ${GRIDV.page<=0?"disabled":""}>‹</button>`+
+       `<span class="mini">${start+1}–${Math.min(start+GRIDV.size,view.length)} / ${view.length}</span>`+
+       `<button class="ghost" onclick="gridPage(1)" ${GRIDV.page>=pages-1?"disabled":""}>›</button>`+
+     `</span></div>`;
+  if (GRIDV.chart && numField){ return h+gridChart(view, numField); }
+  h+=`<div style="overflow:auto"><table class="grid"><thead>`+
+     `<tr>`+GRID.cols.map(c=>`<th onclick="gridSort('${c.key}')">${esc(c.label)}${arrow(c.key)}</th>`).join("")+(GRID.editable?`<th></th>`:"")+`</tr>`+
+     `<tr class="filters">`+GRID.cols.map(c=>`<th><input placeholder="filter" value="${esc(GRIDV.filters[c.key]||"")}" oninput="gridFilter('${c.key}',this.value)"></th>`).join("")+(GRID.editable?`<th></th>`:"")+`</tr>`+
+     `</thead><tbody>`;
+  h+=page.map(r=>{
+    const tds=GRID.cols.map(c=>{
+      if (c.key==="subject") return `<td class="subj">${linkSubj(r.subject)}</td>`;
+      if (c.key==="type") return `<td><span class="badge">${esc(r.cells[c.key])}</span></td>`;
+      const editable = GRID.editable && c.field;
+      const cls = editable?` class="edit" title="double-click to correct (writes a new fact)" ondblclick="gridEdit('${r.eventId}',${jsAttr(r.subject)},${jsAttr(r.facet)},${jsAttr(c.field)},${jsAttr(String(r.cells[c.key]))})"`:"";
+      return `<td${cls}>${r.cells[c.key]===""?"<span class='muted'>—</span>":esc(r.cells[c.key])}</td>`;
+    }).join("");
+    const act = GRID.editable && r.eventId ? `<td><a href="#" title="trace cause" onclick="runInto(${jsAttr('WHY '+r.eventId)});return false">↑why</a></td>`:(GRID.editable?"<td></td>":"");
+    return `<tr>${tds}${act}</tr>`;
   }).join("");
   return h+"</tbody></table></div>";
 }
-function tableGrid(columns, rows){
-  LASTGRID={columns,rows};
-  let h=`<div style="overflow:auto"><table class="grid"><thead><tr>`+columns.map((c,i)=>`<th onclick="sortGrid(${i})">${esc(c)}</th>`).join("")+`</tr></thead><tbody>`;
-  h += rows.map(r=>`<tr>`+r.map(c=>`<td>${esc(typeof c==="object"?JSON.stringify(c):String(c==null?"":c))}</td>`).join("")+`</tr>`).join("");
-  return h+"</tbody></table></div>";
+function rerenderGrid(){ const w=document.getElementById("gridwrap"); if(w) w.innerHTML=gridHTML(); }
+function gridSort(k){ if(GRIDV.sort.key===k) GRIDV.sort.dir=-GRIDV.sort.dir; else {GRIDV.sort.key=k;GRIDV.sort.dir=1;} rerenderGrid(); }
+function gridFilter(k,v){ GRIDV.filters[k]=v; GRIDV.page=0; rerenderGrid(); }
+function gridPage(d){ GRIDV.page+=d; rerenderGrid(); }
+function gridToggleChart(){ GRIDV.chart=!GRIDV.chart; rerenderGrid(); }
+function gridEdit(eventId, subject, facet, field, current){
+  const v=prompt(`Correct ${subject} · ${field}\nThis appends a new fact (history is kept):`, current);
+  if (v==null || v===current) return;
+  const lit = (v.trim()!=="" && !isNaN(Number(v))) ? v.trim() : "'"+v.replace(/'/g,"")+"'";
+  runInto(`PUT ${subject} FACET ${facet} SET ${field}=${lit}`);
+}
+function gridChart(view, col){
+  const vals=view.map(r=>({label:r.subject||r.cells[GRID.cols[0].key],n:parseFloat(r.cells[col.key])})).filter(x=>!isNaN(x.n)).slice(0,40);
+  const mx=Math.max(1,...vals.map(x=>Math.abs(x.n)));
+  return `<div style="padding:6px 2px">`+vals.map(x=>
+    `<div class="mini" style="display:flex;align-items:center;gap:8px;margin:3px 0">
+       <span style="width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.label)}">${esc(x.label)}</span>
+       <span style="display:inline-block;height:11px;border-radius:3px;background:var(--accent);width:${Math.max(2,260*Math.abs(x.n)/mx)}px"></span>
+       <b>${esc(String(x.n))}</b></div>`).join("")+
+     `<div class="mini" style="margin-top:6px">${esc(col.label)} across ${vals.length} row(s)</div></div>`;
 }
 function tableLite(cols, rows){
   return `<div style="overflow:auto"><table class="grid"><thead><tr>`+cols.map(c=>`<th>${c}</th>`).join("")+`</tr></thead><tbody>`+
     rows.map(r=>`<tr>`+r.map(c=>`<td>${c}</td>`).join("")+`</tr>`).join("")+`</tbody></table></div>`;
-}
-let SORT={col:-1,dir:1};
-function sortGrid(i){
-  if(!LASTGRID) return; SORT.dir=SORT.col===i?-SORT.dir:1; SORT.col=i;
-  LASTGRID.rows.sort((a,b)=>{ const x=a[i],y=b[i],nx=parseFloat(x),ny=parseFloat(y);
-    if(!isNaN(nx)&&!isNaN(ny)) return (nx-ny)*SORT.dir; return String(x).localeCompare(String(y))*SORT.dir; });
-  document.getElementById("pane-res").innerHTML=`<h3 class="rt">${LASTGRID.rows.length} row(s) <span class="muted small">sorted by ${esc(LASTGRID.columns[i])}</span></h3>`+tableGrid(LASTGRID.columns,LASTGRID.rows);
 }
 
 // ---------------- export ----------------

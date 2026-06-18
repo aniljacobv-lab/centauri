@@ -71,7 +71,8 @@ func execAsk(st *store.Store, q *Query, now int64) (map[string]any, error) {
 			ans, _ := best.Value["answer"].(string)
 			return map[string]any{
 				"kind": "assistant", "question": question, "answer": ans,
-				"source": best.Subject, "score": r[0].Score, "learned": true,
+				"source": best.Subject, "source_event": best.EventID,
+				"score": r[0].Score, "learned": true,
 			}, nil
 		}
 	}
