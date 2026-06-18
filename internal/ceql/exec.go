@@ -460,6 +460,30 @@ func aggValue(f Field, events []*model.Event) any {
 			}
 		}
 		return n
+	case "count_distinct":
+		seen := map[string]bool{}
+		for _, e := range events {
+			if f.Name == "*" {
+				seen[e.Subject] = true
+				continue
+			}
+			if v := getField(e, f.Name); v != nil {
+				seen[fmt.Sprint(v)] = true
+			}
+		}
+		return len(seen)
+	case "approx_count_distinct":
+		h := newHLL()
+		for _, e := range events {
+			if f.Name == "*" {
+				h.add(e.Subject)
+				continue
+			}
+			if v := getField(e, f.Name); v != nil {
+				h.add(fmt.Sprint(v))
+			}
+		}
+		return int(h.estimate() + 0.5)
 	case "listagg":
 		seen := map[string]bool{}
 		var vals []string

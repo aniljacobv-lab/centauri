@@ -526,6 +526,7 @@ func (p *parser) projField() (Field, error) {
 	up := strings.ToUpper(w)
 	if isAggName(up) {
 		if p.eatOp("(") {
+			distinct := p.eat("DISTINCT")
 			inner, err := p.word("a field or *")
 			if err != nil {
 				return Field{}, err
@@ -533,7 +534,11 @@ func (p *parser) projField() (Field, error) {
 			if !p.eatOp(")") {
 				return Field{}, fmt.Errorf("expected ) after %s(%s", up, inner)
 			}
-			return Field{Name: inner, Agg: strings.ToLower(up)}, nil
+			agg := strings.ToLower(up)
+			if up == "COUNT" && distinct {
+				agg = "count_distinct" // COUNT(DISTINCT field)
+			}
+			return Field{Name: inner, Agg: agg}, nil
 		}
 	}
 	return Field{Name: w}, nil
@@ -541,7 +546,7 @@ func (p *parser) projField() (Field, error) {
 
 func isAggName(up string) bool {
 	switch up {
-	case "COUNT", "SUM", "AVG", "MIN", "MAX", "MEDIAN", "STDDEV", "LISTAGG":
+	case "COUNT", "SUM", "AVG", "MIN", "MAX", "MEDIAN", "STDDEV", "LISTAGG", "APPROX_COUNT_DISTINCT":
 		return true
 	}
 	return false

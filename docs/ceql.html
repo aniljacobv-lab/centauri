@@ -263,11 +263,16 @@ rollback, roll back to a snapshot taken just before it.</div>
 <pre><code><span class="kw">FACTS</span> facet, <span class="kw">COUNT</span>(*), <span class="kw">AVG</span>(price_cents), <span class="kw">MAX</span>(price_cents)
   <span class="kw">OF</span> item:*/store:4001 <span class="kw">GROUP BY</span> facet
   <span class="kw">HAVING COUNT</span>(*) > 5 <span class="kw">AND AVG</span>(price_cents) > 300</code></pre>
-<p>Aggregates: <code>COUNT(*) COUNT(field) SUM AVG MIN MAX MEDIAN STDDEV
-LISTAGG</code>. Group by any metadata or value field; <code>HAVING</code>
-filters the groups by their aggregates. Aggregation respects time travel —
-“average price per facet <i>as known last Tuesday</i>” is just
+<p>Aggregates: <code>COUNT(*) COUNT(field) COUNT(DISTINCT field)
+APPROX_COUNT_DISTINCT(field) SUM AVG MIN MAX MEDIAN STDDEV LISTAGG</code>.
+Group by any metadata or value field; <code>HAVING</code> filters the groups
+by their aggregates. Aggregation respects time travel — “average price per
+facet <i>as known last Tuesday</i>” is just
 <code>… AS KNOWN AT NOW-2d GROUP BY facet</code>.</p>
+<div class="box"><b>Distinct counts.</b> <code>COUNT(DISTINCT region)</code> is exact;
+<code>APPROX_COUNT_DISTINCT(region)</code> uses HyperLogLog — fixed ~16&nbsp;KB of
+memory and ≈0.8% error regardless of cardinality, the technique OLAP engines use
+to count uniques over billions of rows.</div>
 <p>Ranked lists: project the built-in <code>rank</code> column —</p>
 <pre><code><span class="kw">FACTS</span> rank, subject, price_cents <span class="kw">OF</span> item:*/store:4001
   <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10</code></pre>
