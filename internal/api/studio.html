@@ -491,6 +491,11 @@ function renderResult(r, meta){
       h=`<h3 class="rt">🧬 ${ms.length} causal path(s) <span class="muted small">— ${esc(r.note||"")}</span></h3>`+
         (ms.length? tableLite(["from","via","hops","to"], ms.map(x=>[linkSubj(x.from),`<span class="badge">${esc(x.via)}</span>`,String(x.hops),linkSubj(x.to)]))
           : `<div class="muted">No causal paths matched.</div>`); break; }
+    case "enrich":
+      if(r.enriched) toast("Enriched "+r.enriched+" event(s)");
+      h=`<h3 class="rt">🧠 ENRICH via ${esc(r.model||"")} → ${esc(r.as||"")}</h3>`+
+        `<div class="muted small">${esc(r.note||"")}</div>`+
+        ((r.errors||[]).length?`<div class="err" style="margin-top:6px">`+r.errors.slice(0,20).map(esc).join("<br>")+`</div>`:""); break;
     case "assistant":
       h=`<h3 class="rt">✨ Copilot</h3>`+(r.answer?`<div class="answer">${md(r.answer)}</div>`+
         (r.source?`<div class="muted small" style="margin-top:8px">source: <a href="#" onclick="selectSubject(${jsAttr(r.source)});return false">${esc(r.source)}</a>${r.score?` · score ${(+r.score).toFixed(2)}`:""}</div>`:"")

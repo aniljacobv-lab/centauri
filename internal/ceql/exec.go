@@ -21,7 +21,7 @@ func (q *Query) IsWrite() bool {
 	// SNAPSHOT appends a marker; ROLLBACK appends reversion facts.
 	// DIFF is read-only.
 	return q.Kind == KPut || q.Kind == KDefineSchema || q.Kind == KRun || q.Kind == KAsk ||
-		q.Kind == KSnapshot || q.Kind == KRollback
+		q.Kind == KSnapshot || q.Kind == KRollback || q.Kind == KEnrich
 }
 
 // Execute runs a CeQL query against a store. now is the server clock
@@ -130,6 +130,8 @@ func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		return execDiff(st, q)
 	case KMatch:
 		return execMatch(st, q)
+	case KEnrich:
+		return execEnrich(st, q, now)
 	case KFacts, KHistory:
 		return execRead(st, q)
 	}

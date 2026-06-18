@@ -141,6 +141,9 @@ func Entries() []Entry {
 		{"graph", "match", "MATCH <from> (CAUSES | CAUSED BY) <to> [VIA <type>] [DEPTH n]", "MATCH item:* CAUSES register:* VIA TRIGGERED DEPTH 3",
 			"Causal pattern search across the WHY graph — which things led to which",
 			[]string{"match", "what caused", "lineage between", "causal pattern", "led to", "traces from to"}},
+		{"ai", "enrich", "ENRICH <pattern> [FACET f] USING <model> [ON <field>] [AS <kind>] [LIMIT n]", "ENRICH item:* USING summarize ON note AS summary LIMIT 100",
+			"Run a registered model over events and cache the result as an enrichment fact",
+			[]string{"enrich", "ai enrich", "run a model", "embed", "summarize", "classify", "infer", "annotate with ai"}},
 
 		// ---- SCHEMA ----
 		{"schema", "define", "DEFINE SCHEMA <id> (<field> <type> [REQUIRED] [MIN n] [MAX n] [UNIT 'u'], ...)",

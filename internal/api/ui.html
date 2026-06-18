@@ -1509,6 +1509,12 @@ function renderQueryResult(r, out, meta){
             : `<div class="mini">No changes between those two points.</div>`);
       break;
     }
+    case "enrich":
+      h = `<h3>🧠 ENRICH via ${esc(r.model || "")} → ${esc(r.as || "")}</h3>
+           <div class="mini">${esc(r.note || "")}</div>` +
+          ((r.errors || []).length ? `<div class="mini" style="color:var(--bad);margin-top:6px">${r.errors.slice(0, 20).map(esc).join("<br>")}</div>` : "");
+      if (r.enriched) boot();
+      break;
     case "match": {
       const rows = r.rows || [];
       h = `<h3>🧬 ${rows.length} causal path(s)${r.note ? ` <span class="mini">— ${esc(r.note)}</span>` : ""}</h3>` +

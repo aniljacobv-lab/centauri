@@ -66,6 +66,7 @@ One language. Three speakers: humans, AI agents, and legacy systems.</div>
 <a href="#ai">11. AI: SIMILAR &amp; CONTEXT</a>
 <a href="#search">11¾. Full-text search: SEARCH (BM25 + hybrid)</a>
 <a href="#ask-stmt">11⅞. The self-learning assistant: ASK</a>
+<a href="#enrich">11.95. AI inside the query: ENRICH</a>
 <a href="#ops">12. Operations: PENDING, DISAGREE…</a>
 <a href="#topology">12½. Topology: SHAPE, CONSISTENCY, CYCLES, DRIFT</a>
 <a href="#rosetta">13. The Rosetta Stone</a>
@@ -343,6 +344,33 @@ database forever after. The gateway and the memory are the same system.</p>
 special endpoint. Because the knowledge is just facts, it's versioned and
 bi-temporal: you can ask what the assistant <i>would have answered</i> last month
 with <code>FACTS OF kb:* AS KNOWN AT …</code>.</div>
+
+<h2 id="enrich">11.95. AI inside the query — ENRICH</h2>
+<p>Run a model over matching events from the query itself, and store the result
+as an <em>enrichment fact</em>. Centauri embeds no model — <span class="kw">ENRICH</span>
+calls an external HTTP endpoint (OpenAI-compatible or Ollama) over the standard
+library — but because the result lands in the log, inference is <b>cached for
+free</b>: re-running skips events already enriched, and the result is bi-temporal,
+provenanced, and queryable. Embeddings flow straight into the vector index, so
+this is how you light up <code>SIMILAR</code> and hybrid <code>SEARCH</code>.</p>
+<pre><code><span class="cm">-- 1. describe a model (the secret is read from $OLLAMA_KEY, never stored)</span>
+<span class="kw">PUT</span> model:embed <span class="kw">FACET</span> config <span class="kw">SET</span>
+  endpoint=<span class="lit">'http://localhost:11434/v1/embeddings'</span>, kind=<span class="lit">'embedding'</span>, model=<span class="lit">'nomic-embed-text'</span>
+<span class="kw">PUT</span> model:summarize <span class="kw">FACET</span> config <span class="kw">SET</span>
+  endpoint=<span class="lit">'https://api.openai.com/v1/chat/completions'</span>, kind=<span class="lit">'chat'</span>,
+  model=<span class="lit">'gpt-4o-mini'</span>, prompt=<span class="lit">'Summarize in one line:'</span>, auth_env=<span class="lit">'OPENAI_KEY'</span>
+
+<span class="cm">-- 2. enrich (idempotent — already-enriched events are skipped)</span>
+<span class="kw">ENRICH</span> item:* <span class="kw">USING</span> embed                       <span class="cm">-- embeddings → vector index</span>
+<span class="kw">ENRICH</span> ticket:* <span class="kw">USING</span> summarize <span class="kw">ON</span> body <span class="kw">AS</span> summary <span class="cm">-- text annotation</span>
+
+<span class="cm">-- 3. query what the model produced</span>
+<span class="kw">SEARCH</span> <span class="lit">'refund loop'</span> <span class="kw">OF</span> ticket:* <span class="kw">SIMILAR TO</span> &lt;event&gt; <span class="kw">ALPHA</span> 0.3</code></pre>
+<div class="box"><b>Inference as a cached fact.</b> Most "AI database" tools recompute or
+bolt on a pipeline; here a model result is just another superseding, audit-stamped
+fact. <code>kind</code> is <code>embedding</code> (stored as a vector) or
+<code>chat</code> (stored as text under <code>AS</code>). It runs server-side, so it
+also works straight from an agent over MCP.</div>
 
 <h2 id="ops">12. Operations</h2>
 <pre><code><span class="kw">PROFILE OF</span> item:*                <span class="cm">-- what does my data look like? fields, types,</span>

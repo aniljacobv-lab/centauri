@@ -63,6 +63,10 @@ const (
 
 	// Causal pattern query over the WHY graph (see match.go).
 	KMatch Kind = "match"
+
+	// AI enrichment in the query itself: run a model over matching events and
+	// store the result as a cached enrichment fact (see enrich.go).
+	KEnrich Kind = "enrich"
 )
 
 // Field is one projection item: a value/meta field or an aggregate.
@@ -170,6 +174,11 @@ type Query struct {
 	MatchTo string `json:"match_to,omitempty"` // the target subject pattern
 	Via     string `json:"via,omitempty"`      // causal link-type filter ("" = any)
 	Dir     string `json:"dir,omitempty"`      // "effect" (CAUSES) | "cause" (CAUSED BY)
+
+	// AI enrichment (ENRICH <pattern> USING <model>; Subject/Facet/Limit reused)
+	Using   string `json:"using,omitempty"`    // registered model name (model:<name>)
+	OnField string `json:"on_field,omitempty"` // value field to send as input ("" = derive)
+	As      string `json:"as,omitempty"`       // enrichment kind to store under
 }
 
 // ---------------------------------------------------------------------
@@ -432,6 +441,8 @@ func (p *parser) statement() (*Query, error) {
 		return &Query{Kind: KAsk, Text: p.next().s}, nil
 	case p.eat("MATCH"):
 		return p.matchStmt()
+	case p.eat("ENRICH"):
+		return p.enrichStmt()
 	case p.eat("SNAPSHOT"):
 		if p.peek().k != tStr {
 			return nil, fmt.Errorf("SNAPSHOT needs a quoted name, e.g. SNAPSHOT 'before-import'")
@@ -1243,6 +1254,57 @@ func (p *parser) watchStmt() (*Query, error) {
 				return nil, err
 			}
 			q.EvType = strings.ToUpper(t)
+		default:
+			return q, nil
+		}
+	}
+}
+
+// ENRICH <pattern> [FACET f] USING <model> [ON <field>] [AS <kind>] [LIMIT n]
+// Run a registered model over matching events; store the result as a cached
+// enrichment fact (re-running skips events already enriched).
+func (p *parser) enrichStmt() (*Query, error) {
+	q := &Query{Kind: KEnrich, Limit: 50}
+	subj, err := p.word("a subject pattern (e.g. item:*)")
+	if err != nil {
+		return nil, err
+	}
+	q.Subject = subj
+	if p.eat("FACET") {
+		f, err := p.word("a facet")
+		if err != nil {
+			return nil, err
+		}
+		q.Facet = f
+	}
+	if err := p.expect("USING"); err != nil {
+		return nil, err
+	}
+	m, err := p.word("a model name (registered as model:<name>)")
+	if err != nil {
+		return nil, err
+	}
+	q.Using = m
+	for {
+		switch {
+		case p.eat("ON"):
+			f, err := p.word("a field name")
+			if err != nil {
+				return nil, err
+			}
+			q.OnField = f
+		case p.eat("AS"):
+			a, err := p.word("an enrichment kind")
+			if err != nil {
+				return nil, err
+			}
+			q.As = a
+		case p.eat("LIMIT"):
+			n, err := p.intTok("a limit")
+			if err != nil {
+				return nil, err
+			}
+			q.Limit = n
 		default:
 			return q, nil
 		}
