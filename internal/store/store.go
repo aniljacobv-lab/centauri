@@ -133,6 +133,49 @@ type Store struct {
 
 func key(subject, facet string) string { return subject + "|" + facet }
 
+// beats reports whether fact a should be "current" over b: the greatest
+// effective_time, then recorded_time, then event_id (a stable, replica-
+// independent tiebreaker). This is a deterministic last-write-wins register
+// (cf. Cassandra cell timestamps); it makes the current-fact pointer a pure
+// function of the set of facts, independent of apply order, so replicas that
+// ingest the same facts in different orders agree. See docs/design-sync.md.
+func beats(a, b *model.Event) bool {
+	if a == nil {
+		return false
+	}
+	if b == nil {
+		return true
+	}
+	if a.EffectiveTime != b.EffectiveTime {
+		return a.EffectiveTime > b.EffectiveTime
+	}
+	if a.RecordedTime != b.RecordedTime {
+		return a.RecordedTime > b.RecordedTime
+	}
+	return a.EventID > b.EventID
+}
+
+// recomputeOpen sets open[k] to the deterministic current fact (the beats-max)
+// among the non-superseded, non-lifecycle events for a subject/facet, or clears
+// it when none remain. Called when a fact's eligibility changes (supersession).
+func (s *Store) recomputeOpen(k string) {
+	var best *model.Event
+	for _, id := range s.bySubjectFacet[k] {
+		e := s.events[id]
+		if e == nil || e.SupersededBy != "" || e.Type == model.Activated {
+			continue
+		}
+		if beats(e, best) {
+			best = e
+		}
+	}
+	if best == nil {
+		delete(s.open, k)
+	} else {
+		s.open[k] = best.EventID
+	}
+}
+
 // Open opens (or creates) a Centauri store at path and rebuilds indexes
 // by replaying the log. A torn final record (crash mid-write) is
 // truncated away; corruption anywhere else fails loudly.
@@ -339,8 +382,14 @@ func (s *Store) apply(r *record) {
 		s.bySubjectFacet[k] = ids
 		if e.SupersededBy == "" && e.Type != model.Activated {
 			// Lifecycle markers never own the current-state pointer;
-			// only fact-bearing events do.
-			s.open[k] = e.EventID
+			// only fact-bearing events do. The current fact is the
+			// deterministic max by (effective, recorded, id) among
+			// non-superseded events — last-write-wins, order-independent —
+			// so the pointer converges across replicas regardless of
+			// ingest order (Cassandra-style; see docs/design-sync.md).
+			if cur := s.open[k]; cur == "" || beats(e, s.events[cur]) {
+				s.open[k] = e.EventID
+			}
 		}
 		if e.ActivationTime == 0 && e.Type == model.Distributed {
 			if s.pending[e.Facet] == nil {
@@ -369,10 +418,12 @@ func (s *Store) apply(r *record) {
 			e.SupersededBy = op.SupersededBy
 			e.EffectiveEnd = op.EffectiveEnd
 			s.supersededAt[op.EventID] = supersessionNote{recordedTime: op.RecordedTime}
-			k := key(e.Subject, e.Facet)
-			if s.open[k] == op.EventID {
-				delete(s.open, k)
-			}
+			// The superseded fact is no longer eligible to be current;
+			// recompute the deterministic max over the remaining
+			// non-superseded facts (restores the next-best, e.g. when a
+			// correction carries an earlier effective time than the fact
+			// it replaces). Order-independent → replica-convergent.
+			s.recomputeOpen(key(e.Subject, e.Facet))
 			if set, ok := s.pending[e.Facet]; ok {
 				delete(set, op.EventID)
 			}

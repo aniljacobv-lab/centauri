@@ -153,7 +153,7 @@ func main() {
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
 	st, err := store.OpenOptions(*data, store.Options{NoSync: cmd == "seed",
-		Lock: cmd == "serve" || cmd == "desktop" || cmd == "shell", LazyPayloads: *lazy})
+		Lock: cmd == "serve" || cmd == "desktop" || cmd == "shell" || cmd == "sync", LazyPayloads: *lazy})
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
@@ -272,8 +272,71 @@ func main() {
 			}()
 		}
 		follow(st, *primary, *token, *interval)
+	case "sync":
+		if *primary == "" {
+			log.Fatal("sync: -primary <peer base URL> is required")
+		}
+		fmt.Print(banner)
+		fmt.Printf("bidirectional sync with %s every %s (run sync on the peer too)\n", *primary, *interval)
+		syncPeer(st, *primary, *token, *interval)
 	default:
 		usage()
+	}
+}
+
+// syncPeer continuously pulls a peer's new facts (CDC) and ingests the ones we
+// don't already hold, tracking progress in a per-peer replication slot. Run it
+// on both nodes pointing at each other for bidirectional, echo-safe sync.
+func syncPeer(st *store.Store, peer, token string, interval time.Duration) {
+	client := &http.Client{Timeout: 60 * time.Second}
+	slot := "sync:" + peer
+	for {
+		from := st.SlotCursor(slot)
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/v1/changes?from=%d", peer, from), nil)
+		if err != nil {
+			log.Fatalf("sync: %v", err)
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("sync: peer unreachable: %v (retrying)", err)
+			time.Sleep(interval)
+			continue
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil || resp.StatusCode != http.StatusOK {
+			log.Printf("sync: peer returned %d: %s (retrying)", resp.StatusCode, string(body))
+			time.Sleep(interval)
+			continue
+		}
+		var page struct {
+			Events   []*model.Event `json:"events"`
+			Cursor   int64          `json:"cursor"`
+			CaughtUp bool           `json:"caught_up"`
+		}
+		if err := json.Unmarshal(body, &page); err != nil {
+			log.Printf("sync: bad page: %v (retrying)", err)
+			time.Sleep(interval)
+			continue
+		}
+		n, err := st.IngestForeign(page.Events)
+		if err != nil {
+			log.Printf("sync: ingest at cursor %d: %v (retrying)", from, err)
+			time.Sleep(interval)
+			continue
+		}
+		if err := st.AdvanceSlot(time.Now().UnixMicro(), slot, page.Cursor); err != nil {
+			log.Printf("sync: slot advance: %v", err)
+		}
+		if n > 0 {
+			log.Printf("sync: pulled %d new fact(s) from %s (cursor %d)", n, peer, page.Cursor)
+		}
+		if page.CaughtUp {
+			time.Sleep(interval)
+		}
 	}
 }
 
@@ -778,6 +841,7 @@ Commands
   shell    interactive CeQL REPL (psql-style; \h for meta commands)
   seed     populate with synthetic price-change demo data
   follow   replicate a primary's log into a read-only follower
+  sync     bidirectional, echo-safe sync with a peer (-primary <url>); run on both
   verify   recompute the tamper-evidence hash chain over a log file
   doctor   read-only health check (chain, checkpoint, lock); safe on a live DB
   backup   copy a database to -to <file> and verify the copy's chain
