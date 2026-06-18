@@ -332,7 +332,11 @@ function qs(extra){
   const s = q.toString(); return s ? "?"+s : "";
 }
 async function handle(resp){
-  if (resp.status === 401){ openToken(); throw new Error("token required"); }
+  // 401 from any request just flags the offline/needs-token state in the
+  // status bar (clickable). We never auto-open the modal here — otherwise a
+  // passive tab switch or background fetch would re-pop it every time. The
+  // modal opens only on an explicit Run (see runEditor) or the 🔑/pill click.
+  if (resp.status === 401){ markNeedsToken(); throw new Error("token required"); }
   const data = await resp.json().catch(()=>({error:resp.statusText}));
   if (!resp.ok) throw new Error(data.error || resp.statusText);
   return data;
@@ -367,10 +371,10 @@ async function boot(){
     document.getElementById("s-subjects").textContent = st.subjects ?? "–";
     document.getElementById("s-links").textContent = st.links ?? "–";
     document.getElementById("dot").classList.add("ok");
-    document.getElementById("conn").textContent = "connected"+(DB?" · "+DB:"");
+    const c=document.getElementById("conn");
+    c.textContent = "connected"+(DB?" · "+DB:""); c.style.cursor=""; c.onclick=null;
   }catch(e){
-    document.getElementById("dot").classList.remove("ok");
-    document.getElementById("conn").textContent = "offline — set a token?";
+    markNeedsToken();
   }
   try{ const r = await apiGet("/v1/subjects"); SUBJECTS = (r.subjects||r||[]); }catch(e){ SUBJECTS=[]; }
   try{ const r = await query("SCHEMAS"); SCHEMAS = (r.schemas||[]); }catch(e){ SCHEMAS=[]; }
@@ -427,7 +431,7 @@ async function runEditor(selOnly){
   const stmts = currentStatements(selOnly);
   if (!stmts.length){ toast("Nothing to run"); return; }
   const pane = document.getElementById("pane-res"); showTab("res"); pane.innerHTML="";
-  let totalMs=0, lastRows=null;
+  let totalMs=0, lastRows=null, prompted=false;
   for (const stmt of stmts){
     const t0=performance.now();
     try{
@@ -439,6 +443,8 @@ async function runEditor(selOnly){
       pane.insertAdjacentHTML(stmts.length>1?"beforeend":"afterbegin",
         `<div style="margin-bottom:10px"><div class="muted small mono">CeQL› ${esc(stmt)}</div><div class="err">✗ ${esc(err.message)}</div></div>`);
       logMsg("✗ "+stmt+" — "+err.message);
+      // Explicit Run that hit auth → offer the token dialog once per run.
+      if (!prompted && /token required/i.test(err.message)){ prompted=true; openToken(); }
     }
   }
   document.getElementById("st-ms").textContent = totalMs?totalMs.toFixed(0)+" ms":"";
@@ -783,7 +789,14 @@ function palPick(i){ const p=PAL[i]; if(!p) return; closeModal("palmodal"); runI
 
 // ---------------- token / modals ----------------
 function openConnect(){ document.getElementById("connectmodal").classList.add("on"); }
-function openToken(){ document.getElementById("tokenin").value=TOKEN; document.getElementById("tokenmodal").classList.add("on"); }
+// Flag the needs-token state in the status bar without opening the modal.
+// The pill becomes clickable so the user can set a token when ready.
+function markNeedsToken(){
+  const c=document.getElementById("conn");
+  c.textContent="offline — set a token?"; c.style.cursor="pointer"; c.onclick=openToken;
+  document.getElementById("dot").classList.remove("ok");
+}
+function openToken(){ document.getElementById("tokenin").value=TOKEN; document.getElementById("tokenmodal").classList.add("on"); setTimeout(()=>document.getElementById("tokenin").focus(),0); }
 function saveToken(){ TOKEN=document.getElementById("tokenin").value.trim(); localStorage.setItem("centauri_token",TOKEN); closeModal("tokenmodal"); boot(); }
 function closeModal(id){ document.getElementById(id).classList.remove("on"); }
 document.querySelectorAll(".modal-bg").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m) m.classList.remove("on"); }));
