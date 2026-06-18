@@ -168,6 +168,7 @@
     <button class="ghost" onclick="window.open('/ceql','_blank')" title="The CeQL textbook">📘 CeQL Book</button>
     <button class="ghost" onclick="window.open('/studio','_blank')" title="The AI-first IDE: explorer, time-travel, copilot, rollback">🛰 Studio</button>
     <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
+    <button class="ghost" onclick="openDemo()" title="Load a guided multi-domain example dataset">🎲 Demo data</button>
   </div>
   <div class="tgroup"><span class="lbl">Community</span>
     <button class="ghost" onclick="openSuggest()" title="Suggest a feature or report a bug — stored as facts here, one click to send upstream">💡 Suggest</button>
@@ -371,6 +372,45 @@ END
 -- then:  RUN reprice WITH item='toy:robot', pct=90</pre>
   <p class="mini" style="margin-top:10px">SDK source: <a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk" target="_blank">/sdk</a> · full CePL chapter in <a href="/ceql#cepl" target="_blank">The CeQL Book</a>.</p>`);
   document.getElementById("modal").classList.add("wide");
+}
+function openDemo(){
+  modal(`<h2>🎲 Demo data</h2>
+  <p class="mini">Loads a curated dataset across <b>retail, healthcare, education &amp; construction</b> into a dedicated <code>demo</code> database — planted with bi-temporal corrections, causal chains, pending "wedges", cross-source disagreements, an AI enrichment, schemas &amp; aggregates. Your real data is untouched.</p>
+  <div style="margin:12px 0">
+    <button class="primary" onclick="seedDemo()">Seed demo data</button>
+    <button class="ghost" onclick="clearDemo()" title="Drops the whole demo database file">Clear demo data</button>
+    <span id="demonote" class="mini" style="margin-left:8px"></span>
+  </div>
+  <p class="mini">"Clear" drops the entire <code>demo</code> database file — consistent with Centauri's "nothing is ever erased" (that rule protects facts inside a live log, not a disposable example database).</p>
+  <div id="demosug"></div>`);
+}
+async function seedDemo(){
+  const note=document.getElementById("demonote"); if(note) note.textContent="seeding…";
+  try{
+    const r = await apiPost("/v1/demo/seed", {});
+    DB="demo"; localStorage.setItem("centauri_db","demo"); // switch to the demo environment
+    await boot();
+    if(note) note.textContent = r.already_seeded ? "already loaded — switched to demo" : ("loaded "+((r.stats&&r.stats.events)||0)+" facts");
+    renderDemoSuggestions(r.suggestions||[]);
+    toast("Demo data ready — environment: demo");
+  }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
+}
+async function clearDemo(){
+  if(!confirm("Drop the entire demo database? This deletes demo.log. Your real data is untouched.")) return;
+  const note=document.getElementById("demonote"); if(note) note.textContent="clearing…";
+  try{
+    await apiPost("/v1/demo/clear", {});
+    if(DB==="demo"){ DB=""; localStorage.setItem("centauri_db",""); await boot(); }
+    const box=document.getElementById("demosug"); if(box) box.innerHTML="";
+    if(note) note.textContent="demo database cleared";
+    toast("Demo data cleared");
+  }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
+}
+function renderDemoSuggestions(sug){
+  const box=document.getElementById("demosug"); if(!box) return;
+  if(!sug || !sug.length){ box.innerHTML=""; return; }
+  box.innerHTML = "<h3 style='margin:14px 0 4px'>Try these (open the 🛰 Studio to run them)</h3>" +
+    sug.map(s=>`<div style="margin:5px 0"><b>${esc(s.domain)}</b> — <span class="mini">${esc(s.shows)}</span><br><code>${esc(s.query)}</code></div>`).join("");
 }
 
 // ---------------- environments (databases) ----------------

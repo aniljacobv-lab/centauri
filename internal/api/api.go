@@ -28,6 +28,7 @@ import (
 
 	"github.com/proxima360/centauri/internal/architect"
 	"github.com/proxima360/centauri/internal/ceql"
+	"github.com/proxima360/centauri/internal/demo"
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/proc"
 	"github.com/proxima360/centauri/internal/store"
@@ -198,6 +199,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/enrich", s.write(s.handleEnrich))
 	mux.HandleFunc("POST /v1/schema", s.write(s.handlePutSchema))
 	mux.HandleFunc("POST /v1/databases", s.write(s.handleCreateDB))
+	mux.HandleFunc("POST /v1/demo/seed", s.write(s.handleDemoSeed))
+	mux.HandleFunc("POST /v1/demo/clear", s.write(s.handleDemoClear))
 
 	mux.HandleFunc("GET /v1/databases", s.handleListDBs)
 	mux.HandleFunc("GET /v1/integrity", s.handleIntegrity)
@@ -474,6 +477,76 @@ func (s *Server) handleCreateDB(w http.ResponseWriter, r *http.Request) {
 	s.dbs[name] = st
 	writeJSON(w, map[string]any{"created": name, "existed": existed,
 		"cloned_from": body.From, "stats": st.Stats()})
+}
+
+// demoDBName is the dedicated, disposable database that holds the example
+// dataset. Keeping it separate is what makes "clear demo" honest: we drop a
+// whole throwaway database file — we never mutate facts in a real log.
+const demoDBName = "demo"
+
+// handleDemoSeed creates the demo database (if needed) and fills it with the
+// curated multi-domain dataset. Idempotent: re-seeding an already-seeded demo
+// db is a no-op that still returns the suggested queries.
+func (s *Server) handleDemoSeed(w http.ResponseWriter, r *http.Request) {
+	dir := s.dataDir()
+	if dir == "" {
+		httpErr(w, 422, "demo data needs a file-backed server (this one hosts a single in-memory database)")
+		return
+	}
+	if demoDBName == s.defaultName() || demoDBName == "default" {
+		httpErr(w, 422, "cannot seed: the default database is itself named \"demo\"")
+		return
+	}
+	s.mu.Lock()
+	st, ok := s.dbs[demoDBName]
+	if !ok {
+		var err error
+		st, err = store.Open(filepath.Join(dir, demoDBName+".log"))
+		if err != nil {
+			s.mu.Unlock()
+			httpErr(w, 500, err.Error())
+			return
+		}
+		s.dbs[demoDBName] = st
+	}
+	s.mu.Unlock()
+
+	if demo.Seeded(st) {
+		writeJSON(w, map[string]any{"database": demoDBName, "already_seeded": true,
+			"stats": st.Stats(), "suggestions": demo.Suggestions()})
+		return
+	}
+	res, err := demo.Seed(st, time.Now().UnixMicro())
+	if err != nil {
+		httpErr(w, 500, "seed: "+err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"database": demoDBName, "seeded": true,
+		"stats": res.Stats, "suggestions": res.Suggestions})
+}
+
+// handleDemoClear drops the entire demo database — closes it, removes the log
+// and its checkpoint, and unregisters it. No fact in any real log is touched.
+func (s *Server) handleDemoClear(w http.ResponseWriter, r *http.Request) {
+	dir := s.dataDir()
+	if dir == "" {
+		httpErr(w, 422, "no file-backed demo database to clear")
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if st, ok := s.dbs[demoDBName]; ok {
+		st.Close()
+		delete(s.dbs, demoDBName)
+	}
+	path := filepath.Join(dir, demoDBName+".log")
+	removed := false
+	if _, err := os.Stat(path); err == nil {
+		os.Remove(path)
+		os.Remove(path + ".checkpoint")
+		removed = true
+	}
+	writeJSON(w, map[string]any{"database": demoDBName, "cleared": removed})
 }
 
 // handleIntegrity verifies the tamper-evidence chain: ?deep=1 re-reads

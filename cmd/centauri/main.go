@@ -34,6 +34,7 @@ import (
 	"github.com/proxima360/centauri/internal/assistant"
 	"github.com/proxima360/centauri/internal/catalog"
 	"github.com/proxima360/centauri/internal/ceql"
+	"github.com/proxima360/centauri/internal/demo"
 	"github.com/proxima360/centauri/internal/mcp"
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/store"
@@ -146,6 +147,45 @@ func main() {
 		}
 		fmt.Printf("merged %d unique records from %d log(s) into %s — it replays cleanly.\n", n, len(inputs), *to)
 		fmt.Printf("verify it: centauri verify -data %s\n", *to)
+		return
+	}
+
+	// demo seeds (or clears) a dedicated, disposable "demo.log" sibling of the
+	// data file: a curated multi-domain dataset for learning Centauri. "clear"
+	// drops the whole demo database file — it never touches the real log, so it
+	// is consistent with "nothing is ever erased" (that rule is about facts
+	// within a live log, not disposable example databases).
+	if cmd == "demo" {
+		demoPath := filepath.Join(filepath.Dir(*data), "demo.log")
+		switch fs.Arg(0) {
+		case "seed":
+			dst, err := store.OpenOptions(demoPath, store.Options{NoSync: true})
+			if err != nil {
+				log.Fatalf("demo: %v", err)
+			}
+			if demo.Seeded(dst) {
+				dst.Close()
+				fmt.Printf("demo database already seeded: %s\n(use 'centauri demo clear' to reset it)\n", demoPath)
+				return
+			}
+			res, err := demo.Seed(dst, time.Now().UnixMicro())
+			dst.Close()
+			if err != nil {
+				log.Fatalf("demo seed: %v", err)
+			}
+			fmt.Print(banner)
+			fmt.Printf("seeded demo database: %s\n%+v\n", demoPath, res.Stats)
+			fmt.Println("\nserve, open the Studio, switch the database selector to \"demo\", then try:")
+			for _, sg := range res.Suggestions {
+				fmt.Printf("  [%-12s] %s\n", sg.Domain, sg.Query)
+			}
+		case "clear":
+			os.Remove(demoPath)
+			os.Remove(demoPath + ".checkpoint")
+			fmt.Printf("cleared demo database: %s\n", demoPath)
+		default:
+			log.Fatal("usage: centauri demo seed   |   centauri demo clear")
+		}
 		return
 	}
 
@@ -840,6 +880,7 @@ Commands
   mcp      Model Context Protocol server on stdio (connect AI agents)
   shell    interactive CeQL REPL (psql-style; \h for meta commands)
   seed     populate with synthetic price-change demo data
+  demo     seed|clear a curated multi-domain example database (demo.log)
   follow   replicate a primary's log into a read-only follower
   sync     bidirectional, echo-safe sync with a peer (-primary <url>); run on both
   verify   recompute the tamper-evidence hash chain over a log file

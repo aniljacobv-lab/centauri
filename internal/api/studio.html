@@ -181,6 +181,7 @@
     <div class="sepv"></div>
     <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
     <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
+    <button class="ghost" onclick="openDemo()" title="Load a guided example dataset">🎲 Demo data</button>
     <button class="ghost" onclick="openToken()" title="API token">🔑</button>
     <a href="/" title="Classic dashboard"><button class="ghost">▦ Dashboard</button></a>
     <a href="/ceql" title="CeQL textbook"><button class="ghost">📖 Book</button></a>
@@ -314,6 +315,18 @@ END
 -- then:  RUN reprice WITH item='toy:robot', pct=90</pre>
   <div style="margin-top:12px;text-align:right"><a href="/ceql#cepl" target="_blank"><button class="ghost">CeQL Book → CePL</button></a>
     <button class="primary" onclick="closeModal('connectmodal')">Close</button></div>
+</div></div></div>
+
+<div class="modal-bg" id="demomodal"><div class="modal" style="width:640px"><h3>🎲 Demo data <span class="muted small" style="font-weight:400">— learn Centauri on real-shaped data</span></h3><div class="body">
+  <p class="muted small">Loads a curated dataset across <b>retail, healthcare, education &amp; construction</b> into a dedicated <code>demo</code> database — planted with bi-temporal corrections, causal chains, pending "wedges", cross-source disagreements, an AI enrichment, schemas and aggregates. It never touches your real data.</p>
+  <div style="margin:10px 0">
+    <button class="primary" onclick="seedDemo()">Seed demo data</button>
+    <button class="ghost" onclick="clearDemo()" title="Drops the whole demo database file">Clear demo data</button>
+    <span id="demonote" class="muted small" style="margin-left:8px"></span>
+  </div>
+  <p class="muted small">"Clear" drops the entire <code>demo</code> database file — consistent with Centauri's "nothing is ever erased" (that rule protects facts inside a live log, not a disposable example database).</p>
+  <div id="demosug"></div>
+  <div style="margin-top:12px;text-align:right"><button class="primary" onclick="closeModal('demomodal')">Close</button></div>
 </div></div></div>
 
 <div class="toast" id="toast"></div>
@@ -789,6 +802,37 @@ function palPick(i){ const p=PAL[i]; if(!p) return; closeModal("palmodal"); runI
 
 // ---------------- token / modals ----------------
 function openConnect(){ document.getElementById("connectmodal").classList.add("on"); }
+function openDemo(){ document.getElementById("demonote").textContent=""; document.getElementById("demomodal").classList.add("on"); }
+async function seedDemo(){
+  const note=document.getElementById("demonote"); note.textContent="seeding…";
+  try{
+    const r = await handle(await fetch("/v1/demo/seed"+qs(), {method:"POST"}));
+    DB="demo"; localStorage.setItem("centauri_db","demo");            // switch to the demo environment
+    const dbEl=document.getElementById("db"); if(dbEl) dbEl.value="demo";
+    await boot();
+    note.textContent = r.already_seeded ? "demo already loaded — switched to it" : ("loaded "+((r.stats&&r.stats.events)||0)+" facts into the demo database");
+    renderDemoSuggestions(r.suggestions||[]);
+    toast("Demo data ready — database: demo");
+  }catch(e){ note.textContent="✗ "+e.message; }
+}
+async function clearDemo(){
+  if(!confirm("Drop the entire demo database? This deletes demo.log. Your real data is untouched.")) return;
+  const note=document.getElementById("demonote"); note.textContent="clearing…";
+  try{
+    await handle(await fetch("/v1/demo/clear"+qs(), {method:"POST"}));
+    if(DB==="demo"){ DB=""; localStorage.setItem("centauri_db",""); const dbEl=document.getElementById("db"); if(dbEl) dbEl.value=""; await boot(); }
+    document.getElementById("demosug").innerHTML=""; note.textContent="demo database cleared";
+    toast("Demo data cleared");
+  }catch(e){ note.textContent="✗ "+e.message; }
+}
+function renderDemoSuggestions(sug){
+  const box=document.getElementById("demosug");
+  if(!sug || !sug.length){ box.innerHTML=""; return; }
+  box.innerHTML = "<div class='muted small' style='margin:8px 0 4px'>Try these — click to run:</div>" +
+    sug.map(s=>`<div class="node" style="margin:3px 0" onclick="runInto(${jsAttr(s.query)});closeModal('demomodal')">`+
+      `<span class="pill">${esc(s.domain)}</span> <span class="mono small">${esc(s.query)}</span>`+
+      `<div class="muted small">${esc(s.shows)}</div></div>`).join("");
+}
 // Flag the needs-token state in the status bar without opening the modal.
 // The pill becomes clickable so the user can set a token when ready.
 function markNeedsToken(){
