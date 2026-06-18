@@ -17,7 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DOC_URL = "https://github.com/proxima360/centauri/tree/main/connectors/airbyte"
+DOC_URL = "https://github.com/aniljacobv-lab/centauri/tree/main/connectors/airbyte"
 
 SPEC = {
     "documentationUrl": DOC_URL,

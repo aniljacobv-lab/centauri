@@ -8,7 +8,7 @@ data:
   icon: centauri.svg
   license: PostgreSQL
   githubIssueLabel: source-centauri
-  documentationUrl: https://github.com/proxima360/centauri/tree/main/connectors/airbyte/source_centauri
+  documentationUrl: https://github.com/aniljacobv-lab/centauri/tree/main/connectors/airbyte/source_centauri
   releaseStage: alpha
   supportLevel: community
   releaseDate: "2026-06-17"

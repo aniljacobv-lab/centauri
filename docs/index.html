@@ -531,6 +531,7 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
       <tr><td class="s">AS KNOWN AT</td><td>The second clock — what you <em>believed</em> at a past moment. The audit query.</td><td class="ex">… AS OF '2026-03-15' AS KNOWN AT '2026-03-01'</td></tr>
       <tr><td class="s">HISTORY OF</td><td>The full, never-erased timeline of a subject.</td><td class="ex">HISTORY OF item:100001/store:4001</td></tr>
       <tr><td class="s">WHY / EFFECTS</td><td>Walk the causal graph — what led to an event, or what it caused.</td><td class="ex">FACTS OF toy:robot WHY DEPTH 3</td></tr>
+      <tr><td class="s">MATCH <span class="reftag">new</span></td><td>Causal pattern search across the WHY graph — which things led to which, by link type.</td><td class="ex">MATCH item:* CAUSES register:* VIA TRIGGERED</td></tr>
       <tr><td class="s">PUT / CORRECT / RETIRE</td><td>Write a fact, fix one, or retire it — all append-only; history is kept.</td><td class="ex">PUT toy:robot SET price_cents=500</td></tr>
       <tr><td class="s">SNAPSHOT / ROLLBACK <span class="reftag">new</span></td><td>Name a point, then rewind to it — rollback appends auditable reversion facts (never erases) and rewinds <em>any</em> past commit.</td><td class="ex">ROLLBACK TO SNAPSHOT 'before-import'</td></tr>
       <tr><td class="s">DIFF <span class="reftag">new</span></td><td>What changed between two moments — preview before you roll back.</td><td class="ex">DIFF OF item:* BETWEEN '2026-03-01' AND '2026-03-15'</td></tr>
@@ -540,11 +541,14 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
       <tr><td class="s">SHAPE <span class="reftag">topology</span></td><td>Persistent homology of a value cloud: clusters (B₀), loops (B₁), voids (B₂), periodicity.</td><td class="ex">SHAPE OF item:* ON price_cents</td></tr>
       <tr><td class="s">CONSISTENCY <span class="reftag">topology</span></td><td>Sheaf consistency across a subject's facets — agreement clusters + the outlier.</td><td class="ex">CONSISTENCY OF item:1/store:9 ON price_cents</td></tr>
       <tr><td class="s">CYCLES / DRIFT <span class="reftag">topology</span></td><td>Cycles in the causal graph (integrity); distribution drift over time.</td><td class="ex">DRIFT OF item:* ON price_cents BUCKETS 6</td></tr>
+      <tr><td class="s">ENRICH <span class="reftag">new</span></td><td>Run a model over events and cache the result as a fact — embeddings or text, via your own LLM endpoint.</td><td class="ex">ENRICH ticket:* USING summarize ON body AS summary</td></tr>
       <tr><td class="s">CONTEXT FOR</td><td>Everything an AI needs in one call: facts, history, causes, disagreements, confidence.</td><td class="ex">CONTEXT FOR item:100001/store:4001</td></tr>
       <tr><td class="s">WATCH</td><td>A standing query — stream new facts as they commit.</td><td class="ex">WATCH ALL FACET pdt</td></tr>
       <tr><td class="s">DEFINE SCHEMA / RUN</td><td>Versioned validation schemas; run CePL stored procedures with a step trace.</td><td class="ex">RUN duty_estimate WITH item='100001'</td></tr>
+      <tr><td class="s">EXPLAIN ANALYZE <span class="reftag">new</span></td><td>Show a query's access path, and run it to report row count and timing.</td><td class="ex">EXPLAIN ANALYZE FACTS OF item:*</td></tr>
     </tbody>
   </table></div>
+  <p class="lead" style="margin-top:16px">Beyond the language, the single binary ships a <b>Studio</b> IDE (object explorer, editor, causal-graph view, inline edit-as-a-fact), a psql-style <code>centauri shell</code>, <code>EXPLAIN ANALYZE</code>, CDC with resumable <b>replication slots</b>, and <b>scoped tokens</b> (subject-prefix row-level security) — all detailed in <a href="ceql.html">The CeQL Book</a>.</p>
 </div></section>
 
 <!-- COMING FROM SQL -->
@@ -582,7 +586,7 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
     <div class="feat"><div class="fi">⤴</div><h3>Airbyte source</h3><p>Stream facts out to any warehouse or lake. It rides the CDC endpoint, so Centauri's byte-offset cursor becomes Airbyte incremental state — only new facts, never duplicates.</p></div>
     <div class="feat"><div class="fi">🔁</div><h3>Change Data Capture</h3><p><code>GET /v1/changes?from=&lt;cursor&gt;</code> returns committed facts in order plus a cursor to resume from. Tail the database from any language; the append-only log <em>is</em> the stream.</p></div>
   </div>
-  <p class="lead" style="margin-top:18px">The connectors are standalone (pure-stdlib Python, no Airbyte CDK) and never link into the single binary — the zero-dependency core is untouched. <a href="https://github.com/proxima360/centauri/tree/main/connectors/airbyte">Connector source &amp; quickstart →</a></p>
+  <p class="lead" style="margin-top:18px">The connectors are standalone (pure-stdlib Python, no Airbyte CDK) and never link into the single binary — the zero-dependency core is untouched. <a href="https://github.com/aniljacobv-lab/centauri/tree/main/connectors/airbyte">Connector source &amp; quickstart →</a></p>
 </div></section>
 
 <!-- EXAMPLES ACROSS DOMAINS -->
