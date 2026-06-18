@@ -380,7 +380,19 @@ also works straight from an agent over MCP.</div>
 <span class="kw">DISAGREE ON</span> price_cents          <span class="cm">-- subjects whose facets disagree</span>
 <span class="kw">SUBJECTS LIKE</span> item:*4001 <span class="kw">LIMIT</span> 50
 <span class="kw">STATS</span>
-<span class="kw">EXPLAIN</span> FACTS OF toy:robot WHY   <span class="cm">-- shows the JSON AST instead of running</span></code></pre>
+<span class="kw">EXPLAIN</span> FACTS OF toy:robot WHY   <span class="cm">-- access path + JSON AST, without running</span>
+<span class="kw">EXPLAIN ANALYZE</span> FACTS OF item:*  <span class="cm">-- …and run it: rows + timing (reads only)</span></code></pre>
+<div class="box"><b>Scoped tokens (row-level security).</b> Beyond the admin and read
+tokens, register a token confined to subject prefixes:
+<code>POST /v1/acl {"token":"…","prefixes":["item:"],"write":false}</code>. Only the
+token's SHA-256 hash is stored (as an <code>acl:&lt;hash&gt;</code> fact — the secret
+never lands in the log). A scoped token may run CeQL only over subjects within
+its prefixes, only via <code>/v1/query</code>, and may write only if granted —
+deny-by-default for anything broader.</div>
+<div class="box"><b>The shell.</b> <code>centauri shell</code> is a psql-style CeQL REPL:
+type statements, get tables; <code>\d</code> lists subjects, <code>\timing</code>,
+<code>\x</code> (expanded), <code>\slots</code>, <code>\h</code> for help. It holds the
+writer lock, so it won't race a running server.</div>
 
 <h2 id="topology">12½. Topology — the shape of your data</h2>
 <p>Centauri's differentiator: operators that answer questions about the

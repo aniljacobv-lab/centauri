@@ -153,7 +153,7 @@ func main() {
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
 	st, err := store.OpenOptions(*data, store.Options{NoSync: cmd == "seed",
-		Lock: cmd == "serve" || cmd == "desktop", LazyPayloads: *lazy})
+		Lock: cmd == "serve" || cmd == "desktop" || cmd == "shell", LazyPayloads: *lazy})
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
@@ -221,6 +221,8 @@ func main() {
 		if err := runExport(st, *query, *format, *to); err != nil {
 			log.Fatalf("export: %v", err)
 		}
+	case "shell":
+		runShell(st)
 	case "seed":
 		stats, err := synth.Seed(st, *skus, *stores, *changes, rand.New(rand.NewSource(*seedVal)))
 		if err != nil {
@@ -602,6 +604,169 @@ func shortHash(h string) string {
 	return h
 }
 
+// runShell is a psql-style REPL over CeQL: type a query, see a table; meta
+// commands start with a backslash. It runs against the local store directly
+// (no HTTP), holding the writer lock so it can't race a running server.
+func runShell(st *store.Store) {
+	fmt.Print(banner)
+	fmt.Println("Centauri shell — CeQL REPL.  \\h help · \\q quit · \\d subjects · \\timing · \\x expanded")
+	sc := bufio.NewScanner(os.Stdin)
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	timing, expanded := false, false
+	format := "table"
+	out := os.Stdout
+	fmt.Print("ceql> ")
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			fmt.Print("ceql> ")
+			continue
+		}
+		if strings.HasPrefix(line, "\\") {
+			f := strings.Fields(line)
+			switch f[0] {
+			case "\\q", "\\quit":
+				return
+			case "\\h", "\\help", "\\?":
+				printShellHelp()
+			case "\\d", "\\subjects":
+				line = "SUBJECTS"
+			case "\\schemas":
+				line = "SCHEMAS"
+			case "\\stats":
+				line = "STATS"
+			case "\\slots":
+				for _, sl := range st.Slots() {
+					fmt.Fprintf(out, "%s\tcursor %d\n", sl.Name, sl.Cursor)
+				}
+				fmt.Print("ceql> ")
+				continue
+			case "\\timing":
+				timing = !timing
+				fmt.Printf("timing is %v\n", timing)
+				fmt.Print("ceql> ")
+				continue
+			case "\\x":
+				expanded = !expanded
+				fmt.Printf("expanded display is %v\n", expanded)
+				fmt.Print("ceql> ")
+				continue
+			case "\\format":
+				if len(f) > 1 {
+					format = f[1]
+				}
+				fmt.Printf("format is %s\n", format)
+				fmt.Print("ceql> ")
+				continue
+			default:
+				fmt.Println("unknown command; \\h for help")
+				fmt.Print("ceql> ")
+				continue
+			}
+			// Meta-commands that didn't rewrite `line` into a CeQL statement
+			// (e.g. \h) must not fall through to the executor.
+			if strings.HasPrefix(line, "\\") {
+				fmt.Print("ceql> ")
+				continue
+			}
+		}
+		t0 := time.Now()
+		q, err := ceql.Parse(line, time.Now().UnixMicro())
+		if err != nil {
+			fmt.Fprintln(out, "error:", err)
+			fmt.Print("ceql> ")
+			continue
+		}
+		res, err := ceql.Execute(st, q, time.Now().UnixMicro())
+		if err != nil {
+			fmt.Fprintln(out, "error:", err)
+			fmt.Print("ceql> ")
+			continue
+		}
+		printResult(out, res, format, expanded)
+		if timing {
+			fmt.Fprintf(out, "(%.1f ms)\n", float64(time.Since(t0).Microseconds())/1000.0)
+		}
+		fmt.Print("ceql> ")
+	}
+}
+
+func printShellHelp() {
+	fmt.Println(`CeQL: type any statement (FACTS OF item:*, PUT …, SEARCH '…', MATCH …, EXPLAIN ANALYZE …).
+Meta:
+  \d, \subjects   list subjects        \schemas   list schemas
+  \stats          store counters       \slots     CDC replication slots
+  \timing         toggle query timing  \x         toggle expanded (one field per line)
+  \format <fmt>   table|csv|json|yaml|plain (for event results)
+  \h              this help            \q         quit`)
+}
+
+// printResult renders a CeQL result for the shell. Event/row results get a
+// table (or the chosen format); everything else prints as indented JSON.
+func printResult(w io.Writer, res map[string]any, format string, expanded bool) {
+	switch res["kind"] {
+	case "events":
+		evs, _ := res["events"].([]*model.Event)
+		f := format
+		if expanded {
+			f = "yaml"
+		}
+		_ = formatEvents(evs, f, w)
+		fmt.Fprintf(w, "(%d row(s))\n", len(evs))
+	case "rows":
+		cols, _ := res["columns"].([]string)
+		rows, _ := res["rows"].([][]any)
+		printRowsTable(w, cols, rows)
+		fmt.Fprintf(w, "(%d row(s))\n", len(rows))
+	case "subjects":
+		subs, _ := res["subjects"].([]string)
+		for _, s := range subs {
+			fmt.Fprintln(w, s)
+		}
+		fmt.Fprintf(w, "(%d subject(s))\n", len(subs))
+	default:
+		b, _ := json.MarshalIndent(res, "", "  ")
+		fmt.Fprintln(w, string(b))
+	}
+}
+
+func printRowsTable(w io.Writer, cols []string, rows [][]any) {
+	width := make([]int, len(cols))
+	for i, c := range cols {
+		width[i] = len(c)
+	}
+	cells := make([][]string, len(rows))
+	for r, row := range rows {
+		cells[r] = make([]string, len(cols))
+		for i := range cols {
+			var v any
+			if i < len(row) {
+				v = row[i]
+			}
+			cells[r][i] = cellString(v)
+			if len(cells[r][i]) > width[i] {
+				width[i] = len(cells[r][i])
+			}
+		}
+	}
+	line := func(vals []string) {
+		parts := make([]string, len(vals))
+		for i, v := range vals {
+			parts[i] = v + strings.Repeat(" ", width[i]-len(v))
+		}
+		fmt.Fprintln(w, strings.TrimRight(strings.Join(parts, "  "), " "))
+	}
+	line(cols)
+	seps := make([]string, len(cols))
+	for i := range seps {
+		seps[i] = strings.Repeat("-", width[i])
+	}
+	fmt.Fprintln(w, strings.Join(seps, "  "))
+	for _, r := range cells {
+		line(r)
+	}
+}
+
 func usage() {
 	fmt.Print(banner)
 	fmt.Println(`usage: centauri <command> [flags]
@@ -610,6 +775,7 @@ Commands
   desktop  one-click start: data in your profile, dashboard opens in your browser
   serve    HTTP/JSON API — writes, queries, SSE watch, log shipping
   mcp      Model Context Protocol server on stdio (connect AI agents)
+  shell    interactive CeQL REPL (psql-style; \h for meta commands)
   seed     populate with synthetic price-change demo data
   follow   replicate a primary's log into a read-only follower
   verify   recompute the tamper-evidence hash chain over a log file

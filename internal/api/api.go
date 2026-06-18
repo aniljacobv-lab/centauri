@@ -12,7 +12,9 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -55,6 +57,91 @@ const ctxReadOnly ctxKey = 1
 // readOnly reports whether this request may not write.
 func (s *Server) readOnly(r *http.Request) bool {
 	return s.opts.ReadOnly || r.Context().Value(ctxReadOnly) != nil
+}
+
+// ctxScope carries a scoped token's policy (row-level security).
+const ctxScope ctxKey = 2
+
+// aclPolicy restricts a token to CeQL over subjects within Prefixes; it may
+// write only if Write is set. Policies are stored as acl:<sha256(token)>
+// facts — the token itself is never persisted.
+type aclPolicy struct {
+	Prefixes []string
+	Write    bool
+}
+
+func tokenHash(tok string) string {
+	sum := sha256.Sum256([]byte(tok))
+	return hex.EncodeToString(sum[:])
+}
+
+// lookupACL finds a token's policy by its hash (default store), or ok=false.
+func (s *Server) lookupACL(tok string) (aclPolicy, bool) {
+	if tok == "" {
+		return aclPolicy{}, false
+	}
+	cur := s.st.Current("acl:"+tokenHash(tok), "policy")
+	if len(cur) == 0 {
+		return aclPolicy{}, false
+	}
+	v := cur[0].Value
+	pol := aclPolicy{}
+	if b, ok := v["write"].(bool); ok {
+		pol.Write = b
+	}
+	switch arr := v["prefixes"].(type) {
+	case []string:
+		pol.Prefixes = append(pol.Prefixes, arr...)
+	case []any:
+		for _, x := range arr {
+			if str, ok := x.(string); ok {
+				pol.Prefixes = append(pol.Prefixes, str)
+			}
+		}
+	}
+	if len(pol.Prefixes) == 0 {
+		return aclPolicy{}, false
+	}
+	return pol, true
+}
+
+// withinScope reports whether a subject pattern is confined to an allowed
+// prefix. A bare "*" or empty pattern (enumerate-all) is never in scope.
+func withinScope(pol aclPolicy, pattern string) bool {
+	p := strings.TrimSuffix(pattern, "*")
+	if p == "" {
+		return false
+	}
+	for _, pre := range pol.Prefixes {
+		if strings.HasPrefix(p, pre) {
+			return true
+		}
+	}
+	return false
+}
+
+// scopeAllows decides whether a scoped token may run q. Deny-by-default:
+// only statements with a clearly-bounded subject pattern are permitted;
+// broad or enumerating statements are refused.
+func scopeAllows(pol aclPolicy, q *ceql.Query) (bool, string) {
+	if q.IsWrite() && !pol.Write {
+		return false, "this token is read-only"
+	}
+	switch q.Kind {
+	case ceql.KFacts, ceql.KHistory, ceql.KPut, ceql.KProfile, ceql.KContext,
+		ceql.KSearch, ceql.KShape, ceql.KConsistency, ceql.KDrift, ceql.KEnrich, ceql.KDiff:
+		if withinScope(pol, q.Subject) {
+			return true, ""
+		}
+		return false, "subject pattern is outside your allowed prefixes (" + strings.Join(pol.Prefixes, ", ") + ")"
+	case ceql.KMatch:
+		if withinScope(pol, q.Subject) && withinScope(pol, q.MatchTo) {
+			return true, ""
+		}
+		return false, "both MATCH patterns must be within your allowed prefixes"
+	default:
+		return false, "statement type " + string(q.Kind) + " is not permitted for scoped tokens"
+	}
 }
 
 type Server struct {
@@ -133,6 +220,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/changes", s.handleChanges)
 	mux.HandleFunc("POST /v1/changes/ack", s.write(s.handleSlotAck))
 	mux.HandleFunc("GET /v1/slots", s.handleSlots)
+	mux.HandleFunc("POST /v1/acl", s.write(s.handleACL))
 	mux.HandleFunc("POST /v1/query", s.handleQuery)
 	mux.HandleFunc("GET /v1/query", s.handleQuery)
 	mux.HandleFunc("POST /v1/assist", s.handleAssist)
@@ -166,8 +254,24 @@ func (s *Server) auth(next http.Handler) http.Handler {
 				subtle.ConstantTimeCompare([]byte(got), []byte(s.opts.ReadToken)) == 1:
 				r = r.WithContext(context.WithValue(r.Context(), ctxReadOnly, true))
 			default:
-				httpErr(w, http.StatusUnauthorized, "missing or invalid token")
-				return
+				// A scoped token (row-level security) is recognized by the
+				// hash of its policy fact. Scoped principals may only use the
+				// CeQL query endpoint — never raw read/write routes that would
+				// bypass the subject-prefix check.
+				if pol, ok := s.lookupACL(got); ok {
+					if r.URL.Path != "/v1/query" {
+						httpErr(w, http.StatusForbidden, "scoped token may only use /v1/query")
+						return
+					}
+					ctx := context.WithValue(r.Context(), ctxScope, pol)
+					if !pol.Write {
+						ctx = context.WithValue(ctx, ctxReadOnly, true)
+					}
+					r = r.WithContext(ctx)
+				} else {
+					httpErr(w, http.StatusUnauthorized, "missing or invalid token")
+					return
+				}
 			}
 		}
 		next.ServeHTTP(w, r)
@@ -868,6 +972,14 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Row-level security: a scoped token may only run statements confined to
+	// its allowed subject prefixes.
+	if pol, ok := r.Context().Value(ctxScope).(aclPolicy); ok {
+		if allowed, reason := scopeAllows(pol, q); !allowed {
+			httpErr(w, 403, "scoped token: "+reason)
+			return
+		}
+	}
 	if q.Kind == ceql.KRun {
 		res, err := proc.RunStored(st, q.Subject, q.Set, now)
 		if err != nil {
@@ -1164,6 +1276,39 @@ func (s *Server) handleSlots(w http.ResponseWriter, r *http.Request) {
 		out = append(out, slotOut{Name: sl.Name, Cursor: sl.Cursor, Lag: size - sl.Cursor})
 	}
 	writeJSON(w, map[string]any{"slots": out, "log_size": size})
+}
+
+// handleACL registers a scoped token (row-level security): admin-only.
+// POST /v1/acl {"token":"…","prefixes":["item:","order:"],"write":false}.
+// Only the SHA-256 hash of the token is stored, as an acl:<hash> fact.
+func (s *Server) handleACL(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token    string   `json:"token"`
+		Prefixes []string `json:"prefixes"`
+		Write    bool     `json:"write"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpErr(w, 400, err.Error())
+		return
+	}
+	if body.Token == "" || len(body.Prefixes) == 0 {
+		httpErr(w, 400, "token and at least one prefix are required")
+		return
+	}
+	pre := make([]any, len(body.Prefixes))
+	for i, p := range body.Prefixes {
+		pre[i] = p
+	}
+	e := &model.Event{
+		Subject: "acl:" + tokenHash(body.Token), Facet: "policy", Type: model.Observed,
+		Value:      map[string]any{"prefixes": pre, "write": body.Write},
+		Provenance: model.SystemFeed, Confidence: 1.0, SourceSystem: "ACL",
+	}
+	if err := s.st.Append(time.Now().UnixMicro(), []*model.Event{e}, nil); err != nil {
+		httpErr(w, 422, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"acl": e.Subject, "prefixes": body.Prefixes, "write": body.Write})
 }
 
 func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {
