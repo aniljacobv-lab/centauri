@@ -170,9 +170,67 @@ func execPut(st *store.Store, q *Query, now int64) (map[string]any, error) {
 		"subject": e.Subject, "facet": e.Facet}, nil
 }
 
+// metaFields are the names getField resolves as event metadata rather than
+// value fields — the secondary value-index must never be used for them.
+var metaFields = map[string]bool{
+	"subject": true, "namespace": true, "facet": true, "type": true,
+	"provenance": true, "trust": true, "confidence": true, "effective": true,
+	"effective_time": true, "recorded": true, "recorded_time": true,
+	"event_id": true, "id": true, "schema": true, "schema_id": true,
+	"ref": true, "source_ref": true, "source": true, "source_system": true,
+	"pending": true, "superseded": true,
+}
+
+// indexProbe returns (field, value, true) when q's WHERE is a single string
+// equality on an indexable value field — the shape the secondary equality
+// index can serve.
+func indexProbe(q *Query) (string, string, bool) {
+	if q.Kind != KFacts || q.AsOf > 0 || q.KnownAt > 0 || q.Where == nil {
+		return "", "", false
+	}
+	// An exact subject already gets an O(1) direct lookup; the index only
+	// helps when we'd otherwise scan many subjects.
+	if !strings.ContainsRune(q.Subject, '*') {
+		return "", "", false
+	}
+	x := q.Where
+	if x.Op != "=" || x.Field == "" {
+		return "", "", false
+	}
+	v, ok := x.Value.(string)
+	if !ok {
+		return "", "", false
+	}
+	if metaFields[strings.ToLower(x.Field)] || strings.IndexByte(x.Field, '.') >= 0 {
+		return "", "", false
+	}
+	return x.Field, v, true
+}
+
 // gatherEvents collects and WHERE-filters the candidate events for
 // FACTS / HISTORY / PROFILE, honoring wildcards and time travel.
 func gatherEvents(st *store.Store, q *Query) ([]*model.Event, error) {
+	// Fast path: a string-equality filter on an indexed field skips the
+	// per-subject scan entirely. The index returns current events directly;
+	// it falls back (usable=false) whenever it can't guarantee completeness,
+	// so results are identical to the scan.
+	if f, v, ok := indexProbe(q); ok {
+		if cand, usable := st.CurrentByField(f, v); usable {
+			re := globRe(q.Subject)
+			out := make([]*model.Event, 0, len(cand))
+			for _, e := range cand {
+				if !re.MatchString(e.Subject) {
+					continue
+				}
+				if q.Facet != "" && e.Facet != q.Facet {
+					continue
+				}
+				out = append(out, e)
+			}
+			return out, nil
+		}
+	}
+
 	var events []*model.Event
 	subjects := []string{q.Subject}
 	if strings.ContainsRune(q.Subject, '*') {
@@ -521,6 +579,18 @@ func getField(e *model.Event, name string) any {
 	if e.Value == nil {
 		return nil
 	}
+	// Dotted path into nested value objects: "address.city".
+	if strings.IndexByte(name, '.') >= 0 {
+		var cur any = e.Value
+		for _, part := range strings.Split(name, ".") {
+			m, ok := cur.(map[string]any)
+			if !ok {
+				return nil
+			}
+			cur = m[part]
+		}
+		return cur
+	}
 	return e.Value[name]
 }
 
@@ -548,6 +618,8 @@ func evalExpr(x *Expr, e *model.Event) (bool, error) {
 	case "not":
 		ok, err := evalExpr(x.Kids[0], e)
 		return !ok, err
+	case "exists":
+		return getField(e, x.Field) != nil, nil
 	case "in":
 		got := getField(e, x.Field)
 		for _, v := range x.Values {

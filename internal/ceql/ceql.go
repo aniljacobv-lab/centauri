@@ -1470,6 +1470,13 @@ func (p *parser) unaryExpr() (*Expr, error) {
 		}
 		return &Expr{Op: "not", Kids: []*Expr{k}}, nil
 	}
+	if p.eat("EXISTS") {
+		f, err := p.word("a field name")
+		if err != nil {
+			return nil, err
+		}
+		return &Expr{Op: "exists", Field: f}, nil
+	}
 	if p.eatOp("(") {
 		e, err := p.expr()
 		if err != nil {

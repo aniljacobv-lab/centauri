@@ -153,9 +153,15 @@ optional — omit it (or use <code>*</code>) for full facts, or list fields:</p>
 <tr><td><code>pending</code></td><td>true if distributed but never activated</td></tr>
 <tr><td><code>superseded</code></td><td>true if a newer fact replaced this one</td></tr>
 </table>
-<p>Operators: <code>= != &gt; &gt;= &lt; &lt;= IN (a, b) LIKE 'pat*tern' MATCHES 'text' AND OR NOT ( )</code></p>
+<p>Operators: <code>= != &gt; &gt;= &lt; &lt;= IN (a, b) LIKE 'pat*tern' MATCHES 'text' EXISTS field AND OR NOT ( )</code></p>
 <p><code>MATCHES</code> is case-insensitive text search; <code>any MATCHES 'penny'</code>
-scans the subject and every text value on the fact.</p>
+scans the subject and every text value on the fact. <code>EXISTS field</code> matches
+when the field is present (e.g. <code>WHERE EXISTS discount</code>). Fields may use
+<b>dotted paths</b> into nested values — <code>WHERE address.city = 'EU'</code>.</p>
+<div class="box"><b>Indexed filters.</b> A string-equality filter on a value field
+(<code>WHERE region = 'EU'</code>) uses a secondary equality index — built
+automatically per string field, with a fall-back to a scan for very high-cardinality
+fields. <code>EXPLAIN</code> shows when the index is probed.</div>
 
 <h2 id="time">5. Time travel</h2>
 <p>Two independent clauses, because Centauri keeps two clocks per fact:</p>

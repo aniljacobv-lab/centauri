@@ -114,7 +114,14 @@ type Store struct {
 	// reads (Current/AsOf/History "OF subject") enumerate just that
 	// subject's facets instead of scanning every (subject|facet) stream.
 	subjectFacets map[string]map[string]struct{}
-	schemas       map[string][]*model.Schema // schema_id -> versions ascending
+	// fieldIndex is a secondary equality index over STRING value fields:
+	// field -> value -> event ids that ever held it (current-ness is
+	// verified on read, so it can stay append-only). cappedFields are
+	// fields whose distinct values exceeded the cap; queries on them fall
+	// back to a scan, keeping results correct.
+	fieldIndex   map[string]map[string][]string
+	cappedFields map[string]bool
+	schemas      map[string][]*model.Schema // schema_id -> versions ascending
 	vectors        map[string][]float32       // event_id -> latest embedding
 
 	subs    map[int]chan *model.Event // watch subscribers
@@ -148,6 +155,8 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		supersededAt:   map[string]supersessionNote{},
 		subjects:       map[string]bool{},
 		subjectFacets:  map[string]map[string]struct{}{},
+		fieldIndex:     map[string]map[string][]string{},
+		cappedFields:   map[string]bool{},
 		schemas:        map[string][]*model.Schema{},
 		vectors:        map[string][]float32{},
 		subs:           map[int]chan *model.Event{},
@@ -317,6 +326,7 @@ func (s *Store) apply(r *record) {
 			s.subjectFacets[e.Subject] = map[string]struct{}{}
 		}
 		s.subjectFacets[e.Subject][e.Facet] = struct{}{}
+		s.indexEventFields(e)
 		k := key(e.Subject, e.Facet)
 		ids := s.bySubjectFacet[k]
 		// insert keeping EffectiveTime ascending order
@@ -953,6 +963,61 @@ func (s *Store) MaxRecordedTime() int64 {
 		}
 	}
 	return max
+}
+
+// maxIndexDistinct caps the distinct values a single field may hold in the
+// secondary index. A field that exceeds it (e.g. a free-text note) is marked
+// "capped" and its queries fall back to a scan — bounding index memory.
+const maxIndexDistinct = 50000
+
+// indexEventFields adds an event's STRING value fields to the secondary
+// equality index. Append-only (current-ness is checked on read), so it never
+// needs to undo work on supersession. Caller holds s.mu.
+func (s *Store) indexEventFields(e *model.Event) {
+	for fk, fv := range e.Value {
+		sv, ok := fv.(string)
+		if !ok {
+			continue
+		}
+		if s.cappedFields[fk] {
+			continue
+		}
+		m := s.fieldIndex[fk]
+		if m == nil {
+			m = map[string][]string{}
+			s.fieldIndex[fk] = m
+		}
+		if _, seen := m[sv]; !seen && len(m) >= maxIndexDistinct {
+			s.cappedFields[fk] = true
+			delete(s.fieldIndex, fk) // too high-cardinality to index; scan instead
+			continue
+		}
+		m[sv] = append(m[sv], e.EventID)
+	}
+}
+
+// CurrentByField returns the current (open) events whose string field equals
+// val, using the secondary index. ok=false means the field isn't usefully
+// indexed (unknown or capped) and the caller must scan. Read-only.
+func (s *Store) CurrentByField(field, val string) ([]*model.Event, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.cappedFields[field] {
+		return nil, false
+	}
+	m, ok := s.fieldIndex[field]
+	if !ok {
+		return nil, false
+	}
+	var out []*model.Event
+	for _, id := range m[val] {
+		e := s.events[id]
+		if e == nil || s.open[key(e.Subject, e.Facet)] != id {
+			continue // not the current fact for its (subject, facet)
+		}
+		out = append(out, s.hydrate(e))
+	}
+	return out, true
 }
 
 // CausalDegree returns how many causal links touch an event (inbound +

@@ -53,6 +53,8 @@ func (s *Store) resetState() {
 	s.supersededAt = map[string]supersessionNote{}
 	s.subjects = map[string]bool{}
 	s.subjectFacets = map[string]map[string]struct{}{}
+	s.fieldIndex = map[string]map[string][]string{}
+	s.cappedFields = map[string]bool{}
 	s.schemas = map[string][]*model.Schema{}
 	s.vectors = map[string][]float32{}
 	s.chainHash = [32]byte{}
@@ -171,11 +173,14 @@ func (s *Store) tryLoadCheckpoint(f *os.File) int64 {
 	// subjectFacets is derived state: rebuild it from the restored events
 	// (pre-checkpoint events are not re-applied, so apply() won't fill it).
 	s.subjectFacets = map[string]map[string]struct{}{}
+	s.fieldIndex = map[string]map[string][]string{}
+	s.cappedFields = map[string]bool{}
 	for _, e := range s.events {
 		if s.subjectFacets[e.Subject] == nil {
 			s.subjectFacets[e.Subject] = map[string]struct{}{}
 		}
 		s.subjectFacets[e.Subject][e.Facet] = struct{}{}
+		s.indexEventFields(e)
 	}
 	s.supersededAt = map[string]supersessionNote{}
 	for id, t := range cp.SupersededAt {

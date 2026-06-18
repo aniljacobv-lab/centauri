@@ -54,6 +54,9 @@ func planFor(q *Query) []string {
 	switch q.Kind {
 	case KFacts, KHistory:
 		var s []string
+		if f, _, ok := indexProbe(q); ok {
+			s = append(s, "secondary index probe: string equality on '"+f+"' (scan fallback if unindexed)")
+		}
 		if q.Kind == KHistory {
 			s = append(s, "history scan: full timeline for subject(s)")
 		}
