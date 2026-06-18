@@ -162,7 +162,8 @@ type Query struct {
 	Text  string  `json:"text,omitempty"`  // SEARCH query string
 	Alpha float64 `json:"alpha,omitempty"` // SEARCH hybrid blend (1=keyword .. 0=vector)
 
-	Inner *Query `json:"inner,omitempty"` // EXPLAIN
+	Inner   *Query `json:"inner,omitempty"`   // EXPLAIN
+	Analyze bool   `json:"analyze,omitempty"` // EXPLAIN ANALYZE: also run it and report rows + timing
 
 	// Transactions / rollback / diff
 	Name string `json:"name,omitempty"` // SNAPSHOT name; ROLLBACK TO SNAPSHOT name
@@ -354,11 +355,12 @@ func (p *parser) word(what string) (string, error) {
 func (p *parser) statement() (*Query, error) {
 	switch {
 	case p.eat("EXPLAIN"):
+		analyze := p.eat("ANALYZE")
 		inner, err := p.statement()
 		if err != nil {
 			return nil, err
 		}
-		return &Query{Kind: KExplain, Inner: inner}, nil
+		return &Query{Kind: KExplain, Inner: inner, Analyze: analyze}, nil
 	case p.eat("FACTS"):
 		return p.factsStmt()
 	case p.eat("PROFILE"):

@@ -263,8 +263,11 @@ func Entries() []Entry {
 
 		// ---- META ----
 		{"meta", "explain", "EXPLAIN <statement>", "EXPLAIN FACTS OF " + sub + " WHY",
-			"Show the JSON AST instead of running — how agents learn the shape",
+			"Show the access path (and JSON AST) instead of running",
 			[]string{"explain", "show the plan", "ast", "how would you run"}},
+		{"meta", "explain-analyze", "EXPLAIN ANALYZE <statement>", "EXPLAIN ANALYZE FACTS OF item:*/store:4001",
+			"Run a read query and report its access path, row count, and timing",
+			[]string{"explain analyze", "how fast", "timing", "profile the query", "rows and ms"}},
 	}
 }
 

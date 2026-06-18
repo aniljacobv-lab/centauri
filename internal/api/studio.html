@@ -506,6 +506,14 @@ function renderResult(r, meta){
       h=`<h3 class="rt">${rows} schema(s)</h3>`+(r.schemas||[]).map(s=>`<div class="field"><div class="l">${esc(s.id||s.title||"schema")} ${s.version?"v"+s.version:""}</div><div class="v">${(s.fields||[]).map(f=>esc(f.name||f.Name||"")).join(", ")}</div></div>`).join(""); break;
     case "consistency":
       h=`<h3 class="rt">${r.consistent?"✓":"⚡"} Consistency — ${esc(r.note||"")}</h3>`+tableLite(["facet",esc(r.field||"value")],Object.entries(r.facets||{}).map(([f,v])=>[esc(f)+(f===r.outlier?" ⚠":""),esc(String(v))])); break;
+    case "explain": {
+      const plan=r.plan||[];
+      h=`<h3 class="rt">🧭 Plan — ${esc(r.target||"")}${r.analyze?" (analyzed)":""}</h3>`+
+        `<div class="tl">`+plan.map(p=>`<div class="ev kv">${esc(p)}</div>`).join("")+`</div>`+
+        (r.executed?`<div class="muted small" style="margin-top:8px">▸ ${r.rows} row(s)${r.ms!=null?` in ${(+r.ms).toFixed(1)} ms`:""}</div>`:"")+
+        (r.note?`<div class="muted small" style="margin-top:6px">${esc(r.note)}</div>`:"")+
+        (r.error?`<div class="err" style="margin-top:6px">✗ ${esc(r.error)}</div>`:""); break;
+    }
     default:
       h=`<h3 class="rt">${esc((r&&r.kind)||"result")}</h3><pre class="kv" style="white-space:pre-wrap">${esc(JSON.stringify(r,null,2))}</pre>`;
   }

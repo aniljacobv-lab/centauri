@@ -131,6 +131,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/watch", s.handleWatch)
 	mux.HandleFunc("GET /v1/log", s.handleLog)
 	mux.HandleFunc("GET /v1/changes", s.handleChanges)
+	mux.HandleFunc("POST /v1/changes/ack", s.write(s.handleSlotAck))
+	mux.HandleFunc("GET /v1/slots", s.handleSlots)
 	mux.HandleFunc("POST /v1/query", s.handleQuery)
 	mux.HandleFunc("GET /v1/query", s.handleQuery)
 	mux.HandleFunc("POST /v1/assist", s.handleAssist)
@@ -1089,7 +1091,11 @@ func (s *Server) handleChanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var from int64
-	if v := r.URL.Query().Get("from"); v != "" {
+	slot := r.URL.Query().Get("slot")
+	if slot != "" {
+		// Resume from the slot's confirmed position (created lazily at 0).
+		from = st.SlotCursor(slot)
+	} else if v := r.URL.Query().Get("from"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil || n < 0 {
 			httpErr(w, 400, "from must be a non-negative byte offset (0 = from the beginning)")
@@ -1105,10 +1111,59 @@ func (s *Server) handleChanges(w http.ResponseWriter, r *http.Request) {
 	if events == nil {
 		events = []*model.Event{}
 	}
-	writeJSON(w, map[string]any{
+	out := map[string]any{
 		"events": events, "cursor": cursor,
 		"log_size": st.LogSize(), "caught_up": cursor == st.LogSize(),
-	})
+	}
+	if slot != "" {
+		out["slot"] = slot // ack with POST /v1/changes/ack once you've processed up to cursor
+	}
+	writeJSON(w, out)
+}
+
+// handleSlotAck confirms a CDC slot's position: POST /v1/changes/ack
+// {"slot":"name","cursor":420}. Advancing is monotonic (never rewinds).
+func (s *Server) handleSlotAck(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r)
+	if st == nil {
+		return
+	}
+	var body struct {
+		Slot   string `json:"slot"`
+		Cursor int64  `json:"cursor"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpErr(w, 400, err.Error())
+		return
+	}
+	if body.Slot == "" {
+		httpErr(w, 400, "slot is required")
+		return
+	}
+	if err := st.AdvanceSlot(time.Now().UnixMicro(), body.Slot, body.Cursor); err != nil {
+		httpErr(w, 422, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"slot": body.Slot, "cursor": st.SlotCursor(body.Slot)})
+}
+
+// handleSlots lists CDC slots with their confirmed cursor and lag.
+func (s *Server) handleSlots(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r)
+	if st == nil {
+		return
+	}
+	size := st.LogSize()
+	type slotOut struct {
+		Name   string `json:"name"`
+		Cursor int64  `json:"cursor"`
+		Lag    int64  `json:"lag_bytes"`
+	}
+	out := []slotOut{}
+	for _, sl := range st.Slots() {
+		out = append(out, slotOut{Name: sl.Name, Cursor: sl.Cursor, Lag: size - sl.Cursor})
+	}
+	writeJSON(w, map[string]any{"slots": out, "log_size": size})
 }
 
 func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {

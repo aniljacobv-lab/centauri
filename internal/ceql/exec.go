@@ -30,7 +30,7 @@ func (q *Query) IsWrite() bool {
 func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	switch q.Kind {
 	case KExplain:
-		return map[string]any{"kind": "ast", "ast": q.Inner}, nil
+		return execExplain(st, q, now)
 	case KStats:
 		return map[string]any{"kind": "stats", "stats": st.Stats()}, nil
 	case KSubjects:

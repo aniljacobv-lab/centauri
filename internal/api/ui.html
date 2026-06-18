@@ -1526,6 +1526,14 @@ function renderQueryResult(r, out, meta){
             : `<div class="mini">No causal paths matched.</div>`);
       break;
     }
+    case "explain": {
+      const plan = r.plan || [];
+      h = `<h3>🧭 Plan — ${esc(r.target || "")}${r.analyze ? " (analyzed)" : ""}</h3>` +
+          plan.map(p => `<div class="mini" style="font-family:var(--mono)">↳ ${esc(p)}</div>`).join("") +
+          (r.executed ? `<div class="mini" style="margin-top:6px">▸ ${r.rows} row(s)${r.ms != null ? ` in ${(+r.ms).toFixed(1)} ms` : ""}</div>` : "") +
+          (r.note ? `<div class="mini" style="margin-top:6px;color:var(--dim)">${esc(r.note)}</div>` : "");
+      break;
+    }
     default:
       h = `<h3>${esc(r.kind || "result")}</h3><pre>${esc(JSON.stringify(r, null, 2))}</pre>`;
   }

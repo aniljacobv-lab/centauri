@@ -221,9 +221,9 @@ func TestWhySchemaPendingDisagreeExplain(t *testing.T) {
 	if dis["kind"] != "disagreements" {
 		t.Fatalf("disagree kind = %v", dis["kind"])
 	}
-	// explain returns the AST without executing
+	// explain returns the plan (+AST) without executing
 	ex := run(t, st, `EXPLAIN PUT toy:car SET price_cents=1 SCHEMA price`, t3)
-	if ex["kind"] != "ast" {
+	if ex["kind"] != "explain" {
 		t.Fatalf("explain kind = %v", ex["kind"])
 	}
 	// toy:car has exactly two committed PUTs; if EXPLAIN had executed its
