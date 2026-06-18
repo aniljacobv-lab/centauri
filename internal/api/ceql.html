@@ -669,6 +669,14 @@ pattern     = subject with optional "*" wildcards ;</code></pre>
 <p>When a few steps belong together — look up, guard, compute, write,
 return — store them as a <b>procedure</b>. CePL is deliberately tiny and
 reads like instructions to a careful intern:</p>
+<div class="box"><b>CePL is not Python.</b> It's a small near-English language
+that lives <em>inside</em> the database (stored as a versioned <code>proc:&lt;name&gt;</code>
+fact, run by name, every run returning a step trace). For general-purpose code,
+use a <b>client SDK</b> — Python, Go, and JavaScript clients live in
+<a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk">/sdk</a>, and any
+language can call <code>POST /v1/query</code> or connect an agent over MCP. Reach
+for an SDK when logic belongs in your app; reach for CePL when it belongs next to
+the data.</div>
 <pre><code><span class="kw">PROCEDURE</span> duty_estimate(item, units)
   <span class="kw">LET</span> rate = <span class="kw">FIRST FACTS OF</span> hts:${item} <span class="kw">FACET</span> assess
   <span class="kw">WHEN</span> rate <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> <span class="lit">'no duty rate on file for ${item}'</span>

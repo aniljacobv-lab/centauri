@@ -228,6 +228,7 @@
     <a href="#reference">CeQL Reference</a>
     <a href="#sql">From SQL</a>
     <a href="#integrations">Integrations</a>
+    <a href="#sdks">SDKs</a>
     <a href="#examples">Examples</a>
     <a href="#docs">Docs</a>
     <a href="#download">Download</a>
@@ -587,6 +588,41 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
     <div class="feat"><div class="fi">🔁</div><h3>Change Data Capture</h3><p><code>GET /v1/changes?from=&lt;cursor&gt;</code> returns committed facts in order plus a cursor to resume from. Tail the database from any language; the append-only log <em>is</em> the stream.</p></div>
   </div>
   <p class="lead" style="margin-top:18px">The connectors are standalone (pure-stdlib Python, no Airbyte CDK) and never link into the single binary — the zero-dependency core is untouched. <a href="https://github.com/aniljacobv-lab/centauri/tree/main/connectors/airbyte">Connector source &amp; quickstart →</a></p>
+</div></section>
+
+<!-- SDKs & PROCEDURES -->
+<section id="sdks"><div class="wrap">
+  <div class="kicker">SDKs &amp; procedures</div>
+  <h2>Use it from your language — or teach it procedures.</h2>
+  <p class="lead">Talk to Centauri with a <b>zero-dependency client</b> for Python, Go, or JavaScript — or over plain HTTP/MCP from anything. Insert and update are the same call; reads, time travel, context, and CDC are one method each.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">🐍</div><h3>Python</h3><pre><code>from centauri import Centauri
+db = Centauri(token="…")
+db.add("toy:robot", {"price_cents": 500})
+db.get("toy:robot")
+db.context("toy:robot")        # agent bundle
+db.run("reprice", item="toy:robot", pct=90)</code></pre></div>
+    <div class="feat"><div class="fi">🐹</div><h3>Go</h3><pre><code>c := centauri.New(url, centauri.WithToken("…"))
+c.Add("toy:robot", map[string]any{"price_cents":500})
+c.Get("toy:robot")
+c.Query("FACTS OF item:* WHERE region='EU'")
+c.Run("reprice", map[string]any{"item":"toy:robot","pct":90})</code></pre></div>
+    <div class="feat"><div class="fi">🟨</div><h3>JavaScript / TS</h3><pre><code>const db = new Centauri(url, {token:"…"});
+await db.add("toy:robot", {price_cents: 500});
+await db.get("toy:robot");
+await db.query("FACTS OF toy:robot WHY");
+await db.run("reprice", {item:"toy:robot", pct:90});</code></pre></div>
+  </div>
+  <h3 style="margin-top:26px">Procedures live <em>in</em> the database — that's CePL</h3>
+  <p class="lead"><b>CePL is not Python</b> — it's Centauri's tiny, near-English procedure language (think PL/SQL for the agent era). A procedure is stored as a versioned fact and run by name, returning a full step-by-step trace. Reach for the SDKs or an MCP agent when you need general-purpose code; reach for CePL when the logic belongs next to the data.</p>
+  <pre><code><span class="kw">PROCEDURE</span> reprice(item, pct)
+  <span class="kw">LET</span> cur = <span class="kw">FIRST FACTS OF</span> ${item}
+  <span class="kw">WHEN</span> cur <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> 'unknown item ${item}'
+  <span class="kw">LET</span> newp = cur.price_cents * pct / 100
+  <span class="kw">PUT</span> ${item} <span class="kw">SET</span> price_cents=${newp} <span class="kw">REF</span> 'proc:reprice'
+  <span class="kw">RETURN</span> newp
+<span class="kw">END</span></code></pre>
+  <p class="lead" style="margin-top:14px">Any language also works over HTTP (<code>POST /v1/query</code>) or natively via the <a href="#agents">MCP server</a>. Full details &amp; the <a href="ceql.html#cepl">CePL chapter</a> are in <a href="ceql.html">The CeQL Book</a>; SDK source is in <a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk">/sdk</a>.</p>
 </div></section>
 
 <!-- EXAMPLES ACROSS DOMAINS -->

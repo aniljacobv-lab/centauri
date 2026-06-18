@@ -1,0 +1,12 @@
+{
+  "name": "@centauri/client",
+  "version": "0.1.0",
+  "description": "Zero-dependency JavaScript/TypeScript client for Centauri — the bi-temporal, causal event database.",
+  "type": "module",
+  "main": "centauri.mjs",
+  "exports": { ".": "./centauri.mjs" },
+  "files": ["centauri.mjs", "README.md"],
+  "license": "PostgreSQL",
+  "keywords": ["centauri", "bitemporal", "event-database", "ceql", "cdc"],
+  "engines": { "node": ">=18" }
+}

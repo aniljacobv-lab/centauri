@@ -180,6 +180,7 @@
     <span class="stat">links <b id="s-links">–</b></span>
     <div class="sepv"></div>
     <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
+    <button class="ghost" onclick="openConnect()" title="Connect from your language / procedures">🔌 Connect</button>
     <button class="ghost" onclick="openToken()" title="API token">🔑</button>
     <a href="/" title="Classic dashboard"><button class="ghost">▦ Dashboard</button></a>
     <a href="/ceql" title="CeQL textbook"><button class="ghost">📖 Book</button></a>
@@ -277,6 +278,41 @@
 <div class="modal-bg" id="palmodal"><div class="modal"><h3>Command palette <span class="muted small" style="font-weight:400">— CeQL templates &amp; objects</span></h3><div class="body">
   <input id="palin" placeholder="Type a command or subject…" style="width:100%" oninput="renderPalette()" onkeydown="palKey(event)">
   <div id="pallist" style="margin-top:10px"></div>
+</div></div></div>
+
+<div class="modal-bg" id="connectmodal"><div class="modal" style="width:680px"><h3>🔌 Connect to Centauri</h3><div class="body">
+  <p class="muted small">Use a zero-dependency client, plain HTTP, or MCP. Insert = update; reads, time-travel, context, and CDC are one call each.</p>
+  <div class="kv" style="margin:8px 0 2px"><b>Python</b> — <span class="muted small">pip install centauri-sdk · /sdk/python</span></div>
+  <pre class="kv" style="white-space:pre-wrap">from centauri import Centauri
+db = Centauri(token="…")
+db.add("toy:robot", {"price_cents": 500})
+db.context("toy:robot")            # the agent bundle
+db.run("reprice", item="toy:robot", pct=90)</pre>
+  <div class="kv" style="margin:8px 0 2px"><b>Go</b> — <span class="muted small">/sdk/go</span></div>
+  <pre class="kv" style="white-space:pre-wrap">c := centauri.New(url, centauri.WithToken("…"))
+c.Add("toy:robot", map[string]any{"price_cents": 500})
+c.Query("FACTS OF item:* WHERE region='EU'")
+c.Run("reprice", map[string]any{"item":"toy:robot","pct":90})</pre>
+  <div class="kv" style="margin:8px 0 2px"><b>JavaScript / TypeScript</b> — <span class="muted small">/sdk/js</span></div>
+  <pre class="kv" style="white-space:pre-wrap">const db = new Centauri(url, {token:"…"});
+await db.add("toy:robot", {price_cents: 500});
+await db.query("FACTS OF toy:robot WHY");</pre>
+  <div class="kv" style="margin:8px 0 2px"><b>HTTP — any language</b></div>
+  <pre class="kv" style="white-space:pre-wrap">curl -s URL/v1/query -H 'Authorization: Bearer …' \
+     -d '{"q":"FACTS OF toy:robot WHY"}'</pre>
+  <div class="kv" style="margin:8px 0 2px"><b>MCP — agents (zero code)</b></div>
+  <pre class="kv" style="white-space:pre-wrap">{ "mcpServers": { "centauri": { "command":"centauri", "args":["mcp"] } } }</pre>
+  <div class="kv" style="margin:12px 0 2px"><b>Procedures (CePL)</b> <span class="muted small">— not Python: a tiny in-DB procedure language, run by name with a step trace</span></div>
+  <pre class="kv" style="white-space:pre-wrap">PROCEDURE reprice(item, pct)
+  LET cur = FIRST FACTS OF ${item}
+  WHEN cur IS MISSING: FAIL 'unknown ${item}'
+  LET newp = cur.price_cents * pct / 100
+  PUT ${item} SET price_cents=${newp}
+  RETURN newp
+END
+-- then:  RUN reprice WITH item='toy:robot', pct=90</pre>
+  <div style="margin-top:12px;text-align:right"><a href="/ceql#cepl" target="_blank"><button class="ghost">CeQL Book → CePL</button></a>
+    <button class="primary" onclick="closeModal('connectmodal')">Close</button></div>
 </div></div></div>
 
 <div class="toast" id="toast"></div>
@@ -745,6 +781,7 @@ function palMove(d){ PALI=Math.max(0,Math.min(PAL.length-1,PALI+d));
 function palPick(i){ const p=PAL[i]; if(!p) return; closeModal("palmodal"); runInto(p.run); }
 
 // ---------------- token / modals ----------------
+function openConnect(){ document.getElementById("connectmodal").classList.add("on"); }
 function openToken(){ document.getElementById("tokenin").value=TOKEN; document.getElementById("tokenmodal").classList.add("on"); }
 function saveToken(){ TOKEN=document.getElementById("tokenin").value.trim(); localStorage.setItem("centauri_token",TOKEN); closeModal("tokenmodal"); boot(); }
 function closeModal(id){ document.getElementById(id).classList.remove("on"); }
