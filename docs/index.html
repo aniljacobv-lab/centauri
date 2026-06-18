@@ -220,6 +220,7 @@
 <nav><div class="wrap">
   <span class="brand"><span class="star">✦</span> Centauri</span>
   <span class="links">
+    <a href="#what">What is it?</a>
     <a href="#own">Own your data</a>
     <a href="#ask">Ask AI</a>
     <a href="#agents">For agents</a>
@@ -235,18 +236,18 @@
     <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
   </span>
 </div></nav>
-<div class="announce">Centauri <b>v0.3.0</b> — now with built-in topology, native BM25 search, desktop mode &amp; installers. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
+<div class="announce">Latest — now with a <b>Studio IDE</b>, reversible time-travel (ROLLBACK), in-query AI (ENRICH), causal MATCH, CDC + replication slots, and Python / Go / JS SDKs. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
 
 <!-- HERO -->
 <div class="hero"><div class="wrap">
   <div>
-    <h1>Memory for AI that <span class="accent">never forgets.</span></h1>
-    <p class="sub">Centauri is an open-source <b>bi-temporal, causal event database</b> — the system of record your AI agents reason over. Every fact knows its time, cause, source, and trustworthiness.</p>
+    <h1>The database <span class="accent">for AI.</span></h1>
+    <p class="sub">Centauri is an open-source, <b>bi-temporal, causal event database</b> your AI agents reason over natively. It does the jobs of a <b>document store</b>, a <b>vector database</b>, a <b>time-series</b> DB, a <b>graph</b>, and a tamper-proof <b>ledger</b> — in one zero-dependency binary.</p>
     <ul class="checks">
-      <li><b>Agent-native memory</b> — built-in MCP server; any agent queries it directly, no tokens to remember</li>
-      <li>Query <b>what was true</b> and <b>what you believed</b> at any moment in time</li>
-      <li>Tamper-evident by design — a SHA-256 chain over every committed fact</li>
-      <li><b>Your data, on your hardware</b> — laptop, server, or your own cloud; never ours. Free, no lock-in</li>
+      <li><b>Agent-native (MCP)</b> — agents query it directly for grounded memory &amp; RAG; no glue, no token cost to remember</li>
+      <li><b>A time machine</b> — query what was <b>true</b> and what you <b>believed</b> at any moment (bi-temporal)</li>
+      <li><b>Blockchain-grade integrity</b> — a SHA-256 hash chain proves history was never altered — without a blockchain</li>
+      <li><b>Your data, your hardware</b> — one open file on your laptop, server, or cloud. Free, no lock-in</li>
     </ul>
     <div class="btns">
       <a class="btn primary" href="#download">⬇ Download</a>
@@ -273,6 +274,22 @@
     </svg>
   </div>
 </div></div>
+
+<!-- WHAT IS IT -->
+<section id="what"><div class="wrap">
+  <div class="kicker">What is Centauri?</div>
+  <h2>One engine, the jobs of <span class="rule">many databases.</span></h2>
+  <p class="lead">Modern AI stacks bolt together a document store, a vector database, a search cluster, a graph, and an audit ledger — then spend their lives keeping them in sync. Centauri is a single binary that covers all of it, because every fact is stored once with its time, cause, source, and trust. Here's how it maps to the tools you already know — and where it goes further.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">📄</div><h3>Document store</h3><p>Schemaless facts with nested JSON values, dot-path queries (<code>WHERE addr.city='EU'</code>) and optional schemas — like <b>MongoDB</b>. <b>Difference:</b> every change is versioned and nothing is ever overwritten.</p></div>
+    <div class="feat"><div class="fi">🧠</div><h3>Vector database</h3><p>Built-in embeddings, cosine <code>SIMILAR</code>, and hybrid keyword+vector <code>SEARCH</code> for RAG — like <b>pgvector / Pinecone</b>. <b>Difference:</b> vectors live beside provenance and time, so you can search <em>as of</em> the past.</p></div>
+    <div class="feat"><div class="fi">⏱️</div><h3>Time-series, doubled</h3><p>Two clocks on every fact — <em>valid time</em> and <em>transaction time</em>. <b>Difference:</b> ask not just what was true at a moment, but <b>what you believed</b> then — bi-temporal replay no time-series DB offers.</p></div>
+    <div class="feat"><div class="fi">🔗</div><h3>Graph database</h3><p>Causes are first-class edges; <code>WHY</code> / <code>EFFECTS</code> and <code>MATCH</code> traverse the lineage — like <b>Neo4j</b>. <b>Difference:</b> the graph is about <em>why things happened</em>, not just references.</p></div>
+    <div class="feat"><div class="fi">🔒</div><h3>Ledger, blockchain-grade</h3><p>A SHA-256 hash chain seals every record; <code>centauri verify</code> proves the history is byte-for-byte intact. <b>Difference:</b> blockchain-grade tamper-evidence with <em>no</em> blockchain, no tokens, no consensus tax.</p></div>
+    <div class="feat"><div class="fi">🔎</div><h3>Search engine</h3><p>Ranked BM25, multi-signal scoring (recency · trust · causal centrality), and full-text — like <b>Elasticsearch</b>. <b>Difference:</b> one binary, bi-temporal, and it explains <em>why</em> a hit ranked where it did.</p></div>
+  </div>
+  <p class="lead" style="margin-top:18px"><b>The thread that ties it together:</b> Centauri is built for <b>AI agents</b> — a native <b>MCP</b> server means an agent uses all of the above directly, with grounded, point-in-time, provenance-aware memory. One zero-dependency binary you run yourself — not five systems to license, host, and reconcile. It's the <b>system of record beside</b> your operational database, not a replacement for it.</p>
+</div></section>
 
 <!-- OWN YOUR DATA -->
 <section class="alt" id="own"><div class="wrap">
@@ -467,7 +484,7 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
     <div class="feat"><div class="fi">🔎</div><h3>Search &amp; retrieval</h3><p>Native ranked <code>SEARCH</code> (BM25), semantic <code>SIMILAR</code> over embeddings, and hybrid keyword+vector — the recall of semantics with the precision of keywords.</p></div>
     <div class="feat"><div class="fi">🧮</div><h3>Built-in topology</h3><p>Persistent homology &amp; sheaf consistency as operators: <code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — clusters, loops, voids, periodicity, and drift no row store can see.</p></div>
     <div class="feat"><div class="fi">🤖</div><h3>Built for AI agents</h3><p>A native MCP server lets agents speak CeQL directly. Plain-English compiles to queries with no tokens. <code>AS KNOWN AT</code> gives leak-free training features. Genesis builds a database from a description.</p></div>
-    <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>Zero-install dashboard, interactive CeQL textbook, CePL stored procedures, replication &amp; chain-verified backups, multitenant environments, zero-dependency Python SDK.</p></div>
+    <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>A <b>Studio</b> IDE (object explorer, causal-graph view, edit-as-a-fact), a psql-style <code>shell</code>, <code>EXPLAIN ANALYZE</code>, <code>doctor</code> diagnostics, CDC + replication slots, scoped-token security, CePL procedures, chain-verified backups, and Python / Go / JS SDKs.</p></div>
   </div>
 </div></section>
 
@@ -596,32 +613,36 @@ centauri desktop              <span class="cm"># opens the dashboard in your bro
   <h2>Use it from your language — or teach it procedures.</h2>
   <p class="lead">Talk to Centauri with a <b>zero-dependency client</b> for Python, Go, or JavaScript — or over plain HTTP/MCP from anything. Insert and update are the same call; reads, time travel, context, and CDC are one method each.</p>
   <div class="grid3">
-    <div class="feat"><div class="fi">🐍</div><h3>Python</h3><pre><code>from centauri import Centauri
-db = Centauri(token="…")
+    <div class="feat"><div class="fi">🐍</div><h3>Python</h3>
+      <pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55">db = Centauri(token="…")
 db.add("toy:robot", {"price_cents": 500})
 db.get("toy:robot")
-db.context("toy:robot")        # agent bundle
-db.run("reprice", item="toy:robot", pct=90)</code></pre></div>
-    <div class="feat"><div class="fi">🐹</div><h3>Go</h3><pre><code>c := centauri.New(url, centauri.WithToken("…"))
-c.Add("toy:robot", map[string]any{"price_cents":500})
-c.Get("toy:robot")
-c.Query("FACTS OF item:* WHERE region='EU'")
-c.Run("reprice", map[string]any{"item":"toy:robot","pct":90})</code></pre></div>
-    <div class="feat"><div class="fi">🟨</div><h3>JavaScript / TS</h3><pre><code>const db = new Centauri(url, {token:"…"});
+db.context("toy:robot")   # agent bundle
+db.run("reprice", item="toy:robot", pct=90)</pre>
+      <div style="margin-top:10px"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk/python">Python SDK →</a></div></div>
+    <div class="feat"><div class="fi">🐹</div><h3>Go</h3>
+      <pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55">c := centauri.New(url,
+  centauri.WithToken("…"))
+c.Add("toy:robot",
+  map[string]any{"price_cents": 500})
+c.Query("FACTS OF item:* WHERE region='EU'")</pre>
+      <div style="margin-top:10px"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk/go">Go SDK →</a></div></div>
+    <div class="feat"><div class="fi">🟨</div><h3>JavaScript / TS</h3>
+      <pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55">const db = new Centauri(url, {token:"…"});
 await db.add("toy:robot", {price_cents: 500});
-await db.get("toy:robot");
 await db.query("FACTS OF toy:robot WHY");
-await db.run("reprice", {item:"toy:robot", pct:90});</code></pre></div>
+await db.run("reprice", {item:"toy:robot"});</pre>
+      <div style="margin-top:10px"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk/js">JS / TS SDK →</a></div></div>
   </div>
   <h3 style="margin-top:26px">Procedures live <em>in</em> the database — that's CePL</h3>
   <p class="lead"><b>CePL is not Python</b> — it's Centauri's tiny, near-English procedure language (think PL/SQL for the agent era). A procedure is stored as a versioned fact and run by name, returning a full step-by-step trace. Reach for the SDKs or an MCP agent when you need general-purpose code; reach for CePL when the logic belongs next to the data.</p>
-  <pre><code><span class="kw">PROCEDURE</span> reprice(item, pct)
+  <pre><span class="kw">PROCEDURE</span> reprice(item, pct)
   <span class="kw">LET</span> cur = <span class="kw">FIRST FACTS OF</span> ${item}
-  <span class="kw">WHEN</span> cur <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> 'unknown item ${item}'
+  <span class="kw">WHEN</span> cur <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> <span class="lit">'unknown item ${item}'</span>
   <span class="kw">LET</span> newp = cur.price_cents * pct / 100
-  <span class="kw">PUT</span> ${item} <span class="kw">SET</span> price_cents=${newp} <span class="kw">REF</span> 'proc:reprice'
+  <span class="kw">PUT</span> ${item} <span class="kw">SET</span> price_cents=${newp} <span class="kw">REF</span> <span class="lit">'proc:reprice'</span>
   <span class="kw">RETURN</span> newp
-<span class="kw">END</span></code></pre>
+<span class="kw">END</span></pre>
   <p class="lead" style="margin-top:14px">Any language also works over HTTP (<code>POST /v1/query</code>) or natively via the <a href="#agents">MCP server</a>. Full details &amp; the <a href="ceql.html#cepl">CePL chapter</a> are in <a href="ceql.html">The CeQL Book</a>; SDK source is in <a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk">/sdk</a>.</p>
 </div></section>
 
