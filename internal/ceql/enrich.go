@@ -39,6 +39,7 @@ import (
 type InferRequest struct {
 	Endpoint, Kind, Model, Prompt, AuthToken, Input string
 	ImageB64, ImageMime                             string
+	TimeoutSecs                                     int // 0 = default (see httpInfer)
 }
 type InferResult struct {
 	Vector []float32
@@ -72,6 +73,10 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	if env, _ := cfg["auth_env"].(string); env != "" {
 		token = os.Getenv(env)
 	}
+	timeoutSecs := 0
+	if t, ok := cfg["timeout_secs"].(float64); ok {
+		timeoutSecs = int(t)
+	}
 	outKind := q.As
 	if outKind == "" {
 		if kind == "embedding" || kind == "image-embedding" {
@@ -101,7 +106,7 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 				continue // cached inference — the whole point of storing it
 			}
 			req := InferRequest{Endpoint: endpoint, Kind: kind, Model: modelID,
-				Prompt: prompt, AuthToken: token, Input: enrichInput(e, q.OnField)}
+				Prompt: prompt, AuthToken: token, Input: enrichInput(e, q.OnField), TimeoutSecs: timeoutSecs}
 			if kind == "vision" || kind == "image-embedding" {
 				// Source the image from the fact's referenced blob (set by the
 				// asset store). Facts without an image (e.g. a PDF's parent doc
@@ -229,7 +234,14 @@ func httpInfer(req InferRequest) (InferResult, error) {
 	if req.AuthToken != "" {
 		hreq.Header.Set("Authorization", "Bearer "+req.AuthToken)
 	}
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(hreq)
+	// Vision / large-model inference is slow, especially the first call while the
+	// model cold-loads into memory, so the default ceiling is generous (5 min).
+	// A model's config can override it with timeout_secs.
+	timeout := 300 * time.Second
+	if req.TimeoutSecs > 0 {
+		timeout = time.Duration(req.TimeoutSecs) * time.Second
+	}
+	resp, err := (&http.Client{Timeout: timeout}).Do(hreq)
 	if err != nil {
 		return InferResult{}, err
 	}

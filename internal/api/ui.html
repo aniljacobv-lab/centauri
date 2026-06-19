@@ -492,7 +492,7 @@ async function registerVision(){
 }
 async function analyzeAssets(){
   const m=(document.getElementById("visionmodel").value||"vision").trim();
-  const note=document.getElementById("visionanalyze"); if(note) note.textContent="analyzing…";
+  const note=document.getElementById("visionanalyze"); if(note) note.textContent="analyzing… (first run loads the model — can take a few minutes)";
   try{
     const r = await execText("ENRICH asset:* USING "+m);
     let msg = r.note || "done";
