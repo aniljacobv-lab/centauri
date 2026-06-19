@@ -56,10 +56,12 @@ centauri.exe setup vision >nul 2>nul
 if not errorlevel 1 goto vision_done
 echo.
 echo  Optional: local AI "Vision" lets Centauri read images and PDFs.
-echo  It needs Ollama + a PDF renderer; the models are a one-time ~5 GB download.
-echo  (Whatever you already have installed is skipped.)
-set /p VYN=  Set this up now? [y/N]:
-if /i "%VYN%"=="y" centauri.exe setup vision -install
+echo  It needs Ollama + a PDF renderer (models are a one-time ~5 GB download).
+echo  Already-installed pieces are skipped. Setup opens in its OWN window so the
+echo  dashboard starts right away no matter what you choose.
+choice /c YN /t 20 /d N /m "  Set up Vision now (Y) or skip for now (N, auto in 20s)"
+if errorlevel 2 goto vision_done
+start "Centauri Vision setup" cmd /k centauri.exe setup vision -install
 :vision_done
 
 REM ---------- stop any server already using the port ----------
