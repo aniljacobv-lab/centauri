@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -230,6 +231,67 @@ func lookExec(name string) string {
 		return ""
 	}
 	return p
+}
+
+// detectRasteriser returns the first installed PDF→image tool, or "".
+func detectRasteriser() string {
+	for _, t := range []string{"pdftoppm", "pdftocairo", "magick", "convert"} {
+		if lookExec(t) != "" {
+			return t
+		}
+	}
+	return ""
+}
+
+// handleVisionStatus reports whether the local vision stack is ready, so the
+// dashboard can surface a setup banner instead of making the user run the CLI.
+func (s *Server) handleVisionStatus(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r)
+	if st == nil {
+		return
+	}
+	out := map[string]any{}
+	rast := detectRasteriser()
+	out["rasteriser"] = rast
+	out["pdf_ready"] = rast != ""
+
+	registered, reachable := false, false
+	if cur := st.Current("model:vision", "config"); len(cur) > 0 {
+		registered = true
+		if ep, _ := cur[0].Value["endpoint"].(string); ep != "" {
+			reachable = endpointReachable(ep)
+		}
+	}
+	out["model_registered"] = registered
+	out["endpoint_reachable"] = reachable
+	out["ready"] = registered && reachable
+
+	switch {
+	case !registered:
+		out["hint"] = "No vision model registered yet. Run 'centauri setup vision -install' (installs Ollama + a PDF renderer), then click 📎 Vision → Register model:vision."
+	case !reachable:
+		out["hint"] = "Vision model registered, but its endpoint isn't responding — start Ollama (or run 'centauri setup vision -install')."
+	case rast == "":
+		out["hint"] = "Images work. For PDFs, install a renderer: 'centauri setup vision -install' (poppler/ImageMagick)."
+	default:
+		out["hint"] = "Vision is ready."
+	}
+	writeJSON(w, out)
+}
+
+// endpointReachable does a fast best-effort probe of the model host: any HTTP
+// response means something is listening (e.g. Ollama answers "/" with 200).
+func endpointReachable(ep string) bool {
+	u, err := url.Parse(ep)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	resp, err := (&http.Client{Timeout: 800 * time.Millisecond}).Get(u.Scheme + "://" + u.Host)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return true
 }
 
 // collectPages gathers the rendered <sha>-p-*.png files and numbers them 1..k

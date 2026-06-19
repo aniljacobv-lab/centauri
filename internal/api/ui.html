@@ -182,6 +182,7 @@
     <div id="subjects"></div>
   </div>
   <div id="center">
+    <div id="visionbanner" style="display:none;margin:0 0 10px;padding:9px 12px;border:1px solid var(--accent2);border-radius:8px;background:rgba(120,90,220,.10);font-size:12.5px"></div>
     <div class="card" id="qcard" style="position:relative">
       <div style="display:flex;gap:8px;align-items:center">
         <span style="color:var(--accent);font-weight:700;font-family:var(--mono)">CeQL›</span>
@@ -444,7 +445,7 @@ function openVision(){
     <button onclick="analyzeAssets()">Run ENRICH asset:* USING …</button>
     <span id="visionanalyze" class="mini" style="margin-left:8px"></span>
   </div>
-  <p class="mini">Needs a running multimodal model (e.g. <b>Ollama</b> with <code>llava</code>) at the endpoint above. PDFs also need <b>poppler</b> (<code>pdftoppm</code>) installed on the server to render pages.</p>
+  <p class="mini">Needs a running multimodal model (e.g. <b>Ollama</b> with <code>llava</code>) and, for PDFs, a renderer (poppler/ImageMagick). Don't want to install by hand? Run <code>centauri setup vision -install</code> once and it sets both up for you.</p>
   <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>`);
   document.getElementById("modal").classList.add("wide");
 }
@@ -588,7 +589,21 @@ async function boot(){
     renderSubjects();
     loadWedges(); loadDisagreements();
     loadCatalog();
+    checkVision();
   } catch (e) { console.warn(e); }
+}
+// Surface a banner if the local vision stack (model + PDF renderer) isn't ready,
+// so 'centauri setup vision' is optional — the dashboard guides you.
+async function checkVision(){
+  const el=document.getElementById("visionbanner"); if(!el) return;
+  try{
+    const v = await api("/v1/vision/status");
+    if(!v || v.ready){ el.style.display="none"; return; }
+    el.style.display="block";
+    el.innerHTML = `📎 <b>Vision setup</b> — `+esc(v.hint||"run 'centauri setup vision -install'")+
+      ` <button class="mini" style="margin-left:8px" onclick="openVision()">Set up</button>`+
+      ` <button class="mini" onclick="document.getElementById('visionbanner').style.display='none'">Dismiss</button>`;
+  }catch(e){ /* ignore — e.g. before unlock */ }
 }
 // System namespaces (Centauri's own bookkeeping) group separately so a
 // new developer's actual data isn't buried under blueprint:* facts.

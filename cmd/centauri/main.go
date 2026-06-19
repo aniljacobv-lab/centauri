@@ -73,6 +73,7 @@ func main() {
 	primary := fs.String("primary", "", "primary base URL to replicate from (follow)")
 	interval := fs.Duration("interval", 2*time.Second, "poll interval (follow)")
 	lazy := fs.Bool("lazy", false, "keep event payloads on disk instead of RAM (serve/desktop; lets data exceed RAM)")
+	install := fs.Bool("install", false, "with 'setup vision': install missing prerequisites via your OS package manager")
 	_ = fs.Parse(os.Args[2:])
 	*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
 
@@ -190,6 +191,19 @@ func main() {
 		return
 	}
 
+	// setup gets a local AI ready so an average user doesn't have to install
+	// Ollama + a PDF renderer by hand. Centauri can't bundle them (zero-dep,
+	// and the models are multi-GB), but it orchestrates the install/pull.
+	if cmd == "setup" {
+		switch fs.Arg(0) {
+		case "vision":
+			runSetupVision(*install)
+		default:
+			log.Fatal("usage: centauri setup vision [-install]")
+		}
+		return
+	}
+
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
@@ -250,6 +264,9 @@ func main() {
 		}
 		fmt.Printf("your data:  %s\ndashboard:  http://localhost%s  (opening in your browser…)\n", *data, *addr)
 		fmt.Printf("studio:     http://localhost%s/studio  (the AI-first IDE)\n", *addr)
+		if _, e := exec.LookPath("ollama"); e != nil {
+			fmt.Println("\nvision (optional): Ollama not detected — run 'centauri setup vision -install' to let an AI read images & PDFs, all local. The dashboard shows a setup banner too.")
+		}
 		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
 		go func() {
 			time.Sleep(1200 * time.Millisecond)
@@ -887,6 +904,7 @@ Commands
   seed     populate with synthetic price-change demo data
   demo     seed|clear a curated multi-domain example database (demo.log)
            (tip: -data can be a folder, even a synced one like OneDrive)
+  setup    setup vision [-install] — ready a local AI (Ollama + PDF renderer)
   follow   replicate a primary's log into a read-only follower
   sync     bidirectional, echo-safe sync with a peer (-primary <url>); run on both
   verify   recompute the tamper-evidence hash chain over a log file
@@ -942,4 +960,105 @@ func syncedFolderNote(p string) string {
 		}
 	}
 	return ""
+}
+
+// runStream runs a command, echoing it and streaming its output, so the user
+// sees exactly what's happening during setup.
+func runStream(name string, args ...string) error {
+	fmt.Printf("  $ %s %s\n", name, strings.Join(args, " "))
+	c := exec.Command(name, args...)
+	c.Stdout, c.Stderr = os.Stdout, os.Stderr
+	return c.Run()
+}
+
+// runSetupVision readies a local vision stack: a multimodal model server
+// (Ollama) and a PDF rasteriser. With -install it uses the OS package manager
+// to install missing pieces (explicit, echoed); otherwise it detects, pulls
+// the Ollama models if Ollama is present, and prints exact next steps. It never
+// touches the database — model registration is the one-click button in the UI.
+func runSetupVision(install bool) {
+	fmt.Print(banner)
+	fmt.Println("Vision setup — getting a local AI ready to read your files")
+	fmt.Println()
+	goos := runtime.GOOS
+	have := func(name string) bool { _, err := exec.LookPath(name); return err == nil }
+	rasteriser := func() string {
+		for _, t := range []string{"pdftoppm", "pdftocairo", "magick", "convert"} {
+			if have(t) {
+				return t
+			}
+		}
+		return ""
+	}
+
+	if install {
+		fmt.Println("Installing missing prerequisites with your OS package manager (you may see a UAC/elevation prompt):")
+		switch goos {
+		case "windows":
+			if !have("ollama") {
+				_ = runStream("winget", "install", "-e", "--id", "Ollama.Ollama", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+			}
+			if rasteriser() == "" {
+				_ = runStream("winget", "install", "-e", "--id", "ImageMagick.ImageMagick", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+			}
+		case "darwin":
+			if have("brew") {
+				if !have("ollama") {
+					_ = runStream("brew", "install", "ollama")
+				}
+				if rasteriser() == "" {
+					_ = runStream("brew", "install", "poppler")
+				}
+			} else {
+				fmt.Println("  Homebrew not found — install it from https://brew.sh, then re-run.")
+			}
+		default: // linux
+			if rasteriser() == "" && have("apt-get") {
+				_ = runStream("sudo", "apt-get", "install", "-y", "poppler-utils")
+			}
+			if !have("ollama") {
+				fmt.Println("  Install Ollama:  curl -fsSL https://ollama.com/install.sh | sh")
+			}
+		}
+		fmt.Println()
+	}
+
+	// Ollama: pull the models (this also starts the local server).
+	if have("ollama") {
+		fmt.Println("Ollama found — pulling models (large one-time download; safe to leave running):")
+		_ = runStream("ollama", "pull", "llava")
+		_ = runStream("ollama", "pull", "nomic-embed-text")
+	} else {
+		fmt.Println("Ollama not found — the vision model server.")
+		switch goos {
+		case "windows":
+			fmt.Println("  Install:  winget install Ollama.Ollama       (or https://ollama.com/download)")
+		case "darwin":
+			fmt.Println("  Install:  brew install ollama                (or https://ollama.com/download)")
+		default:
+			fmt.Println("  Install:  curl -fsSL https://ollama.com/install.sh | sh")
+		}
+	}
+
+	if r := rasteriser(); r != "" {
+		fmt.Printf("\nPDF rendering: ready (%s detected).\n", r)
+	} else {
+		fmt.Println("\nPDF rendering: not available yet (images already work).")
+		switch goos {
+		case "windows":
+			fmt.Println("  Install:  winget install ImageMagick.ImageMagick   (or poppler)")
+		case "darwin":
+			fmt.Println("  Install:  brew install poppler")
+		default:
+			fmt.Println("  Install:  sudo apt-get install -y poppler-utils")
+		}
+	}
+
+	fmt.Println("\nNext:")
+	fmt.Println("  1) start Centauri:   centauri desktop")
+	fmt.Println("  2) open  📎 Vision  →  click 'Register model:vision'")
+	fmt.Println("  3) Upload an image/PDF  →  Run ENRICH  →  SEARCH it")
+	if !have("ollama") || rasteriser() == "" {
+		fmt.Println("\nTip: 'centauri setup vision -install' auto-installs the missing pieces.")
+	}
 }
