@@ -76,3 +76,44 @@ func TestVisionEnrich(t *testing.T) {
 		t.Fatal("embed_with did not embed the description into the vector index")
 	}
 }
+
+// The image-embedding kind sends the image itself to a (CLIP-style) embedder
+// and stores the resulting vector, so SIMILAR finds visually-alike assets.
+func TestImageEmbedding(t *testing.T) {
+	st := newStore(t)
+	img := filepath.Join(t.TempDir(), "p.png")
+	if err := os.WriteFile(img, []byte("fake png bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	asset := &model.Event{EventID: "ev-img", Subject: "asset:xyz", Facet: "vision", Type: model.Observed,
+		Value:      map[string]any{"kind": "image", "mime": "image/png", "image_path": img},
+		Provenance: model.SystemFeed, Confidence: 1}
+	if err := st.Append(1000, []*model.Event{asset}, nil); err != nil {
+		t.Fatal(err)
+	}
+	run(t, st, "PUT model:clip FACET config SET endpoint='http://x', kind='image-embedding', model='clip'", 1100)
+
+	old := Infer
+	defer func() { Infer = old }()
+	gotImage := false
+	Infer = func(r InferRequest) (InferResult, error) {
+		if r.Kind == "image-embedding" {
+			if r.ImageB64 == "" {
+				t.Error("image embedder did not receive the image")
+			}
+			gotImage = true
+			return InferResult{Vector: []float32{0.4, 0.5, 0.6}}, nil
+		}
+		return InferResult{}, nil
+	}
+	res := run(t, st, "ENRICH asset:* USING clip", 1200)
+	if res["enriched"] != 1 {
+		t.Fatalf("enriched = %v, want 1 (res=%v)", res["enriched"], res)
+	}
+	if !gotImage {
+		t.Fatal("the image embedder never received the image bytes")
+	}
+	if st.Vector("ev-img") == nil {
+		t.Fatal("image embedding did not flow into the vector index")
+	}
+}

@@ -74,6 +74,7 @@ func main() {
 	interval := fs.Duration("interval", 2*time.Second, "poll interval (follow)")
 	lazy := fs.Bool("lazy", false, "keep event payloads on disk instead of RAM (serve/desktop; lets data exceed RAM)")
 	_ = fs.Parse(os.Args[2:])
+	*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
 
 	// backup copies the committed log (safe while the server runs — the
 	// log only ever appends, and we stop at the last complete record),
@@ -273,6 +274,9 @@ func main() {
 	case "serve":
 		fmt.Print(banner)
 		fmt.Println(api.BuildLine())
+		if note := syncedFolderNote(*data); note != "" {
+			fmt.Println(note)
+		}
 		// The command catalog lives in its own database next to the data
 		// file; the dashboard reads autocomplete from it — suggestions are
 		// data, not code, and cost no AI tokens.
@@ -882,6 +886,7 @@ Commands
   shell    interactive CeQL REPL (psql-style; \h for meta commands)
   seed     populate with synthetic price-change demo data
   demo     seed|clear a curated multi-domain example database (demo.log)
+           (tip: -data can be a folder, even a synced one like OneDrive)
   follow   replicate a primary's log into a read-only follower
   sync     bidirectional, echo-safe sync with a peer (-primary <url>); run on both
   verify   recompute the tamper-evidence hash chain over a log file
@@ -907,4 +912,34 @@ Examples
 CDC: tail new facts over HTTP — GET /v1/changes?from=<cursor> returns events
 plus a cursor to resume from. Learn CeQL at /ceql (run 'centauri desktop').`)
 	os.Exit(1)
+}
+
+// ensureDataPath makes pointing -data at a folder (e.g. a OneDrive directory)
+// just work: a directory becomes <dir>/centauri.log, and parent dirs are
+// created so a fresh path needs no mkdir. Keeps the database fully local and
+// portable — drop it anywhere, including a synced or external drive.
+func ensureDataPath(p string) string {
+	if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+		p = filepath.Join(p, "centauri.log")
+	} else if strings.HasSuffix(p, "/") || strings.HasSuffix(p, `\`) {
+		p = filepath.Join(p, "centauri.log")
+	}
+	if dir := filepath.Dir(p); dir != "" {
+		_ = os.MkdirAll(dir, 0o755)
+	}
+	return p
+}
+
+// syncedFolderNote returns single-writer guidance when the data path lives in a
+// cloud-sync folder, where two machines writing the same file at once would
+// produce a sync conflict. Centauri's lock makes one machine the writer; use
+// 'centauri sync' for genuine multi-device writes.
+func syncedFolderNote(p string) string {
+	low := strings.ToLower(filepath.ToSlash(p))
+	for _, m := range []string{"onedrive", "dropbox", "google drive", "googledrive", "/icloud", "icloud drive", "box sync"} {
+		if strings.Contains(low, m) {
+			return "note: your data is in a synced folder — Centauri holds a single-writer lock, so THIS machine is the writer and the folder syncs it elsewhere as a backup. For live writes from another device run 'centauri sync' between the two; don't run 'serve' against the same file from two machines at once."
+		}
+	}
+	return ""
 }

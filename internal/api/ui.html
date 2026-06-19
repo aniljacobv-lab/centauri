@@ -170,6 +170,7 @@
     <button class="ghost" onclick="window.open('/studio','_blank')" title="The AI-first IDE: explorer, time-travel, copilot, rollback">🛰 Studio</button>
     <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
     <button class="ghost" onclick="openDemo()" title="Load a guided multi-domain example dataset">🎲 Demo data</button>
+    <button class="ghost" onclick="openVision()" title="Upload an image or PDF for an AI to inspect (stored locally + vectorized)">📎 Vision</button>
   </div>
   <div class="tgroup"><span class="lbl">Community</span>
     <button class="ghost" onclick="openSuggest()" title="Suggest a feature or report a bug — stored as facts here, one click to send upstream">💡 Suggest</button>
@@ -416,6 +417,57 @@ function renderDemoSuggestions(sug){
   if(!sug || !sug.length){ box.innerHTML=""; return; }
   box.innerHTML = "<h3 style='margin:14px 0 4px'>Try these (open the 🛰 Studio to run them)</h3>" +
     sug.map(s=>`<div style="margin:5px 0"><b>${esc(s.domain)}</b> — <span class="mini">${esc(s.shows)}</span><br><code>${esc(s.query)}</code></div>`).join("");
+}
+
+// ---------------- vision (local assets an AI can see) ----------------
+function openVision(){
+  modal(`<h2>📎 Vision — let an AI see your files</h2>
+  <p class="mini">Upload an image or PDF (e.g. an electrical drawing). Centauri stores it <b>locally</b> (content-addressed, not in the log), renders PDF pages, then a vision model you register describes it and embeds it into the vector index — searchable, no external store.</p>
+  <div style="margin:10px 0">
+    <input type="file" id="visionfile" accept="image/*,application/pdf">
+    <button class="primary" onclick="uploadAsset()">Upload</button>
+    <span id="visionnote" class="mini" style="margin-left:8px"></span>
+  </div>
+  <div id="visionpreview" style="margin:8px 0"></div>
+  <h3 style="margin:12px 0 4px">1) Register a local vision model <span class="mini">(once)</span></h3>
+  <pre style="white-space:pre-wrap">PUT model:vision FACET config SET
+  endpoint='http://localhost:11434/v1/chat/completions',
+  kind='vision', model='llava',
+  prompt='Return JSON {"description":"","tags":[],"fields":{}} describing this drawing.',
+  embed_with='nomic'</pre>
+  <h3 style="margin:12px 0 4px">2) Analyze + index</h3>
+  <div style="margin:4px 0">
+    <input id="visionmodel" placeholder="vision model name" value="vision" style="width:160px">
+    <button onclick="analyzeAssets()">Run ENRICH asset:* USING …</button>
+  </div>
+  <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>`);
+  document.getElementById("modal").classList.add("wide");
+}
+async function uploadAsset(){
+  const inp=document.getElementById("visionfile"); const note=document.getElementById("visionnote");
+  const file = inp && inp.files && inp.files[0];
+  if(!file){ if(note) note.textContent="pick a file first"; return; }
+  if(note) note.textContent="uploading "+file.name+"…";
+  try{
+    const q = qsFor({filename:file.name});
+    const r = await handle(await fetch("/v1/assets"+(q?"?"+q:""),
+      {method:"POST", headers:{"Content-Type": file.type||"application/octet-stream"}, body:file}));
+    if(note) note.textContent = r.subject + (r.kind==="pdf"?(" · "+(r.pages||0)+" page(s)"):"") + (r.render_note?(" — "+r.render_note):"");
+    const pv=document.getElementById("visionpreview");
+    if(pv && r.kind==="image" && r.sha256){ const q2=qsFor({}); pv.innerHTML = `<img src="/v1/assets/${esc(r.sha256)}${q2?"?"+q2:""}" style="max-width:100%;max-height:240px;border-radius:6px">`; }
+    else if(pv){ pv.innerHTML=""; }
+    boot();
+    toast("Stored "+(r.subject||"asset"));
+  }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
+}
+async function analyzeAssets(){
+  const m=(document.getElementById("visionmodel").value||"vision").trim();
+  const note=document.getElementById("visionnote"); if(note) note.textContent="analyzing…";
+  try{
+    const r = await execText("ENRICH asset:* USING "+m);
+    if(note) note.textContent = r.note || "done";
+    toast("Vision: "+(r.note||"enriched"));
+  }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
 }
 
 // ---------------- environments (databases) ----------------

@@ -74,7 +74,7 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	}
 	outKind := q.As
 	if outKind == "" {
-		if kind == "embedding" {
+		if kind == "embedding" || kind == "image-embedding" {
 			outKind = model.EmbeddingKind
 		} else {
 			outKind = q.Using
@@ -102,7 +102,7 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 			}
 			req := InferRequest{Endpoint: endpoint, Kind: kind, Model: modelID,
 				Prompt: prompt, AuthToken: token, Input: enrichInput(e, q.OnField)}
-			if kind == "vision" {
+			if kind == "vision" || kind == "image-embedding" {
 				// Source the image from the fact's referenced blob (set by the
 				// asset store). Facts without an image (e.g. a PDF's parent doc
 				// fact) are simply skipped.
@@ -128,8 +128,8 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 			}
 			result := map[string]any{}
 			switch kind {
-			case "embedding":
-				result["vector"] = res.Vector
+			case "embedding", "image-embedding":
+				result["vector"] = res.Vector // flows into the vector index
 			case "vision":
 				result = parseVisionResult(res.Text) // {description, tags, fields}
 			default:
@@ -204,6 +204,10 @@ func httpInfer(req InferRequest) (InferResult, error) {
 	var body []byte
 	if req.Kind == "embedding" {
 		body, _ = json.Marshal(map[string]any{"model": req.Model, "input": req.Input})
+	} else if req.Kind == "image-embedding" {
+		// Pluggable image embedder (e.g. a local CLIP server): send the image
+		// bytes; the reply is parsed with the same embedding shapes below.
+		body, _ = json.Marshal(map[string]any{"model": req.Model, "image": req.ImageB64})
 	} else if req.Kind == "vision" {
 		// OpenAI-compatible multimodal message: a text part + an inline image.
 		content := []any{
@@ -234,7 +238,7 @@ func httpInfer(req InferRequest) (InferResult, error) {
 	if resp.StatusCode >= 300 {
 		return InferResult{}, fmt.Errorf("model HTTP %d: %s", resp.StatusCode, truncate(string(raw), 200))
 	}
-	if req.Kind == "embedding" {
+	if req.Kind == "embedding" || req.Kind == "image-embedding" {
 		var oa struct {
 			Data []struct {
 				Embedding []float64 `json:"embedding"`
