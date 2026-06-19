@@ -38,6 +38,13 @@ if %errorlevel%==0 (
   echo (python not found - skipping SDK tests; CI will run them)
 )
 
+REM Stamp the deploy build info (UTC time + this ship message) into the
+REM embedded buildinfo.json so the running server can report when it was
+REM shipped and what was in it (GET /v1/version, dashboard/Studio header).
+echo === stamp build info ==========================================
+powershell -NoProfile -Command "$j=[pscustomobject]@{built=(Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'); desc=$env:MSG} | ConvertTo-Json -Compress; [IO.File]::WriteAllText('internal\api\buildinfo.json',$j)"
+echo   stamped: %MSG%
+
 echo === 3/4  commit ===============================================
 git add -A
 git commit -m "%MSG%"

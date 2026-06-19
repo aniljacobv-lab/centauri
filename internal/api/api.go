@@ -237,7 +237,8 @@ func (s *Server) Routes() http.Handler {
 
 	root := http.NewServeMux()
 	root.Handle("/", s.auth(mux))
-	root.HandleFunc("GET /{$}", s.handleUI)        // the dashboard
+	root.HandleFunc("GET /v1/version", s.handleVersion) // deploy stamp, no auth
+	root.HandleFunc("GET /{$}", s.handleUI)             // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
 	return root

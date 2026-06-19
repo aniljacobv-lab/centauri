@@ -272,6 +272,7 @@ func main() {
 		fmt.Printf("seeded: %+v\n", stats)
 	case "serve":
 		fmt.Print(banner)
+		fmt.Println(api.BuildLine())
 		// The command catalog lives in its own database next to the data
 		// file; the dashboard reads autocomplete from it — suggestions are
 		// data, not code, and cost no AI tokens.

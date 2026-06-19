@@ -151,6 +151,7 @@
     <button onclick="saveToken()">Unlock</button>
   </div>
   <div id="stats"></div>
+  <div id="buildinfo" class="mini" title="When this build was shipped and what was in it (GET /v1/version)" style="opacity:.7"></div>
 </header>
 <div class="toolbar">
   <div class="tgroup"><span class="lbl">Create</span>
@@ -489,6 +490,12 @@ async function verifyIntegrity(){
 }
 
 // ---------------- boot ----------------
+// Show the deploy stamp (no auth needed) so you always know what's running.
+fetch("/v1/version").then(r => r.json()).then(v => {
+  const el = document.getElementById("buildinfo");
+  if (el && v && v.built) el.textContent = "build " + v.built + " · " + (v.desc || "");
+}).catch(() => {});
+
 async function boot(){
   try {
     await loadDatabases();

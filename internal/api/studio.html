@@ -178,6 +178,7 @@
     <span class="stat">events <b id="s-events">–</b></span>
     <span class="stat">subjects <b id="s-subjects">–</b></span>
     <span class="stat">links <b id="s-links">–</b></span>
+    <span class="stat muted small" id="buildinfo" title="When this build was shipped and what was in it (GET /v1/version)"></span>
     <div class="sepv"></div>
     <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
     <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
@@ -377,6 +378,12 @@ function sbar(v){ v=Math.max(0,Math.min(1,+v||0));
   return "<span style='display:inline-block;width:46px;height:7px;background:#1c2535;border-radius:3px;vertical-align:middle'><span style='display:block;height:7px;border-radius:3px;background:var(--accent);width:"+(v*100).toFixed(0)+"%'></span></span>"; }
 
 // ---------------- boot ----------------
+// Deploy stamp (no auth) — shows when this build shipped and what was in it.
+fetch("/v1/version").then(r => r.json()).then(v => {
+  const el = document.getElementById("buildinfo");
+  if (el && v && v.built) el.textContent = "build " + v.built + " · " + (v.desc || "");
+}).catch(() => {});
+
 async function boot(){
   try{
     const st = await apiGet("/v1/stats");
