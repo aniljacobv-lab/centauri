@@ -439,7 +439,9 @@ function openVision(){
   <div style="margin:4px 0">
     <input id="visionmodel" placeholder="vision model name" value="vision" style="width:160px">
     <button onclick="analyzeAssets()">Run ENRICH asset:* USING …</button>
+    <span id="visionanalyze" class="mini" style="margin-left:8px"></span>
   </div>
+  <p class="mini">Needs a running multimodal model (e.g. <b>Ollama</b> with <code>llava</code>) at the endpoint above. PDFs also need <b>poppler</b> (<code>pdftoppm</code>) installed on the server to render pages.</p>
   <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>`);
   document.getElementById("modal").classList.add("wide");
 }
@@ -452,7 +454,12 @@ async function uploadAsset(){
     const q = qsFor({filename:file.name});
     const r = await handle(await fetch("/v1/assets"+(q?"?"+q:""),
       {method:"POST", headers:{"Content-Type": file.type||"application/octet-stream"}, body:file}));
-    if(note) note.textContent = r.subject + (r.kind==="pdf"?(" · "+(r.pages||0)+" page(s)"):"") + (r.render_note?(" — "+r.render_note):"");
+    if(note){
+      let msg = "✓ stored "+r.subject;
+      if(r.kind==="pdf"){ msg += " · "+(r.pages||0)+" page(s) rendered"; if(!r.pages) msg += " (install poppler/pdftoppm on the server to render pages)"; }
+      if(r.render_note) msg += " — "+r.render_note;
+      note.textContent = msg;
+    }
     const pv=document.getElementById("visionpreview");
     if(pv && r.kind==="image" && r.sha256){ const q2=qsFor({}); pv.innerHTML = `<img src="/v1/assets/${esc(r.sha256)}${q2?"?"+q2:""}" style="max-width:100%;max-height:240px;border-radius:6px">`; }
     else if(pv){ pv.innerHTML=""; }
@@ -462,7 +469,7 @@ async function uploadAsset(){
 }
 async function analyzeAssets(){
   const m=(document.getElementById("visionmodel").value||"vision").trim();
-  const note=document.getElementById("visionnote"); if(note) note.textContent="analyzing…";
+  const note=document.getElementById("visionanalyze"); if(note) note.textContent="analyzing…";
   try{
     const r = await execText("ENRICH asset:* USING "+m);
     if(note) note.textContent = r.note || "done";
