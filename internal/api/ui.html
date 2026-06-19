@@ -272,6 +272,10 @@
 let TOKEN = localStorage.getItem("centauri_token") || "";
 let DB = localStorage.getItem("centauri_db") || "";
 let SUBJECTS = [], SELECTED = null, ES = null;
+// Which namespace groups the user has expanded. Persisted so the tree does NOT
+// re-collapse every time you click a subject (renderSubjects rebuilds the DOM).
+let OPEN_NS = (() => { try { return new Set(JSON.parse(localStorage.getItem("centauri_open_ns") || "[]")); } catch { return new Set(); } })();
+function setNSOpen(ns, open){ open ? OPEN_NS.add(ns) : OPEN_NS.delete(ns); localStorage.setItem("centauri_open_ns", JSON.stringify([...OPEN_NS])); }
 
 // ---------------- plumbing ----------------
 function qsFor(params){
@@ -520,14 +524,21 @@ function renderSubjects(){
     groups[ns].push(s);
   }
   order.sort((a, b) => (SYS_NS[a] ? 1 : 0) - (SYS_NS[b] ? 1 : 0) || a.localeCompare(b));
+  const nonSys = order.filter(n => !SYS_NS[n]).length;
   const row = s => `<div class="subj ${s===SELECTED?'sel':''}" onclick="select(${jsAttr(s)})">${esc(s)}</div>`;
   document.getElementById("subjects").innerHTML = order.map(ns => {
     const sys = SYS_NS[ns];
-    const open = !sys && (order.filter(n => !SYS_NS[n]).length <= 6 || f);
-    return `<details class="nsgroup" ${open ? "open" : ""}>
+    // Stay open if: searching, the user expanded it, it holds the selected
+    // subject, or it's a small non-system DB (the old auto-open default).
+    const open = !!f || OPEN_NS.has(ns) || groups[ns].includes(SELECTED) || (!sys && nonSys <= 6);
+    return `<details class="nsgroup" data-ns="${esc(ns)}" ${open ? "open" : ""}>
       <summary>${sys ? "⚙ " : "▸ "}${esc(ns)} <span class="mini">(${groups[ns].length})</span></summary>
       ${groups[ns].slice(0, 200).map(row).join("")}</details>`;
   }).join("");
+  // Remember expand/collapse so it survives the next rebuild + page reloads.
+  document.getElementById("subjects").querySelectorAll("details.nsgroup").forEach(d => {
+    d.addEventListener("toggle", () => setNSOpen(d.dataset.ns, d.open));
+  });
 }
 document.getElementById("search").addEventListener("input", renderSubjects);
 
