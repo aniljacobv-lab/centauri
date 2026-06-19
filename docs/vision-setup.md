@@ -20,9 +20,11 @@ Ollama models. Drop `-install` to just check status and get exact commands.
 
 | OS | What it installs |
 |----|------------------|
-| Windows | `winget install Ollama.Ollama` + `winget install ImageMagick.ImageMagick` |
+| Windows | `winget install Ollama.Ollama` + `ImageMagick.ImageMagick` + `ArtifexSoftware.GhostScript` (ImageMagick needs Ghostscript to read PDFs; **poppler** also works and needs neither) |
 | macOS | `brew install ollama` + `brew install poppler` |
 | Linux | `apt-get install poppler-utils`; Ollama via `curl -fsSL https://ollama.com/install.sh \| sh` |
+
+**Windows PDF gotcha:** don't rely on the bare `convert` command — on Windows that's the built-in System32 *filesystem* tool, not ImageMagick (it'll fail with "exit status 4"). Centauri ignores it and uses `pdftoppm` (poppler) or `magick` (ImageMagick v7 + Ghostscript). Poppler is the simplest: it rasterises PDFs with no extra dependency.
 
 Then:
 

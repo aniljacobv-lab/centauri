@@ -267,6 +267,9 @@ func main() {
 		if _, e := exec.LookPath("ollama"); e != nil {
 			fmt.Println("\nvision (optional): Ollama not detected — run 'centauri setup vision -install' to let an AI read images & PDFs, all local. The dashboard shows a setup banner too.")
 		}
+		if note := syncedFolderNote(*data); note != "" {
+			fmt.Println("\n" + note)
+		}
 		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
 		go func() {
 			time.Sleep(1200 * time.Millisecond)
@@ -999,7 +1002,10 @@ func runSetupVision(install bool) {
 				_ = runStream("winget", "install", "-e", "--id", "Ollama.Ollama", "--silent", "--accept-package-agreements", "--accept-source-agreements")
 			}
 			if rasteriser() == "" {
+				// ImageMagick can't decode PDFs without Ghostscript, so install both.
 				_ = runStream("winget", "install", "-e", "--id", "ImageMagick.ImageMagick", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+				_ = runStream("winget", "install", "-e", "--id", "ArtifexSoftware.GhostScript", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+				fmt.Println("  (after install, open a NEW terminal so PATH updates take effect)")
 			}
 		case "darwin":
 			if have("brew") {
@@ -1023,11 +1029,19 @@ func runSetupVision(install bool) {
 		fmt.Println()
 	}
 
-	// Ollama: pull the models (this also starts the local server).
+	// Ollama: pull the models (this also starts the local server). Pulls only
+	// run with -install; detect mode just reports (so it's a fast, passive
+	// check callers like run-centauri.bat can run on every launch).
 	if have("ollama") {
-		fmt.Println("Ollama found — pulling models (large one-time download; safe to leave running):")
-		_ = runStream("ollama", "pull", "llava")
-		_ = runStream("ollama", "pull", "nomic-embed-text")
+		if install {
+			fmt.Println("Ollama found — pulling models (large one-time download; safe to leave running):")
+			_ = runStream("ollama", "pull", "llava")
+			_ = runStream("ollama", "pull", "nomic-embed-text")
+		} else if modelPulled("llava") {
+			fmt.Println("Ollama found; the 'llava' model is present.")
+		} else {
+			fmt.Println("Ollama found, but the 'llava' model isn't pulled yet.")
+		}
 	} else {
 		fmt.Println("Ollama not found — the vision model server.")
 		switch goos {
@@ -1046,7 +1060,8 @@ func runSetupVision(install bool) {
 		fmt.Println("\nPDF rendering: not available yet (images already work).")
 		switch goos {
 		case "windows":
-			fmt.Println("  Install:  winget install ImageMagick.ImageMagick   (or poppler)")
+			fmt.Println("  Install:  winget install ImageMagick.ImageMagick ArtifexSoftware.GhostScript")
+			fmt.Println("            (ImageMagick needs Ghostscript for PDFs; poppler/pdftoppm also works and needs neither)")
 		case "darwin":
 			fmt.Println("  Install:  brew install poppler")
 		default:
@@ -1058,7 +1073,30 @@ func runSetupVision(install bool) {
 	fmt.Println("  1) start Centauri:   centauri desktop")
 	fmt.Println("  2) open  📎 Vision  →  click 'Register model:vision'")
 	fmt.Println("  3) Upload an image/PDF  →  Run ENRICH  →  SEARCH it")
-	if !have("ollama") || rasteriser() == "" {
-		fmt.Println("\nTip: 'centauri setup vision -install' auto-installs the missing pieces.")
+
+	ready := have("ollama") && modelPulled("llava") && rasteriser() != ""
+	if !ready {
+		if install {
+			// winget/brew just put new tools on PATH that THIS process can't
+			// see yet — a fresh shell is needed to finish (e.g. pull models).
+			fmt.Println("\nIf tools were just installed, open a NEW terminal (or re-run run-centauri.bat) to finish — PATH updates aren't visible to the current session.")
+		} else {
+			fmt.Println("\nTip: 'centauri setup vision -install' installs/pulls whatever's missing.")
+			// Non-zero exit lets run-centauri.bat detect "setup needed" and
+			// offer a one-click install, so users never type the command.
+			os.Exit(1)
+		}
 	}
+}
+
+// modelPulled reports whether an Ollama model has been downloaded.
+func modelPulled(name string) bool {
+	if _, err := exec.LookPath("ollama"); err != nil {
+		return false
+	}
+	out, err := exec.Command("ollama", "list").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), name)
 }

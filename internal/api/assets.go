@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -193,36 +194,51 @@ type pdfPage struct {
 	path string
 }
 
+// rasteriserCandidates is the ordered list of PDF→image tools to try. NOTE:
+// bare "convert" is excluded on Windows — there it collides with the built-in
+// System32 convert.exe (the NTFS filesystem tool), which would "succeed" at
+// finding but fail to render. "magick" (ImageMagick v7) is unambiguous; poppler
+// is preferred because pdftoppm is self-contained (no Ghostscript needed).
+func rasteriserCandidates() []string {
+	if runtime.GOOS == "windows" {
+		return []string{"pdftoppm", "pdftocairo", "magick"}
+	}
+	return []string{"pdftoppm", "pdftocairo", "magick", "convert"}
+}
+
 // renderPDF rasterises each PDF page to <ad>/<sha>-p-<k>.png using whichever
-// external tool is installed (poppler first, then ImageMagick). Returns the
-// pages (numbered positionally) and a human note if rendering was skipped or
-// failed. Shelling out keeps go.mod free of any image/PDF dependency.
+// external tool is installed, trying each in turn. Returns the pages (numbered
+// positionally) and a human note if rendering was skipped or failed. Shelling
+// out keeps go.mod free of any image/PDF dependency.
 func renderPDF(pdfPath, ad, sha string) ([]pdfPage, string) {
 	prefix := filepath.Join(ad, sha+"-p")
-	run := func(tool string, args ...string) error {
-		return exec.Command(tool, args...).Run()
+	lastErr := ""
+	for _, tool := range rasteriserCandidates() {
+		bin := lookExec(tool)
+		if bin == "" {
+			continue
+		}
+		var err error
+		switch tool {
+		case "pdftoppm", "pdftocairo":
+			err = exec.Command(bin, "-png", "-r", "150", pdfPath, prefix).Run()
+		case "magick", "convert":
+			// ImageMagick needs Ghostscript installed to decode PDFs.
+			err = exec.Command(bin, "-density", "150", pdfPath, prefix+"-%d.png").Run()
+		}
+		if err != nil {
+			lastErr = tool + " failed: " + err.Error() + " (ImageMagick needs Ghostscript for PDFs — poppler/pdftoppm doesn't)"
+			continue
+		}
+		if pages := collectPages(ad, sha); len(pages) > 0 {
+			return pages, ""
+		}
+		lastErr = tool + " produced no pages"
 	}
-	switch {
-	case lookExec("pdftoppm") != "":
-		if err := run(lookExec("pdftoppm"), "-png", "-r", "150", pdfPath, prefix); err != nil {
-			return nil, "pdftoppm failed: " + err.Error()
-		}
-	case lookExec("pdftocairo") != "":
-		if err := run(lookExec("pdftocairo"), "-png", "-r", "150", pdfPath, prefix); err != nil {
-			return nil, "pdftocairo failed: " + err.Error()
-		}
-	case lookExec("magick") != "":
-		if err := run(lookExec("magick"), "-density", "150", pdfPath, prefix+"-%d.png"); err != nil {
-			return nil, "magick failed: " + err.Error()
-		}
-	case lookExec("convert") != "":
-		if err := run(lookExec("convert"), "-density", "150", pdfPath, prefix+"-%d.png"); err != nil {
-			return nil, "convert failed: " + err.Error()
-		}
-	default:
-		return nil, "no PDF rasteriser found — install poppler (pdftoppm) or ImageMagick to render pages; the PDF is stored and analysable once a renderer is available"
+	if lastErr != "" {
+		return nil, lastErr
 	}
-	return collectPages(ad, sha), ""
+	return nil, "no PDF rasteriser found — install poppler (pdftoppm), which is self-contained on Windows; the PDF is stored and analysable once a renderer is available"
 }
 
 func lookExec(name string) string {
@@ -233,9 +249,11 @@ func lookExec(name string) string {
 	return p
 }
 
-// detectRasteriser returns the first installed PDF→image tool, or "".
+// detectRasteriser returns the first installed PDF→image tool, or "" (using the
+// same GOOS-aware candidate list as renderPDF, so it never falsely reports
+// Windows's System32 convert.exe as a usable renderer).
 func detectRasteriser() string {
-	for _, t := range []string{"pdftoppm", "pdftocairo", "magick", "convert"} {
+	for _, t := range rasteriserCandidates() {
 		if lookExec(t) != "" {
 			return t
 		}
