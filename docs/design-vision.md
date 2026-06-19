@@ -104,9 +104,16 @@ drives it) without a *Go module* dependency.
 ## What the MVP includes / defers
 
 **Includes:** asset store + `/v1/assets` upload & fetch; PDF→page rendering via
-external tool; the `vision` model kind in ENRICH (image sourcing, structured
-parse, `embed_with`); searchability via the existing vector/BM25 paths; a Studio
-upload-and-analyse control; tests with a stubbed `Infer`.
+external tool; the `vision` and `image-embedding` model kinds in ENRICH (image
+sourcing, structured parse, `embed_with`); searchability via the existing
+vector/BM25 paths; Studio + Dashboard upload-and-analyse controls with a
+one-click "Register model:vision" button; a readiness probe (`/v1/vision/status`)
+with a dashboard banner; a `centauri setup vision [-install]` command that
+installs missing prerequisites via the OS package manager and pulls the models;
+**integrated Ollama lifecycle** — `centauri desktop` auto-starts a local Ollama
+when one isn't running and stops the one it started on exit (`-ollama=false` to
+opt out); `run-centauri.bat` ties install + lifecycle into one double-click;
+tests with a stubbed `Infer`.
 
 **Defers:** native image (CLIP) embeddings (we embed the text description for
 now); auto-tiling huge drawings into regions for fine detail; OCR as a separate

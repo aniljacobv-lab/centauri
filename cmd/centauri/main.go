@@ -44,6 +44,11 @@ import (
 // apiSrv lets the shutdown path close named environments opened at runtime.
 var apiSrv *api.Server
 
+// managedOllama is a local Ollama process that THIS Centauri started (because
+// it wasn't already running). We stop it on exit; an Ollama the user was
+// already running is never touched.
+var managedOllama *os.Process
+
 const banner = `
   ___  ____  _  _  ____  __    _  _  ____  __
  / __)(  __)( \( )(_  _)/ _\  / )( \(  _ \(  )
@@ -74,6 +79,7 @@ func main() {
 	interval := fs.Duration("interval", 2*time.Second, "poll interval (follow)")
 	lazy := fs.Bool("lazy", false, "keep event payloads on disk instead of RAM (serve/desktop; lets data exceed RAM)")
 	install := fs.Bool("install", false, "with 'setup vision': install missing prerequisites via your OS package manager")
+	manageOllama := fs.Bool("ollama", true, "desktop: auto-start a local Ollama if one isn't running, and stop it on exit (only the one we start)")
 	_ = fs.Parse(os.Args[2:])
 	*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
 
@@ -225,6 +231,9 @@ func main() {
 			apiSrv.Close() // named environments
 		}
 		_ = st.Close()
+		if managedOllama != nil {
+			_ = managedOllama.Kill() // stop only the Ollama we started
+		}
 		os.Exit(0)
 	}()
 
@@ -266,6 +275,8 @@ func main() {
 		fmt.Printf("studio:     http://localhost%s/studio  (the AI-first IDE)\n", *addr)
 		if _, e := exec.LookPath("ollama"); e != nil {
 			fmt.Println("\nvision (optional): Ollama not detected — run 'centauri setup vision -install' to let an AI read images & PDFs, all local. The dashboard shows a setup banner too.")
+		} else if *manageOllama {
+			managedOllama = ensureOllama() // start it if it isn't running; we'll stop it on exit
 		}
 		if note := syncedFolderNote(*data); note != "" {
 			fmt.Println("\n" + note)
@@ -921,6 +932,7 @@ Common flags
   -addr <:port>   listen address (serve)     (default :7771)
   -token <tok>    HTTP API bearer token      (or set $CENTAURI_TOKEN)
   -lazy           keep payloads on disk so data can exceed RAM (serve/desktop)
+  -ollama         desktop: auto-start a local Ollama & stop it on exit (default on)
   -format <fmt>   table | csv | jsonl | json | yaml | plain (export)
   -to <file>      output file ('-' or omitted = stdout)  (export/backup/merge)
 
@@ -963,6 +975,37 @@ func syncedFolderNote(p string) string {
 		}
 	}
 	return ""
+}
+
+// ollamaUp reports whether a local Ollama is already answering on its port.
+func ollamaUp() bool {
+	resp, err := (&http.Client{Timeout: 500 * time.Millisecond}).Get("http://localhost:11434")
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return true
+}
+
+// ensureOllama makes a local Ollama available for vision, the integrated-package
+// way: if one is already running we use it as-is (and return nil, so we never
+// stop someone else's). If not, and the binary is installed, we start
+// `ollama serve` as a child and return its process so the caller can stop it on
+// exit. If Ollama isn't installed we just point the user at setup.
+func ensureOllama() *os.Process {
+	if ollamaUp() {
+		fmt.Println("vision: using the Ollama already running on :11434.")
+		return nil
+	}
+	cmd := exec.Command("ollama", "serve")
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("vision: couldn't start Ollama (%v) — start it yourself with 'ollama serve'.\n", err)
+		return nil
+	}
+	// Don't block server startup waiting for it; Ollama warms up in parallel
+	// and is ready well before the first ENRICH.
+	fmt.Println("vision: started a local Ollama — it will stop when you close Centauri.")
+	return cmd.Process
 }
 
 // runStream runs a command, echoing it and streaming its output, so the user

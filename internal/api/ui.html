@@ -495,7 +495,9 @@ async function analyzeAssets(){
   const note=document.getElementById("visionanalyze"); if(note) note.textContent="analyzing…";
   try{
     const r = await execText("ENRICH asset:* USING "+m);
-    if(note) note.textContent = r.note || "done";
+    let msg = r.note || "done";
+    if(r.errors && r.errors.length) msg += " — "+r.errors[0];
+    if(note) note.textContent = msg;
     toast("Vision: "+(r.note||"enriched"));
   }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
 }

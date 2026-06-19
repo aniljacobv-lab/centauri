@@ -26,6 +26,8 @@ centauri serve
 
 Open **http://localhost:7771** — the dashboard, guided tour, and CeQL textbook (`/ceql`) are inside the binary. Click **🏗 Build my database**, describe what you're building, answer a few questions, done.
 
+On Windows, double-click **`run-centauri.bat`** for the full desktop experience: it builds, stores your data in your profile, opens the dashboard, and (with your permission) sets up local AI **Vision** — see below. Or run `centauri desktop` directly.
+
 Or build from source (Go 1.22+):
 
 ```
@@ -33,17 +35,25 @@ go build -o centauri ./cmd/centauri
 ./centauri seed && ./centauri serve
 ```
 
+### Vision — let an AI read your files, locally
+
+Upload an image or PDF (e.g. an electrical drawing); a local vision model describes it and embeds it into Centauri's vector index — searchable, no Firestore, no external object store. It runs entirely on your machine via [Ollama](https://ollama.com). `centauri setup vision -install` installs the prerequisites and pulls the models; `centauri desktop` then auto-starts Ollama and stops it on exit. Details: [`docs/vision-setup.md`](docs/vision-setup.md).
+
 Python: see [`sdk/python`](sdk/python) — zero dependencies, three lines to your first fact.
 
 ## Commands
 
 ```
-centauri serve    HTTP/JSON API + dashboard (+ -token, -read-token)
-centauri mcp      Model Context Protocol server for AI agents
-centauri follow   live read-only replica of a primary
-centauri backup   consistent snapshot, chain-verified
-centauri verify   prove history is byte-for-byte intact
-centauri seed     synthetic retail demo data
+centauri desktop       local app: profile data, opens the dashboard, manages Ollama
+centauri serve         HTTP/JSON API + dashboard (+ -token, -read-token)
+centauri setup vision  install/start local AI prerequisites (Ollama + PDF renderer)
+centauri mcp           Model Context Protocol server for AI agents
+centauri follow        live read-only replica of a primary
+centauri sync          bidirectional, echo-safe sync between writable replicas
+centauri demo          seed | clear a curated multi-domain example database
+centauri backup        consistent snapshot, chain-verified
+centauri verify        prove history is byte-for-byte intact
+centauri seed          synthetic retail demo data
 ```
 
 ## Contributing — humans and AI together
