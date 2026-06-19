@@ -430,11 +430,14 @@ function openVision(){
   </div>
   <div id="visionpreview" style="margin:8px 0"></div>
   <h3 style="margin:12px 0 4px">1) Register a local vision model <span class="mini">(once)</span></h3>
-  <pre style="white-space:pre-wrap">PUT model:vision FACET config SET
-  endpoint='http://localhost:11434/v1/chat/completions',
-  kind='vision', model='llava',
-  prompt='Return JSON {"description":"","tags":[],"fields":{}} describing this drawing.',
-  embed_with='nomic'</pre>
+  <div style="margin:4px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    <label class="mini">endpoint</label><input id="vmep" value="http://localhost:11434/v1/chat/completions" style="width:300px">
+    <label class="mini">vision model</label><input id="vmmodel" value="llava" style="width:80px">
+    <label class="mini">embedder</label><input id="vmembed" value="nomic-embed-text" style="width:130px" title="leave blank to skip embedding">
+    <button class="primary" onclick="registerVision()">Register model:vision</button>
+    <span id="vmreg" class="mini"></span>
+  </div>
+  <p class="mini">Defaults target <b>Ollama</b> (<code>ollama pull llava</code>). One click writes <code>model:vision</code> (and an embedder) as facts — edit the fields for a different local server.</p>
   <h3 style="margin:12px 0 4px">2) Analyze + index</h3>
   <div style="margin:4px 0">
     <input id="visionmodel" placeholder="vision model name" value="vision" style="width:160px">
@@ -465,6 +468,25 @@ async function uploadAsset(){
     else if(pv){ pv.innerHTML=""; }
     boot();
     toast("Stored "+(r.subject||"asset"));
+  }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
+}
+async function registerVision(){
+  const ep=(document.getElementById("vmep").value||"http://localhost:11434/v1/chat/completions").trim();
+  const vm=(document.getElementById("vmmodel").value||"llava").trim();
+  const emb=(document.getElementById("vmembed").value||"").trim();
+  const note=document.getElementById("vmreg"); if(note) note.textContent="registering…";
+  try{
+    const prompt="Return JSON {\"description\":\"\",\"tags\":[],\"fields\":{}} describing this image.";
+    let put="PUT model:vision FACET config SET endpoint='"+ep+"', kind='vision', model='"+vm+"', prompt='"+prompt+"'";
+    if(emb) put+=", embed_with='visemb'";
+    await execText(put);
+    if(emb){
+      const eep=ep.replace("/chat/completions","/embeddings");
+      await execText("PUT model:visemb FACET config SET endpoint='"+eep+"', kind='embedding', model='"+emb+"'");
+    }
+    if(note) note.textContent="✓ registered model:vision"+(emb?" + embedder visemb":"");
+    toast("Registered model:vision");
+    boot();
   }catch(e){ if(note) note.textContent="✗ "+e.message; toast(e.message,true); }
 }
 async function analyzeAssets(){
