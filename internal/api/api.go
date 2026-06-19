@@ -204,6 +204,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/databases", s.write(s.handleCreateDB))
 	mux.HandleFunc("POST /v1/demo/seed", s.write(s.handleDemoSeed))
 	mux.HandleFunc("POST /v1/demo/clear", s.write(s.handleDemoClear))
+	mux.HandleFunc("POST /v1/assets", s.write(s.handleAssetUpload))
+	mux.HandleFunc("GET /v1/assets/{sha}", s.handleAssetGet)
 
 	mux.HandleFunc("GET /v1/databases", s.handleListDBs)
 	mux.HandleFunc("GET /v1/integrity", s.handleIntegrity)

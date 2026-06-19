@@ -183,6 +183,7 @@
     <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
     <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
     <button class="ghost" onclick="openDemo()" title="Load a guided example dataset">🎲 Demo data</button>
+    <button class="ghost" onclick="openVision()" title="Upload an image or PDF for an AI to inspect (stored locally + vectorized)">📎 Vision</button>
     <button class="ghost" onclick="openToken()" title="API token">🔑</button>
     <a href="/" title="Classic dashboard"><button class="ghost">▦ Dashboard</button></a>
     <a href="/ceql" title="CeQL textbook"><button class="ghost">📖 Book</button></a>
@@ -328,6 +329,29 @@ END
   <p class="muted small">"Clear" drops the entire <code>demo</code> database file — consistent with Centauri's "nothing is ever erased" (that rule protects facts inside a live log, not a disposable example database).</p>
   <div id="demosug"></div>
   <div style="margin-top:12px;text-align:right"><button class="primary" onclick="closeModal('demomodal')">Close</button></div>
+</div></div></div>
+
+<div class="modal-bg" id="visionmodal"><div class="modal" style="width:680px"><h3>📎 Vision — let an AI see your files</h3><div class="body">
+  <p class="muted small">Upload an image or PDF (e.g. an electrical drawing). Centauri stores the blob <b>locally</b> (content-addressed, not in the log), renders PDF pages, then a <b>vision model</b> you register describes it and embeds it into the vector index — searchable with no external store.</p>
+  <div style="margin:10px 0">
+    <input type="file" id="visionfile" accept="image/*,application/pdf">
+    <button class="primary" onclick="uploadAsset()">Upload</button>
+    <span id="visionnote" class="muted small" style="margin-left:8px"></span>
+  </div>
+  <div id="visionpreview" style="margin:8px 0"></div>
+  <div class="kv" style="margin:10px 0 2px"><b>1) Register a local vision model</b> <span class="muted small">(once)</span></div>
+  <pre class="kv" style="white-space:pre-wrap">PUT model:vision FACET config SET
+  endpoint='http://localhost:11434/v1/chat/completions',
+  kind='vision', model='llava',
+  prompt='Return JSON {"description":"","tags":[],"fields":{}} describing this drawing.',
+  embed_with='nomic'</pre>
+  <div class="kv" style="margin:10px 0 2px"><b>2) Analyze + index</b></div>
+  <div style="margin:4px 0">
+    <input id="visionmodel" placeholder="vision model name" value="vision" style="width:160px">
+    <button class="ghost" onclick="analyzeAssets()">Run ENRICH asset:* USING …</button>
+  </div>
+  <p class="muted small">Then search them: <span class="mono">SEARCH 'E-3 200A panel'</span> · <span class="mono">FACTS OF asset:*</span> · <span class="mono">SIMILAR TO &lt;asset&gt;</span></p>
+  <div style="margin-top:12px;text-align:right"><button class="primary" onclick="closeModal('visionmodal')">Close</button></div>
 </div></div></div>
 
 <div class="toast" id="toast"></div>
@@ -810,6 +834,32 @@ function palPick(i){ const p=PAL[i]; if(!p) return; closeModal("palmodal"); runI
 // ---------------- token / modals ----------------
 function openConnect(){ document.getElementById("connectmodal").classList.add("on"); }
 function openDemo(){ document.getElementById("demonote").textContent=""; document.getElementById("demomodal").classList.add("on"); }
+function openVision(){ document.getElementById("visionnote").textContent=""; document.getElementById("visionpreview").innerHTML=""; document.getElementById("visionmodal").classList.add("on"); }
+let LAST_ASSET = "";
+async function uploadAsset(){
+  const inp=document.getElementById("visionfile"); const note=document.getElementById("visionnote");
+  const file = inp.files && inp.files[0];
+  if(!file){ note.textContent="pick a file first"; return; }
+  note.textContent="uploading "+file.name+"…";
+  try{
+    const r = await handle(await fetch("/v1/assets"+qs({filename:file.name}),
+      {method:"POST", headers:{"Content-Type": file.type||"application/octet-stream"}, body:file}));
+    LAST_ASSET = r.subject || "";
+    note.textContent = r.subject + (r.kind==="pdf" ? (" · "+(r.pages||0)+" page(s)") : "") + (r.render_note ? (" — "+r.render_note) : "");
+    // preview images inline
+    if(r.kind==="image" && r.sha256){
+      document.getElementById("visionpreview").innerHTML =
+        `<img src="/v1/assets/${esc(r.sha256)}${qs()}" style="max-width:100%;max-height:240px;border:1px solid var(--faint);border-radius:6px">`;
+    } else { document.getElementById("visionpreview").innerHTML=""; }
+    await boot(); // refresh subject list
+    toast("Stored "+(r.subject||"asset"));
+  }catch(e){ note.textContent="✗ "+e.message; }
+}
+function analyzeAssets(){
+  const m=(document.getElementById("visionmodel").value||"vision").trim();
+  runInto("ENRICH asset:* USING "+m);
+  closeModal('visionmodal');
+}
 async function seedDemo(){
   const note=document.getElementById("demonote"); note.textContent="seeding…";
   try{

@@ -19,6 +19,7 @@ package ceql
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,9 +34,11 @@ import (
 )
 
 // InferRequest is one model call. InferResult carries either a Vector
-// (embedding) or Text (chat/completion), depending on the model kind.
+// (embedding) or Text (chat/completion/vision), depending on the model kind.
+// For kind "vision", ImageB64/ImageMime carry the image the model should see.
 type InferRequest struct {
 	Endpoint, Kind, Model, Prompt, AuthToken, Input string
+	ImageB64, ImageMime                             string
 }
 type InferResult struct {
 	Vector []float32
@@ -97,16 +100,39 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 				cached++
 				continue // cached inference — the whole point of storing it
 			}
-			res, err := Infer(InferRequest{Endpoint: endpoint, Kind: kind, Model: modelID,
-				Prompt: prompt, AuthToken: token, Input: enrichInput(e, q.OnField)})
+			req := InferRequest{Endpoint: endpoint, Kind: kind, Model: modelID,
+				Prompt: prompt, AuthToken: token, Input: enrichInput(e, q.OnField)}
+			if kind == "vision" {
+				// Source the image from the fact's referenced blob (set by the
+				// asset store). Facts without an image (e.g. a PDF's parent doc
+				// fact) are simply skipped.
+				path, _ := e.Value["image_path"].(string)
+				if path == "" {
+					continue
+				}
+				img, rerr := os.ReadFile(path)
+				if rerr != nil {
+					errs = append(errs, e.Subject+": read image: "+rerr.Error())
+					continue
+				}
+				req.Input = "" // the prompt carries the instruction; the image is the input
+				req.ImageB64 = base64.StdEncoding.EncodeToString(img)
+				if req.ImageMime, _ = e.Value["mime"].(string); req.ImageMime == "" {
+					req.ImageMime = "image/png"
+				}
+			}
+			res, err := Infer(req)
 			if err != nil {
 				errs = append(errs, e.Subject+": "+err.Error())
 				continue
 			}
 			result := map[string]any{}
-			if kind == "embedding" {
+			switch kind {
+			case "embedding":
 				result["vector"] = res.Vector
-			} else {
+			case "vision":
+				result = parseVisionResult(res.Text) // {description, tags, fields}
+			default:
 				result["text"] = res.Text
 			}
 			en := &model.Enrichment{TargetEvent: e.EventID, Kind: outKind, ModelID: q.Using,
@@ -116,6 +142,17 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 				continue
 			}
 			enriched++
+			// Vision models may name an embedder (embed_with) so the description
+			// flows into the vector index and SIMILAR/SEARCH work immediately.
+			if kind == "vision" {
+				if emb, _ := cfg["embed_with"].(string); emb != "" {
+					if desc, _ := result["description"].(string); desc != "" {
+						if err := embedText(st, emb, desc, e.EventID, now); err != nil {
+							errs = append(errs, e.Subject+": embed: "+err.Error())
+						}
+					}
+				}
+			}
 		}
 		if done >= limit {
 			break
@@ -167,6 +204,15 @@ func httpInfer(req InferRequest) (InferResult, error) {
 	var body []byte
 	if req.Kind == "embedding" {
 		body, _ = json.Marshal(map[string]any{"model": req.Model, "input": req.Input})
+	} else if req.Kind == "vision" {
+		// OpenAI-compatible multimodal message: a text part + an inline image.
+		content := []any{
+			map[string]any{"type": "text", "text": strings.TrimSpace(req.Prompt + "\n" + req.Input)},
+			map[string]any{"type": "image_url",
+				"image_url": map[string]any{"url": "data:" + req.ImageMime + ";base64," + req.ImageB64}},
+		}
+		body, _ = json.Marshal(map[string]any{"model": req.Model,
+			"messages": []map[string]any{{"role": "user", "content": content}}})
 	} else {
 		body, _ = json.Marshal(map[string]any{"model": req.Model,
 			"messages": []map[string]string{{"role": "user", "content": strings.TrimSpace(req.Prompt + "\n" + req.Input)}}})
@@ -237,4 +283,56 @@ func truncate(s string, n int) string {
 		return s[:n]
 	}
 	return s
+}
+
+// parseVisionResult turns a vision model's reply into a structured result.
+// It tolerates ```json fences and falls back to a plain description when the
+// reply isn't JSON, always guaranteeing a "description" field for search.
+func parseVisionResult(text string) map[string]any {
+	s := strings.TrimSpace(text)
+	if strings.HasPrefix(s, "```") {
+		s = strings.TrimPrefix(s, "```")
+		s = strings.TrimPrefix(s, "json")
+		if i := strings.LastIndex(s, "```"); i >= 0 {
+			s = s[:i]
+		}
+		s = strings.TrimSpace(s)
+	}
+	var m map[string]any
+	if json.Unmarshal([]byte(s), &m) == nil && m != nil {
+		if _, ok := m["description"].(string); !ok {
+			m["description"] = strings.TrimSpace(text)
+		}
+		return m
+	}
+	return map[string]any{"description": strings.TrimSpace(text)}
+}
+
+// embedText embeds text with a registered embedder model and stores the vector
+// as an embedding enrichment on eventID — so vision descriptions become
+// SIMILAR/SEARCH-able with no extra pipeline.
+func embedText(st *store.Store, modelName, text, eventID string, now int64) error {
+	cur := st.Current("model:"+modelName, "config")
+	if len(cur) == 0 {
+		return fmt.Errorf("no embedder %q", modelName)
+	}
+	cfg := cur[0].Value
+	endpoint, _ := cfg["endpoint"].(string)
+	if endpoint == "" {
+		return fmt.Errorf("embedder %q missing endpoint", modelName)
+	}
+	var token string
+	if env, _ := cfg["auth_env"].(string); env != "" {
+		token = os.Getenv(env)
+	}
+	mid, _ := cfg["model"].(string)
+	res, err := Infer(InferRequest{Endpoint: endpoint, Kind: "embedding", Model: mid, AuthToken: token, Input: text})
+	if err != nil {
+		return err
+	}
+	if len(res.Vector) == 0 {
+		return fmt.Errorf("embedder returned no vector")
+	}
+	return st.AddEnrichment(&model.Enrichment{TargetEvent: eventID, Kind: model.EmbeddingKind,
+		ModelID: modelName, Result: map[string]any{"vector": res.Vector}, Confidence: 1.0, CreatedAt: now})
 }
