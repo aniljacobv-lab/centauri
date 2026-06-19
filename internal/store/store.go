@@ -297,6 +297,8 @@ func (s *Store) replay(f *os.File, start int64) (int64, error) {
 			}
 		}
 		if len(line) > 0 && line[len(line)-1] == '\n' {
+			// Read-side mirror of writeApplyNotify: apply-then-chainExtend over
+			// the exact on-disk bytes reproduces the writers' chain (invariant 4).
 			s.chainExtend(line) // tamper-evidence chain covers every kept line
 		}
 		off += int64(len(line))
@@ -475,7 +477,22 @@ func (s *Store) commit(recs []*record) error {
 		buf.Write(b)
 		buf.WriteByte('\n')
 	}
-	if _, err := s.f.Write(buf.Bytes()); err != nil {
+	return s.writeApplyNotify(buf.Bytes(), recs)
+}
+
+// writeApplyNotify is the single durable-write path shared by commit and
+// IngestRaw. `data` MUST be the complete, newline-terminated log line(s) whose
+// parsed records are `recs`. It writes the bytes, fsyncs (unless NoSync),
+// advances the tamper-evidence hash chain over the EXACT bytes written, then
+// applies the records to the in-memory index and notifies watchers — in that
+// order (write-then-apply; chain over committed bytes). Routing both writers
+// through here is what keeps invariant 4 (the chain covers every committed line
+// identically across commit and IngestRaw) true by construction. The replay
+// path (see replay) is the read-side mirror: it does not write or fsync, but
+// applies then chainExtends the same on-disk bytes, reproducing this chain.
+// Caller holds s.mu (write).
+func (s *Store) writeApplyNotify(data []byte, recs []*record) error {
+	if _, err := s.f.Write(data); err != nil {
 		s.rollback()
 		return fmt.Errorf("store: write: %w", err)
 	}
@@ -485,8 +502,8 @@ func (s *Store) commit(recs []*record) error {
 			return fmt.Errorf("store: fsync: %w", err)
 		}
 	}
-	s.size += int64(buf.Len())
-	s.chainExtendBuf(buf.Bytes())
+	s.size += int64(len(data))
+	s.chainExtendBuf(data)
 	for _, r := range recs {
 		s.apply(r)
 	}
@@ -716,7 +733,9 @@ func (s *Store) hydrate(e *model.Event) *model.Event {
 	return &cp
 }
 
-// hydrateAll hydrates a slice in place-returning a new slice.
+// hydrateAll hydrates a slice in place-returning a new slice. Caller holds
+// s.mu (this performs disk I/O under the lock when LazyPayloads is on; used by
+// internal callers that already hold the lock and inspect values inline).
 func (s *Store) hydrateAll(evs []*model.Event) []*model.Event {
 	if !s.opts.LazyPayloads {
 		return evs
@@ -727,17 +746,63 @@ func (s *Store) hydrateAll(evs []*model.Event) []*model.Event {
 	return evs
 }
 
-func (s *Store) Current(subject, facet string) []*model.Event {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var out []*model.Event
-	if facet != "" {
-		if id, ok := s.open[key(subject, facet)]; ok {
-			out = append(out, s.events[id])
-		}
-		return s.hydrateAll(out)
+// hydrateAllSafe hydrates lazy stubs WITHOUT holding s.mu across the disk read,
+// so a slow ReadAt can't stall writers (which need the exclusive lock). The
+// caller must NOT hold s.mu. It briefly RLocks only to (a) snapshot each
+// event's payload offset and (b) copy the event struct — the copy under lock
+// avoids racing the post-append ActivationTime/SupersededBy mutations in
+// apply(); the payload bytes on disk are immutable, so reading them off-lock is
+// safe. Used by the hot read paths (Current/AsOf/History).
+func (s *Store) hydrateAllSafe(evs []*model.Event) []*model.Event {
+	if !s.opts.LazyPayloads {
+		return evs
 	}
-	return s.currentLocked(subject)
+	type job struct {
+		idx      int
+		off, ln  int64
+		cp       *model.Event
+	}
+	var jobs []job
+	s.mu.RLock()
+	f := s.f
+	for i, e := range evs {
+		if e == nil || e.Value != nil {
+			continue
+		}
+		if pos, ok := s.offsets[e.EventID]; ok && f != nil {
+			cp := *e
+			jobs = append(jobs, job{idx: i, off: pos[0], ln: pos[1], cp: &cp})
+		}
+	}
+	s.mu.RUnlock()
+	for _, j := range jobs {
+		buf := make([]byte, j.ln)
+		if _, err := f.ReadAt(buf, j.off); err != nil {
+			continue // best effort: metadata copy is still valid
+		}
+		var r record
+		if json.Unmarshal(bytes.TrimSpace(buf), &r) == nil && r.Event != nil {
+			j.cp.Value = r.Event.Value
+			evs[j.idx] = j.cp
+		}
+	}
+	return evs
+}
+
+func (s *Store) Current(subject, facet string) []*model.Event {
+	raw := func() []*model.Event {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		if facet != "" {
+			var out []*model.Event
+			if id, ok := s.open[key(subject, facet)]; ok {
+				out = append(out, s.events[id])
+			}
+			return out
+		}
+		return s.currentLocked(subject)
+	}()
+	return s.hydrateAllSafe(raw) // disk read (lazy) happens off-lock
 }
 
 // AsOf answers the bi-temporal point query: for each facet of subject,
@@ -752,9 +817,12 @@ func (s *Store) Current(subject, facet string) []*model.Event {
 // superseding event qualifies. The simple max-effective rule below is
 // equivalent for single-timeline facets.
 func (s *Store) AsOf(subject, facet string, effectiveAt, knownAt int64) []*model.Event {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.asOfLocked(subject, facet, effectiveAt, knownAt)
+	raw := func() []*model.Event {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		return s.asOfLocked(subject, facet, effectiveAt, knownAt)
+	}()
+	return s.hydrateAllSafe(raw) // disk read (lazy) happens off-lock
 }
 
 func (s *Store) asOfLocked(subject, facet string, effectiveAt, knownAt int64) []*model.Event {
@@ -782,21 +850,35 @@ func (s *Store) asOfLocked(subject, facet string, effectiveAt, knownAt int64) []
 			out = append(out, best)
 		}
 	}
-	return s.hydrateAll(out)
+	return out // RAW; callers hydrate (AsOf off-lock, Context under lock)
 }
 
 // History returns the full ordered event timeline for subject/facet.
 func (s *Store) History(subject, facet string) []*model.Event {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var out []*model.Event
-	for _, fc := range s.facetsFor(subject, facet) {
-		for _, id := range s.bySubjectFacet[key(subject, fc)] {
-			out = append(out, s.events[id])
+	return s.HistoryN(subject, facet, 0)
+}
+
+// HistoryN is History capped to the most recent `limit` events (limit<=0 =
+// unlimited), in ascending effective-time order. The cap bounds memory and
+// lock-hold time for subjects with very long histories; for streaming an
+// entire large history prefer CDC (/v1/changes) over materializing it here.
+func (s *Store) HistoryN(subject, facet string, limit int) []*model.Event {
+	raw := func() []*model.Event {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		var out []*model.Event
+		for _, fc := range s.facetsFor(subject, facet) {
+			for _, id := range s.bySubjectFacet[key(subject, fc)] {
+				out = append(out, s.events[id])
+			}
 		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].EffectiveTime < out[j].EffectiveTime })
-	return s.hydrateAll(out)
+		sort.Slice(out, func(i, j int) bool { return out[i].EffectiveTime < out[j].EffectiveTime })
+		if limit > 0 && len(out) > limit {
+			out = out[len(out)-limit:] // keep the most recent `limit`
+		}
+		return out
+	}()
+	return s.hydrateAllSafe(raw) // disk read (lazy) happens off-lock
 }
 
 // Pending returns distributed-but-unactivated events on a facet older
@@ -822,7 +904,7 @@ func (s *Store) Disagreements(field string) map[string][]*model.Event {
 	defer s.mu.RUnlock()
 	out := map[string][]*model.Event{}
 	for subject := range s.subjects {
-		evs := s.currentLocked(subject)
+		evs := s.hydrateAll(s.currentLocked(subject)) // values needed inline
 		vals := map[string]bool{}
 		for _, e := range evs {
 			if v, ok := e.Value[field]; ok {
@@ -836,6 +918,9 @@ func (s *Store) Disagreements(field string) map[string][]*model.Event {
 	return out
 }
 
+// currentLocked returns RAW (un-hydrated) open events; the caller hydrates
+// (Current/AsOf do so off-lock; callers that read values inline — Disagreements,
+// Context — hydrate under the lock they already hold).
 func (s *Store) currentLocked(subject string) []*model.Event {
 	var out []*model.Event
 	for f := range s.subjectFacets[subject] {
@@ -844,7 +929,7 @@ func (s *Store) currentLocked(subject string) []*model.Event {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Facet < out[j].Facet })
-	return s.hydrateAll(out)
+	return out
 }
 
 // TraceNode is one hop in a causal walk.

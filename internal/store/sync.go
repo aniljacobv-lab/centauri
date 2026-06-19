@@ -19,6 +19,13 @@ import (
 //
 // Convergent for disjoint or single-origin subjects; multi-master writes to
 // the SAME subject need the deterministic current-fact rule (design-sync.md).
+//
+// LOCK DISCIPLINE: IngestForeign assumes the CALLER holds the process-level
+// single-writer file lock (see cmd/centauri syncPeer / follow, which run
+// against a store opened with Options{Lock:true}). It snapshots existing ids
+// under a brief RLock, releases it, then calls IngestRaw (which re-acquires the
+// write lock). That snapshot→unlock→write gap is only safe because no other
+// writer exists; do NOT call IngestForeign from a context without that lock.
 func (s *Store) IngestForeign(events []*model.Event) (int, error) {
 	s.mu.RLock()
 	var buf bytes.Buffer

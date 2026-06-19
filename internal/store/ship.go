@@ -104,31 +104,7 @@ func (s *Store) IngestRaw(b []byte) error {
 		}
 		recs = append(recs, &r)
 	}
-	if _, err := s.f.Write(b); err != nil {
-		s.rollback()
-		return fmt.Errorf("ingest: write: %w", err)
-	}
-	if !s.opts.NoSync {
-		if err := s.f.Sync(); err != nil {
-			s.rollback()
-			return fmt.Errorf("ingest: fsync: %w", err)
-		}
-	}
-	s.size += int64(len(b))
-	s.chainExtendBuf(b) // identical bytes ⇒ identical chain as the primary
-	for _, r := range recs {
-		s.apply(r)
-	}
-	for _, r := range recs {
-		if r.Event == nil {
-			continue
-		}
-		for _, ch := range s.subs {
-			select {
-			case ch <- r.Event:
-			default:
-			}
-		}
-	}
-	return nil
+	// Same durable-write path as commit (write→fsync→chain→apply→notify);
+	// identical bytes ⇒ identical chain as the primary.
+	return s.writeApplyNotify(b, recs)
 }

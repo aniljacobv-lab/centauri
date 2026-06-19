@@ -159,7 +159,7 @@ func main() {
 		demoPath := filepath.Join(filepath.Dir(*data), "demo.log")
 		switch fs.Arg(0) {
 		case "seed":
-			dst, err := store.OpenOptions(demoPath, store.Options{NoSync: true})
+			dst, err := store.OpenOptions(demoPath, store.Options{NoSync: true, Lock: true})
 			if err != nil {
 				log.Fatalf("demo: %v", err)
 			}

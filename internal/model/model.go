@@ -3,9 +3,15 @@
 // Centauri's atom is not a row but an Event: a fact that knows when it
 // became true (EffectiveTime), when the system learned it (RecordedTime),
 // which facet of reality it belongs to, what caused it, where it came
-// from, and how much it can be trusted. Events are immutable once
-// appended; the only fields ever set after append are SupersededBy and
-// EffectiveEnd, written exactly once by the supersession logic.
+// from, and how much it can be trusted.
+//
+// Events are immutable once appended, with three documented exceptions —
+// lifecycle bits set under the store lock by store.apply() and never part of
+// the durable fact's identity or payload: SupersededBy and EffectiveEnd
+// (written once when a later fact supersedes this one) and ActivationTime
+// (written once when a DISTRIBUTED fact is activated). Query paths return the
+// shared *Event pointer, so a caller holding one may observe these fields flip
+// after a concurrent Activate/supersede; re-query if you need a stable view.
 package model
 
 import (

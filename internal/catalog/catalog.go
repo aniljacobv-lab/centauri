@@ -327,7 +327,7 @@ func SeedIfEmpty(dataPath string, now int64) (int, error) {
 	if idx >= 0 {
 		base = dir[:idx+1] + "ceql-catalog.log"
 	}
-	st, err := store.Open(base)
+	st, err := store.OpenOptions(base, store.Options{Lock: true})
 	if err != nil {
 		return 0, err
 	}

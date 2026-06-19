@@ -56,6 +56,16 @@ func TestSeedPlantsEveryCapability(t *testing.T) {
 	if len(rc) != 1 || rc[0].Value["retired"] != true {
 		t.Fatalf("CANDLE-OLD current = %#v, want retired:true", rc)
 	}
+
+	// Merchandise × location grain: at least 20 item-location rows, and a grain
+	// fact carries BOTH hierarchies so it rolls up either way.
+	if r.Stats["itemloc_rows"] < 20 {
+		t.Fatalf("itemloc_rows = %d, want >= 20", r.Stats["itemloc_rows"])
+	}
+	g := st.Current("sku:DRESS-101-RED-M/store:4001", "perf")
+	if len(g) != 1 || g[0].Value["department"] != "Womens Apparel" || g[0].Value["region"] != "West" {
+		t.Fatalf("grain fact = %#v, want department+region dimensions present", g)
+	}
 }
 
 func at0(now int64, d int) int64 { return now + int64(d)*day }

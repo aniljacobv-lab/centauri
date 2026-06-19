@@ -76,12 +76,15 @@ func tokenHash(tok string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// lookupACL finds a token's policy by its hash (default store), or ok=false.
-func (s *Server) lookupACL(tok string) (aclPolicy, bool) {
+// lookupACL finds a token's policy by its hash in the given store, or
+// ok=false. ACLs are environment-scoped: the policy is read from the same
+// database the request targets (see auth), so a scoped token is bound to the
+// environment whose acl:* facts define it.
+func (s *Server) lookupACL(st *store.Store, tok string) (aclPolicy, bool) {
 	if tok == "" {
 		return aclPolicy{}, false
 	}
-	cur := s.st.Current("acl:"+tokenHash(tok), "policy")
+	cur := st.Current("acl:"+tokenHash(tok), "policy")
 	if len(cur) == 0 {
 		return aclPolicy{}, false
 	}
@@ -260,8 +263,15 @@ func (s *Server) auth(next http.Handler) http.Handler {
 				// A scoped token (row-level security) is recognized by the
 				// hash of its policy fact. Scoped principals may only use the
 				// CeQL query endpoint — never raw read/write routes that would
-				// bypass the subject-prefix check.
-				if pol, ok := s.lookupACL(got); ok {
+				// bypass the subject-prefix check. ACLs are environment-scoped:
+				// resolve the target database (?db=) and look the policy up there.
+				aclStore := s.st
+				if name := r.URL.Query().Get("db"); name != "" {
+					if rs, err := s.byName(name); err == nil {
+						aclStore = rs
+					}
+				}
+				if pol, ok := s.lookupACL(aclStore, got); ok {
 					if r.URL.Path != "/v1/query" {
 						httpErr(w, http.StatusForbidden, "scoped token may only use /v1/query")
 						return
@@ -380,7 +390,7 @@ func (s *Server) byName(name string) (*store.Store, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("no database named %q — create it first (＋ button in the dashboard)", name)
 	}
-	st, err := store.Open(path)
+	st, err := store.OpenOptions(path, store.Options{Lock: true})
 	if err != nil {
 		return nil, fmt.Errorf("open database %q: %v", name, err)
 	}
@@ -469,7 +479,7 @@ func (s *Server) handleCreateDB(w http.ResponseWriter, r *http.Request) {
 		}
 		f.Close()
 	}
-	st, err := store.Open(path)
+	st, err := store.OpenOptions(path, store.Options{Lock: true})
 	if err != nil {
 		httpErr(w, 500, err.Error())
 		return
@@ -501,7 +511,7 @@ func (s *Server) handleDemoSeed(w http.ResponseWriter, r *http.Request) {
 	st, ok := s.dbs[demoDBName]
 	if !ok {
 		var err error
-		st, err = store.Open(filepath.Join(dir, demoDBName+".log"))
+		st, err = store.OpenOptions(filepath.Join(dir, demoDBName+".log"), store.Options{Lock: true})
 		if err != nil {
 			s.mu.Unlock()
 			httpErr(w, 500, err.Error())
@@ -744,7 +754,12 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	if st == nil {
 		return
 	}
-	evs := st.History(r.URL.Query().Get("subject"), r.URL.Query().Get("facet"))
+	q := r.URL.Query()
+	limit := 0 // 0 = unlimited; cap memory/lock-hold for very long histories
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil && n > 0 {
+		limit = n
+	}
+	evs := st.HistoryN(q.Get("subject"), q.Get("facet"), limit)
 	writeJSON(w, filterConf(evs, minConf(r)))
 }
 
@@ -1245,7 +1260,7 @@ func (s *Server) handleArchitectApply(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, 422, fmt.Sprintf("environment %q already exists — pick a fresh name", bp.Env))
 		return
 	}
-	st, err := store.Open(path)
+	st, err := store.OpenOptions(path, store.Options{Lock: true})
 	if err != nil {
 		httpErr(w, 500, err.Error())
 		return
@@ -1355,6 +1370,10 @@ func (s *Server) handleSlots(w http.ResponseWriter, r *http.Request) {
 // POST /v1/acl {"token":"…","prefixes":["item:","order:"],"write":false}.
 // Only the SHA-256 hash of the token is stored, as an acl:<hash> fact.
 func (s *Server) handleACL(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r) // ACLs live in the environment they govern (?db=)
+	if st == nil {
+		return
+	}
 	var body struct {
 		Token    string   `json:"token"`
 		Prefixes []string `json:"prefixes"`
@@ -1377,7 +1396,7 @@ func (s *Server) handleACL(w http.ResponseWriter, r *http.Request) {
 		Value:      map[string]any{"prefixes": pre, "write": body.Write},
 		Provenance: model.SystemFeed, Confidence: 1.0, SourceSystem: "ACL",
 	}
-	if err := s.st.Append(time.Now().UnixMicro(), []*model.Event{e}, nil); err != nil {
+	if err := st.Append(time.Now().UnixMicro(), []*model.Event{e}, nil); err != nil {
 		httpErr(w, 422, err.Error())
 		return
 	}

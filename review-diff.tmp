@@ -1,0 +1,177 @@
+﻿diff --git a/internal/demo/demo.go b/internal/demo/demo.go
+index 661bddb..1305cc2 100644
+--- a/internal/demo/demo.go
++++ b/internal/demo/demo.go
+@@ -127,6 +127,136 @@ func Seed(st *store.Store, now int64) (*Result, error) {
+ 	// A text-bearing incident for full-text SEARCH.
+ 	id(put(at(-4), ev("incident:RET-1", "note", model.Observed, at(-4), model.HumanEntry, 0.8, map[string]any{"note": "customer reported coffee maker lid leaking, possible burn hazard", "severity": "high"})))
+ 
++	// ----------------------- RETAIL: MERCHANDISE ├ù LOCATION HIERARCHY --------
++	// The classic retail grain is a SKU AT A STORE. Each "perf" fact below is a
++	// denormalized item-location record carrying BOTH hierarchies as fields
++	// (divisionΓåÆdepartmentΓåÆclassΓåÆsubclass and regionΓåÆdistrictΓåÆstore) so they
++	// "come together" on one row and roll up either way with GROUP BY. We also
++	// create the hierarchy nodes themselves and link childΓåÆparent, so the Studio
++	// causal graph shows the merchandise and location trees converging on each
++	// SKU/store. Spans fashion, basics and grocery ΓÇö each with its own nuances:
++	// fashion has seasonal markdowns, grocery has frequent moves + a shelf-tag
++	// disagreement and a pending price flip, basics is steady.
++	schema("retail.itemloc", "SKU ├ù store (item-location grain)", map[string]model.FieldDef{
++		"price_cents":     {Type: "number", Required: true, Min: f(1), Unit: "cents"},
++		"unit_cost_cents": {Type: "number", Unit: "cents"},
++		"on_hand":         {Type: "number", Unit: "units"},
++		"units_4wk":       {Type: "number", Unit: "units"},
++		"division":        {Type: "string"}, "department": {Type: "string"},
++		"class": {Type: "string"}, "subclass": {Type: "string"},
++		"region": {Type: "string"}, "district": {Type: "string"},
++	})
++	// connect appends a bare childΓåÆparent (or rollup) edge between two existing
++	// facts ΓÇö no new event, just a hierarchy link.
++	connect := func(from, to string, lt model.LinkType) {
++		if firstErr != nil || from == "" || to == "" {
++			return
++		}
++		if err := st.Append(now, nil, []model.CausalLink{{From: from, To: to, Type: lt}}); err != nil {
++			firstErr = err
++			return
++		}
++		r.Stats["links"]++
++	}
++
++	// Location hierarchy: region ΓåÆ district ΓåÆ store.
++	type locNode struct{ store, region, district string }
++	locs := []locNode{{"4001", "West", "CA-North"}, {"4002", "West", "CA-North"}, {"5001", "East", "NY-Metro"}}
++	regionID, districtID, storeID := map[string]string{}, map[string]string{}, map[string]string{}
++	for _, l := range locs {
++		if regionID[l.region] == "" {
++			regionID[l.region] = id(put(at(-200), ev("region:"+l.region, "dim", model.Observed, at(-200), model.SystemFeed, 1, map[string]any{"name": l.region})))
++		}
++		if districtID[l.district] == "" {
++			districtID[l.district] = id(put(at(-200), ev("district:"+l.district, "dim", model.Observed, at(-200), model.SystemFeed, 1, map[string]any{"region": l.region})))
++			connect(districtID[l.district], regionID[l.region], "IN_REGION")
++		}
++		storeID[l.store] = id(put(at(-200), ev("store:"+l.store, "dim", model.Observed, at(-200), model.SystemFeed, 1, map[string]any{"region": l.region, "district": l.district})))
++		connect(storeID[l.store], districtID[l.district], "IN_DISTRICT")
++	}
++	locOf := func(store string) (string, string) {
++		for _, l := range locs {
++			if l.store == store {
++				return l.region, l.district
++			}
++		}
++		return "", ""
++	}
++
++	// Merchandise hierarchy + the SKU master.
++	type styleNode struct {
++		sid, name, division, department, class, subclass string
++		base, cost                                       int
++		variants, stores                                 []string // variants = color-size SKU suffix
++	}
++	styles := []styleNode{
++		{"DRESS-101", "Maxi Dress", "Fashion", "Womens Apparel", "Dresses", "Maxi", 4999, 2200, []string{"RED-M", "BLUE-L"}, []string{"4001", "5001"}},
++		{"TOP-202", "Linen Top", "Fashion", "Womens Apparel", "Tops", "Casual", 2999, 1100, []string{"WHITE-S", "BLACK-M"}, []string{"4001", "4002"}},
++		{"JEAN-303", "Slim Jean", "Fashion", "Mens Apparel", "Bottoms", "Denim", 5999, 2600, []string{"INDIGO-32"}, []string{"5001"}},
++		{"TOWEL-401", "Bath Towel", "Basics", "Home", "Bath", "Towels", 1299, 500, []string{"GREY-STD"}, []string{"4001", "4002", "5001"}},
++		{"MUG-402", "Ceramic Mug", "Basics", "Home", "Kitchen", "Drinkware", 799, 280, []string{"WHITE-STD"}, []string{"4001", "5001"}},
++		{"NOTE-403", "Notebook", "Basics", "Office", "Stationery", "Paper", 499, 150, []string{"A5-RULED"}, []string{"4002", "5001"}},
++		{"MILK-501", "Whole Milk 1gal", "Grocery", "Dairy", "Milk", "Whole", 399, 240, []string{"EA"}, []string{"4001", "4002", "5001"}},
++		{"COFFEE-502", "Ground Coffee 12oz", "Grocery", "Beverages", "Coffee", "Ground", 1299, 700, []string{"EA"}, []string{"4001", "5001"}},
++		{"BREAD-503", "Wheat Bread", "Grocery", "Bakery", "Bread", "Wheat", 349, 120, []string{"EA"}, []string{"4001", "4002"}},
++		{"EGGS-504", "Eggs Dozen", "Grocery", "Dairy", "Eggs", "Large", 449, 200, []string{"EA"}, []string{"4002", "5001"}},
++	}
++	divID, deptID, classID := map[string]string{}, map[string]string{}, map[string]string{}
++	rows := 0
++	for _, s := range styles {
++		if divID[s.division] == "" {
++			divID[s.division] = id(put(at(-200), ev("division:"+s.division, "dim", model.Observed, at(-200), model.SystemFeed, 1, map[string]any{"name": s.division})))
++		}
++		if deptID[s.department] == "" {
++			deptID[s.department] = id(put(at(-200), ev("department:"+s.department, "dim", model.Observed, at(-200), model.SystemFeed, 1, map[string]any{"division": s.division})))
++			connect(deptID[s.department], divID[s.division], "IN_DIVISION")
++		}
++		ckey := s.department + "/" + s.class
++		if classID[ckey] == "" {
++			classID[ckey] = id(put(at(-200), ev("class:"+s.class, "dim", model.Observed, at(-200), model.SystemFeed, 1, map[string]any{"department": s.department, "division": s.division})))
++			connect(classID[ckey], deptID[s.department], "IN_DEPARTMENT")
++		}
++		for vi, v := range s.variants {
++			for _, store := range s.stores {
++				region, district := locOf(store)
++				subj := "sku:" + s.sid + "-" + v + "/store:" + store
++				dims := func(price, onhand, units int) map[string]any {
++					return map[string]any{
++						"price_cents": price, "unit_cost_cents": s.cost, "on_hand": onhand, "units_4wk": units,
++						"division": s.division, "department": s.department, "class": s.class, "subclass": s.subclass,
++						"style": s.sid, "color_size": v, "region": region, "district": district, "store": store,
++					}
++				}
++				onhand, units := 20+(vi+1)*7, 5+vi*3
++				var skuID string
++				switch {
++				case s.division == "Fashion" && store == s.stores[0] && vi == 0:
++					// seasonal markdown cadence: full ΓåÆ ΓêÆ20% ΓåÆ ΓêÆ40% (price history)
++					id(put(at(-90), ev(subj, "perf", model.Observed, at(-90), model.SystemFeed, 1, dims(s.base, onhand+40, units))))
++					id(put(at(-45), ev(subj, "perf", model.Observed, at(-45), model.SystemFeed, 1, dims(s.base*80/100, onhand+18, units+6))))
++					skuID = id(put(at(-10), ev(subj, "perf", model.Observed, at(-10), model.SystemFeed, 1, dims(s.base*60/100, onhand, units+12))))
++				case s.division == "Grocery" && store == s.stores[0]:
++					// frequent weekly price moves
++					id(put(at(-21), ev(subj, "perf", model.Observed, at(-21), model.SystemFeed, 1, dims(s.base, onhand, units))))
++					id(put(at(-7), ev(subj, "perf", model.Observed, at(-7), model.SystemFeed, 1, dims(s.base+20, onhand-3, units+2))))
++					skuID = id(put(at(-1), ev(subj, "perf", model.Observed, at(-1), model.SystemFeed, 1, dims(s.base+10, onhand-6, units+4))))
++				default:
++					skuID = id(put(at(-20), ev(subj, "perf", model.Observed, at(-20), model.SystemFeed, 1, dims(s.base, onhand, units))))
++				}
++				connect(skuID, deptID[s.department], "ROLLS_UP_TO") // merchandise rollup
++				connect(skuID, storeID[store], "AT_STORE")          // location rollup
++				rows++
++			}
++		}
++	}
++	// Grocery nuance #1: the shelf tag at one store still shows the OLD price ΓÇö
++	// a disagreement between the POS ("perf") and the printed tag.
++	id(put(at(-1), ev("sku:MILK-501-EA/store:4001", "shelftag", model.Observed, at(-1), model.HumanEntry, 0.7, map[string]any{"price_cents": 399, "note": "tag not reprinted after last price move"})))
++	// Grocery nuance #2: a price flip distributed to a store register but not
++	// yet activated ΓÇö a pending "wedge" at the SKU/store grain.
++	id(put(at(-2), ev("sku:MILK-501-EA/store:5001", "register", model.Distributed, at(-2), model.SystemFeed, 1, map[string]any{"price_cents": 429, "note": "awaiting register flip"})))
++	r.Stats["itemloc_rows"] = rows
++
+ 	// ------------------------------------------------------------ HEALTHCARE
+ 	schema("health.vital", "Patient vital / lab", map[string]model.FieldDef{
+ 		"heart_rate": {Type: "number", Unit: "bpm", Min: f(20), Max: f(250)},
+@@ -220,8 +350,12 @@ func Seed(st *store.Store, now int64) (*Result, error) {
+ // seeded above.
+ func Suggestions() []Suggestion {
+ 	return []Suggestion{
+-		{"Retail", "FACTS category, COUNT(*), AVG(price_cents) OF sku:* GROUP BY category", "aggregate: how many products and the average price per category"},
+-		{"Retail", "DISAGREE ON price_cents", "subjects whose systems report different prices (see sku:WIDGET-007)"},
++		{"Retail ┬╖ merch", "FACTS department, COUNT(*), AVG(price_cents) OF sku:*/store:* GROUP BY department", "roll SKU├ùstore prices UP the MERCHANDISE hierarchy (department)"},
++		{"Retail ┬╖ location", "FACTS region, COUNT(*), AVG(price_cents) OF sku:*/store:* GROUP BY region", "roll the SAME facts up the LOCATION hierarchy (region)"},
++		{"Retail ┬╖ grain", "FACTS OF sku:DRESS-101-RED-M/store:4001", "one SKU at one store ΓÇö both hierarchies + measures on a single row"},
++		{"Retail ┬╖ history", "HISTORY OF sku:DRESS-101-RED-M/store:4001", "the seasonal markdown cadence at that grain (full ΓåÆ ΓêÆ20% ΓåÆ ΓêÆ40%)"},
++		{"Retail ┬╖ slice", "FACTS OF sku:*/store:* WHERE division = 'Grocery'", "slice the item-location grain to one division"},
++		{"Retail", "DISAGREE ON price_cents", "POS vs shelf tag / register vs pos report different prices"},
+ 		{"Retail", "FACTS OF * WHERE any MATCHES 'leak'", "full-text search across every fact"},
+ 		{"Healthcare", "FACTS OF patient:1024 FACET labs AS OF YESTERDAY AS KNOWN AT 6 DAYS AGO", "what we BELIEVED the A1c was before the correction (7.8)"},
+ 		{"Healthcare", "FACTS OF patient:1024 FACET labs", "what we believe now (8.7) ΓÇö one fact, two beliefs over time"},
+diff --git a/internal/demo/demo_test.go b/internal/demo/demo_test.go
+index c5b27be..36a8307 100644
+--- a/internal/demo/demo_test.go
++++ b/internal/demo/demo_test.go
+@@ -56,6 +56,16 @@ func TestSeedPlantsEveryCapability(t *testing.T) {
+ 	if len(rc) != 1 || rc[0].Value["retired"] != true {
+ 		t.Fatalf("CANDLE-OLD current = %#v, want retired:true", rc)
+ 	}
++
++	// Merchandise ├ù location grain: at least 20 item-location rows, and a grain
++	// fact carries BOTH hierarchies so it rolls up either way.
++	if r.Stats["itemloc_rows"] < 20 {
++		t.Fatalf("itemloc_rows = %d, want >= 20", r.Stats["itemloc_rows"])
++	}
++	g := st.Current("sku:DRESS-101-RED-M/store:4001", "perf")
++	if len(g) != 1 || g[0].Value["department"] != "Womens Apparel" || g[0].Value["region"] != "West" {
++		t.Fatalf("grain fact = %#v, want department+region dimensions present", g)
++	}
+ }
+ 
+ func at0(now int64, d int) int64 { return now + int64(d)*day }

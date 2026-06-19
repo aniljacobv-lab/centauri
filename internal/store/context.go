@@ -95,6 +95,7 @@ func (s *Store) Context(subject string, knownAt int64, historyLimit int, minConf
 	} else {
 		facts = s.currentLocked(subject)
 	}
+	facts = s.hydrateAll(facts) // *Locked now returns raw; values read below
 	for _, e := range facts {
 		if e.Confidence >= minConfidence {
 			b.Facts = append(b.Facts, e)
