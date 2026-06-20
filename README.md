@@ -37,7 +37,9 @@ go build -o centauri ./cmd/centauri
 
 ### Vision — let an AI read your files, locally
 
-Upload an image or PDF (e.g. an electrical drawing); a local vision model describes it and embeds it into Centauri's vector index — searchable, no Firestore, no external object store. It runs entirely on your machine via [Ollama](https://ollama.com). `centauri setup vision -install` installs the prerequisites and pulls the models; `centauri desktop` then auto-starts Ollama and stops it on exit. Details: [`docs/vision-setup.md`](docs/vision-setup.md).
+Upload an image or PDF (e.g. an electrical drawing); a local vision model describes it and embeds it into Centauri's vector index — searchable, no Firestore, no external object store. It runs entirely on your machine via [Ollama](https://ollama.com). `centauri setup vision -install` installs the prerequisites and pulls the models; `centauri desktop` then auto-starts Ollama and stops it on exit.
+
+The same local model powers **semantic search** (`SEARCH` embeds your query and ranks by meaning), **RAG `ASK`** (plain-English answers from your own facts, with citations), and **plain-English → CeQL**. Setup: [`docs/vision-setup.md`](docs/vision-setup.md) · features: [`docs/ai-features.md`](docs/ai-features.md).
 
 Python: see [`sdk/python`](sdk/python) — zero dependencies, three lines to your first fact.
 
@@ -70,3 +72,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Hand-written PRs are equally welcome.
 ## Honest status
 
 v0.3: single-node engine with read replicas. In-memory indexes (your data must fit in RAM), no clustering/sharding, no cost-based optimizer, encryption-at-rest planned (v0.4 with crypto-erasure). The dashboard's **★ Why Centauri** table states plainly where Oracle/Postgres/Mongo still win. Centauri's lane: the system of record for *what happened, when, why, and how much to trust it* — the flight recorder beside your operational stores.
+
+The Vision / local-LLM features *orchestrate* a model you run yourself (free, e.g. Ollama) over HTTP and use an external PDF renderer — the engine bundles no model and stays zero-dependency. Centauri installs and manages them for you, but they're optional add-ons, not built into the binary.

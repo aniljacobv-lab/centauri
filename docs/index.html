@@ -224,6 +224,7 @@
     <a href="#own">Own your data</a>
     <a href="#ask">Ask AI</a>
     <a href="#agents">For agents</a>
+    <a href="#vision">Vision &amp; AI</a>
     <a href="#quickstart">Quickstart</a>
     <a href="#playground">Playground</a>
     <a href="#reference">CeQL Reference</a>
@@ -236,7 +237,7 @@
     <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
   </span>
 </div></nav>
-<div class="announce">Latest — now with a <b>Studio IDE</b>, reversible time-travel (ROLLBACK), in-query AI (ENRICH), causal MATCH, CDC + replication slots, and Python / Go / JS SDKs. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
+<div class="announce">Latest — <b>local-AI Vision</b>: drop in images &amp; PDFs, a model running free on <em>your</em> machine reads them, and you get <b>semantic search</b> + plain-English <b>ASK</b> over your own data. Plus a Studio IDE, ROLLBACK, ENRICH, causal MATCH, CDC, and Python / Go / JS SDKs. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
 
 <!-- HERO -->
 <div class="hero"><div class="wrap">
@@ -248,6 +249,7 @@
       <li><b>A time machine</b> — query what was <b>true</b> and what you <b>believed</b> at any moment (bi-temporal)</li>
       <li><b>Blockchain-grade integrity</b> — a SHA-256 hash chain proves history was never altered — without a blockchain</li>
       <li><b>Your data, your hardware</b> — one open file on your laptop, server, or cloud. Free, no lock-in</li>
+      <li><b>Sees your files</b> — a local vision model reads images &amp; PDFs into searchable, vectorized facts; runs free on your machine, nothing leaves it</li>
     </ul>
     <div class="btns">
       <a class="btn primary" href="#download">⬇ Download</a>
@@ -302,6 +304,22 @@
     <div class="feat"><div class="fi">🔓</div><h3>Zero lock-in</h3><p>One open file (JSONL) you can read, move, back up, or delete; an open query language; <code>centauri export</code> any time. Walk away with everything.</p></div>
   </div>
   <div class="honest" style="margin-top:24px"><b>Honest status:</b> your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder — now with a <b>single-writer lock</b> (safe on shared/synced storage) and <code>centauri merge</code> to reconcile copies edited on two devices. <code>--lazy</code> keeps payloads on disk so a dataset can exceed RAM (only the index stays resident). Log segmentation and a "bring your own bucket" (S3/GCS/Azure) backend are next on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-own-your-data.md">roadmap</a>.</div>
+</div></section>
+
+<!-- VISION & LOCAL AI -->
+<section id="vision"><div class="wrap">
+  <div class="kicker">Vision &amp; local AI</div>
+  <h2>Let an AI <span class="rule">see your files</span> — locally, for free.</h2>
+  <p class="lead">Drop in an image or a PDF — an electrical drawing, a scanned form, a photo. A vision model running on <em>your</em> machine reads it; Centauri stores the file (content-addressed, on disk — never in the log), the model's structured description, and a vector embedding — all as facts you can query. No Firestore, no object store, no API bill, nothing leaving your computer. Centauri even installs and runs the model for you.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">👁️</div><h3>Vision ingest</h3><p>Upload images or PDFs (<code>POST /v1/assets</code> or the Studio's 📎 panel). Blobs are content-addressed on disk, PDF pages are rendered, and a vision model describes &amp; embeds each one with <code>ENRICH asset:* USING vision</code>.</p></div>
+    <div class="feat"><div class="fi">🔎</div><h3>Semantic search</h3><p><code>SEARCH 'inventory stockout' OF asset:*</code> embeds your query and ranks by <em>meaning</em> blended with keyword — and it searches the AI's descriptions too. Find the right drawing without the exact words.</p></div>
+    <div class="feat"><div class="fi">💬</div><h3>ASK your data (RAG)</h3><p><code>ASK 'what do my drawings say about the 200A panel?'</code> retrieves the most relevant facts and a local LLM answers — <b>with citations</b> to the source events. Private "chat with your data."</p></div>
+    <div class="feat"><div class="fi">🗣️</div><h3>Plain English → CeQL</h3><p>The ✨ Copilot turns natural language into real CeQL — deterministic rules first, then the local LLM for the rest, re-parsed so a suggestion is never invalid.</p></div>
+    <div class="feat"><div class="fi">📦</div><h3>One package</h3><p>One click (or <code>centauri setup vision -install</code>) installs Ollama + a PDF renderer and pulls the models — skipping whatever's already there. <code>centauri desktop</code> then starts the model with Centauri and stops it on exit.</p></div>
+    <div class="feat"><div class="fi">🆓</div><h3>Free &amp; private</h3><p>Runs on free, open <a href="https://ollama.com">Ollama</a> (e.g. <code>llava</code> + <code>nomic-embed-text</code>). The engine stays zero-dependency; the model is reached over plain HTTP. Your documents never leave the machine.</p></div>
+  </div>
+  <p class="lead" style="margin-top:18px"><b>The loop:</b> <code>Upload → ENRICH → SEARCH / ASK</code>. Your electrical drawings, contracts, and photos become searchable by what's <em>in</em> them — the kind of thing teams normally wire up Firestore, an object store, and a cloud vision API to do. Here it's one local binary. Setup: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">vision-setup.md</a> · features: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">ai-features.md</a>.</p>
 </div></section>
 
 <!-- ASK AI -->
@@ -452,9 +470,13 @@ client = OpenAI(base_url=<span class="lit">"http://localhost:11434/v1"</span>,  
       <pre><span class="cm"># macOS / Linux</span>
 curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
 centauri seed                 <span class="cm"># load demo data</span>
-centauri desktop              <span class="cm"># opens the dashboard in your browser</span>
+centauri desktop              <span class="cm"># opens the dashboard; manages a local AI for you</span>
 
-<span class="cm"># Windows: download the installer, then Start menu → Centauri</span></pre>
+<span class="cm"># Windows: double-click run-centauri.bat — builds, opens the</span>
+<span class="cm"># dashboard, and offers (once) to set up local AI Vision</span>
+
+<span class="cm"># optional: let an AI read your images &amp; PDFs, all local</span>
+centauri setup vision -install</pre>
     </div>
     <div>
       <h3 style="margin:0 0 10px;font-size:16px;color:var(--dim)">2 · Ask questions in CeQL</h3>
@@ -741,6 +763,8 @@ $ centauri verify
   <h2>Documentation &amp; resources</h2>
   <div class="doclinks">
     <a class="doc" href="ceql.html"><b>The CeQL Book ↗</b><span>The complete textbook: tutorial, every statement, grammar, and the SQL→CeQL Rosetta Stone.</span></a>
+    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md"><b>Vision setup ↗</b><span>One command to install &amp; run a local AI (Ollama + PDF renderer) so Centauri can read your images and PDFs.</span></a>
+    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md"><b>Local-AI features ↗</b><span>Semantic search, RAG <code>ASK</code> over your own data with citations, and plain-English → CeQL — all on a free local model.</span></a>
     <a class="doc" href="https://github.com/aniljacobv-lab/centauri"><b>Source &amp; README ↗</b><span>Architecture, contributing guide, and the zero-dependency Go codebase.</span></a>
     <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md"><b>Deployment guide ↗</b><span>Run on a VPS, Docker, or one-click to Render with HTTPS and a generated token.</span></a>
     <a class="doc" href="#reference"><b>CeQL reference</b><span>The cheat-sheet above — every statement with a runnable example.</span></a>
@@ -764,6 +788,8 @@ $ centauri verify
       <tr><td>Topology / TDA operators</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
       <tr><td>Native BM25 + hybrid search</td><td class="y">✓</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="p">~</td></tr>
       <tr><td>Built-in MCP for AI agents</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Local vision ingest (images/PDFs)</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Runs a free local LLM for search &amp; Q&amp;A</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
       <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
       <tr><td>Horizontal scale / sharding</td><td class="n">✗<small>single-node</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
       <tr><td>Data larger than RAM</td><td class="p">~<small>--lazy: payloads on disk</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
@@ -771,7 +797,8 @@ $ centauri verify
     </tbody>
   </table></div>
   <div class="honest" style="margin-top:24px"><b>Honest limits:</b> single-node with read replicas — no clustering/sharding;
-    the index lives in memory (with <code>--lazy</code>, payloads spill to disk so the dataset can exceed RAM — only the lightweight index stays resident); no cost-based optimizer.</div>
+    the index lives in memory (with <code>--lazy</code>, payloads spill to disk so the dataset can exceed RAM — only the lightweight index stays resident); no cost-based optimizer.
+    The vision &amp; local-LLM features <em>orchestrate</em> a model you run (free, e.g. Ollama) over HTTP and use an external PDF renderer — the engine itself bundles no model and stays zero-dependency; Centauri installs &amp; manages them for you, but they're optional add-ons, not built into the binary.</div>
 </div></section>
 
 <!-- DOWNLOAD -->
