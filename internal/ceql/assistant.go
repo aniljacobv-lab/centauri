@@ -76,6 +76,29 @@ func execAsk(st *store.Store, q *Query, now int64) (map[string]any, error) {
 			}, nil
 		}
 	}
+	// KB miss → answer from the user's OWN data with a local LLM (RAG): retrieve
+	// the most relevant facts, then have the model answer using only those, with
+	// citations. Degrades to the gap-logging path if no chat model is registered.
+	if ctx := retrieve(st, question, 6); len(ctx) > 0 && findModel(st, "chat", "vision") != nil {
+		var b strings.Builder
+		for _, e := range ctx {
+			b.WriteString(contextLine(st, e))
+			b.WriteByte('\n')
+		}
+		sys := "You answer questions about a user's database. Use ONLY the facts below. " +
+			"Cite the [ids] you used in your answer. If the facts don't contain the answer, say you don't know."
+		if ans := chatLLM(st, sys, "Facts:\n"+b.String()+"\nQuestion: "+question); ans != "" {
+			ids := make([]string, len(ctx))
+			for i, e := range ctx {
+				ids[i] = e.EventID
+			}
+			return map[string]any{
+				"kind": "assistant", "question": question, "answer": ans,
+				"grounded": true, "sources": ids, "learned": false,
+			}, nil
+		}
+	}
+
 	// Miss: record the gap so an agent can answer it later.
 	gap := "kb_gap:" + slugify(question)
 	ev := &model.Event{

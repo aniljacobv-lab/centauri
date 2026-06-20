@@ -1161,7 +1161,11 @@ func (s *Server) handleAssist(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"valid": true, "ceql": body.Text})
 		return
 	}
-	tr, err := ceql.TranslateNL(body.Text, now)
+	st := s.dbOr(w, r) // for the LLM-assisted translation (uses registered models)
+	if st == nil {
+		return
+	}
+	tr, err := ceql.TranslateNLAI(st, body.Text, now)
 	if err != nil {
 		httpErr(w, 422, err.Error())
 		return

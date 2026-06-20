@@ -145,8 +145,15 @@ func minMax(vals map[int]float64) map[int]float64 {
 func blendHybrid(bm, vec map[int]float64, alpha float64) map[int]float64 {
 	bn, vn := minMax(bm), minMax(vec)
 	out := map[int]float64{}
-	for k := range bm {
+	// Union of both: a semantic-only hit (no keyword overlap) still scores via
+	// its vector term — missing keys read as 0 from the normalized maps.
+	for k := range bn {
 		out[k] = alpha*bn[k] + (1-alpha)*vn[k]
+	}
+	for k := range vn {
+		if _, seen := out[k]; !seen {
+			out[k] = alpha*bn[k] + (1-alpha)*vn[k]
+		}
 	}
 	return out
 }
@@ -240,18 +247,26 @@ func execSearch(st *store.Store, q *Query) (map[string]any, error) {
 	}
 	docs := make([][]string, len(events))
 	for i, e := range events {
-		docs[i] = docText(e)
+		// Search the AI-derived text (vision descriptions, tags, summaries) too,
+		// not just the raw fact values — so analysed images/docs are findable.
+		docs[i] = append(docText(e), enrichTokens(st, e.EventID)...)
 	}
 	ranked := rankBM25(docs, qterms)
 
-	hybrid := q.EventID != ""
+	hybrid := q.EventID != "" // SIMILAR TO <event>
+	semantic := false         // query-embedding semantic search
 	bm := map[int]float64{}
 	for _, r := range ranked {
 		bm[r.Doc] = r.Score
 	}
+	alpha := q.Alpha
+	if alpha <= 0 || alpha > 1 {
+		alpha = 0.5
+	}
 	var base map[int]float64
 	vec := map[int]float64{}
-	if hybrid {
+	switch {
+	case hybrid:
 		qv := st.Vector(q.EventID)
 		if len(qv) == 0 {
 			return nil, fmt.Errorf("SIMILAR TO %s: that event has no embedding to compare", q.EventID)
@@ -259,13 +274,22 @@ func execSearch(st *store.Store, q *Query) (map[string]any, error) {
 		for _, r := range ranked {
 			vec[r.Doc] = cosine32(qv, st.Vector(events[r.Doc].EventID))
 		}
-		alpha := q.Alpha
-		if alpha <= 0 || alpha > 1 {
-			alpha = 0.5
-		}
 		base = blendHybrid(bm, vec, alpha)
-	} else {
-		base = minMax(bm)
+	default:
+		// Semantic: embed the query with a locally-registered embedder and rank
+		// every candidate that has an embedding (not just keyword hits). Falls
+		// back to pure BM25 if no embedder is registered or the call fails.
+		if qv := embedQuery(st, q.Text); len(qv) > 0 {
+			semantic = true
+			for d := range events {
+				if ev := st.Vector(events[d].EventID); len(ev) > 0 {
+					vec[d] = cosine32(qv, ev)
+				}
+			}
+			base = blendHybrid(bm, vec, alpha)
+		} else {
+			base = minMax(bm)
+		}
 	}
 	// Fold in the signals only a temporal, causal store has: freshness,
 	// trust, and causal centrality. Relevance still dominates.
@@ -293,19 +317,23 @@ func execSearch(st *store.Store, q *Query) (map[string]any, error) {
 		m := map[string]any{"event": events[d], "score": score[d],
 			"bm25": bm[d], "relevance": base[d],
 			"recency": rec[d], "trust": trust[d], "centrality": cen[d]}
-		if hybrid {
+		useVec := hybrid || semantic
+		if useVec {
 			m["vector"] = vec[d]
 		}
 		hits = append(hits, m)
 	}
 	kind := "keyword"
-	if hybrid {
+	switch {
+	case hybrid:
 		kind = "hybrid keyword+vector"
+	case semantic:
+		kind = "semantic + keyword"
 	}
 	note := fmt.Sprintf("%d match(es) for %q across %d documents — ranked by %s relevance + recency + trust + causal centrality",
 		len(hits), q.Text, len(events), kind)
 	return map[string]any{
 		"kind": "search", "query": q.Text, "terms": qterms,
-		"hybrid": hybrid, "hits": hits, "note": note,
+		"hybrid": hybrid || semantic, "hits": hits, "note": note,
 	}, nil
 }

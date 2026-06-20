@@ -1,1 +1,1 @@
-{"built":"2026-06-19T23:11:28Z","desc":"vision: raise model-call timeout (cold-load) + per-model timeout_secs"}
+{"built":"2026-06-20T13:39:18Z","desc":"local LLM: semantic search + RAG ASK + LLM NL→CeQL"}
