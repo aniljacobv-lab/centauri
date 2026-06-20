@@ -446,7 +446,8 @@ function openVision(){
     <span id="visionanalyze" class="mini" style="margin-left:8px"></span>
   </div>
   <p class="mini">Needs a running multimodal model (e.g. <b>Ollama</b> with <code>llava</code>) and, for PDFs, a renderer (poppler/ImageMagick). Don't want to install by hand? Run <code>centauri setup vision -install</code> once and it sets both up for you.</p>
-  <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>`);
+  <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>
+  <p class="mini">Registering also powers <b>semantic SEARCH</b> (your query is embedded) and <b>ASK '…'</b> (plain-English answers from your data, with citations) — both use this embedder + chat model.</p>`);
   document.getElementById("modal").classList.add("wide");
 }
 async function uploadAsset(){
