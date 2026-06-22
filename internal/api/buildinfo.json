@@ -1,1 +1,1 @@
-{"built":"2026-06-22T03:21:11Z","desc":"storage core: internal/segment (compress + Merkle + zones + crypto-erasure)"}
+{"built":"2026-06-22T03:27:20Z","desc":"tablespaces #1: offline log→segment archiver (compress+Merkle+zones+manifest) + verify"}

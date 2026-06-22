@@ -80,6 +80,7 @@ func main() {
 	lazy := fs.Bool("lazy", false, "keep event payloads on disk instead of RAM (serve/desktop; lets data exceed RAM)")
 	install := fs.Bool("install", false, "with 'setup vision': install missing prerequisites via your OS package manager")
 	manageOllama := fs.Bool("ollama", true, "desktop: auto-start a local Ollama if one isn't running, and stop it on exit (only the one we start)")
+	segMax := fs.Int("seg-max", 100000, "records per segment (archive)")
 	_ = fs.Parse(os.Args[2:])
 	*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
 
@@ -207,6 +208,38 @@ func main() {
 		default:
 			log.Fatal("usage: centauri setup vision [-install]")
 		}
+		return
+	}
+
+	// archive seals a log into compressed, Merkle-rooted, zone-mapped segments
+	// (a "tablespace" layout) + a manifest, then verifies it. Non-destructive:
+	// the source log is only read. The archive's chain head equals the live
+	// store's, proving the compressed copy is byte-faithful and tamper-evident.
+	if cmd == "archive" {
+		if *to == "" {
+			log.Fatal("archive: -to <dir> is required")
+		}
+		man, err := store.WriteArchive(*data, *to, *segMax)
+		if err != nil {
+			log.Fatalf("archive: %v", err)
+		}
+		head, recs, err := store.VerifyArchive(*to)
+		if err != nil {
+			log.Fatalf("archive verify FAILED: %v", err)
+		}
+		var comp int64
+		for _, s := range man.Segments {
+			comp += s.Bytes
+		}
+		fmt.Print(banner)
+		fmt.Printf("archived:  %s -> %s\n", *data, *to)
+		fmt.Printf("segments:  %d   records: %d\n", len(man.Segments), recs)
+		fmt.Printf("chain head: %s\n", head)
+		if fi, e := os.Stat(*data); e == nil && fi.Size() > 0 {
+			fmt.Printf("size:      %d -> %d bytes  (%.0f%% of original — compressed + tamper-evident)\n",
+				fi.Size(), comp, 100*float64(comp)/float64(fi.Size()))
+		}
+		fmt.Println("verified:  Merkle roots + continuous hash chain across all segments ✓")
 		return
 	}
 
@@ -924,6 +957,7 @@ Commands
   verify   recompute the tamper-evidence hash chain over a log file
   doctor   read-only health check (chain, checkpoint, lock); safe on a live DB
   backup   copy a database to -to <file> and verify the copy's chain
+  archive  seal a log into compressed, tamper-evident segments: -to <dir>
   merge    reconcile diverged copies: merge -to merged.log a.log b.log
   export   run a CeQL query and print/write results in a chosen format
 
