@@ -78,6 +78,40 @@ the manifest**, so pruning and `verify` work without decompressing a thing.
 - **`compact`** merges/tiers old segments, gated by `MinSlotCursor` so no
   un-consumed CDC is dropped.
 
+## Disk-backed index — the RAM-scaling slice (in progress)
+
+Today `OpenArchive` replays all segments into RAM, so RAM still scales with total
+events. The foundation for fixing that is built: **disk-scan read primitives**
+(`ScanHistory`, `ScanAsOf` in `scan.go`) answer a query by reading only the
+zone-map-pruned segments from disk + the tail, with no full in-RAM index — and a
+test proves they match the in-RAM engine exactly.
+
+**Chosen: approach A.** The core is now built &amp; tested — `LazyIndex`
+(`lazyindex.go`): a single streaming pass over the archive keeps in RAM only the
+*current* fact per `(subject,facet)` (resolved with the engine's `beats` rule),
+dropping superseded/historical events as they pass. `Current` is served from RAM;
+`History`/`AsOf` stream the pruned segments from disk. A test asserts RAM holds
+one pointer per subject (not per event) and that `Current`/`History` match the
+in-RAM engine. It is standalone (the live `Store` is untouched) — wiring it behind
+`serve -data <archive>` and a persisted pointer-checkpoint (O(1) restart) are the
+next slices.
+
+The three approaches considered, by RAM/latency/complexity:
+
+- **A — Lazy current-pointer index (chosen).** On open, scan segments once
+  to build ONLY a compact `current` pointer per `(subject,facet)` + the zone
+  maps; never hold superseded/historical facts in RAM.
+  `Current` from RAM; `History`/`AsOf`/`SEARCH` use pruned
+  segment scans. RAM ≈ distinct live subjects (not total events). Open is O(total)
+  the first time but a persisted pointer-checkpoint makes restarts O(1). Moderate
+  build; the natural fit for our zone-map + segment design.
+- **B — On-disk B-tree/LSM index.** A real persistent index so even open is O(1)
+  and RAM is bounded regardless of subject count. Biggest engineering and the
+  highest blind-write risk (it's a storage engine); strongest at extreme scale.
+- **C — Scan-only (no per-event index).** Keep ~zero index; every query is a
+  zone-map-pruned segment scan from disk. Simplest, lowest RAM, slowest queries;
+  good for archival/cold datasets queried occasionally.
+
 ## Staged wiring into the live engine (each ship-verified, test-first)
 
 1. **Manifest + sealing (single tier).** Split the log into sealed segments +
