@@ -262,12 +262,17 @@ func main() {
 			a.Close()
 			log.Fatalf("seal: %v", err)
 		}
+		gc, _ := store.GCArchive(*data) // sweep any crash-orphaned files (lock held)
 		a.Close()
 		head, recs, verr := store.VerifyArchive(*data)
 		if verr != nil {
 			log.Fatalf("seal: post-seal verify FAILED: %v", verr)
 		}
-		fmt.Printf("sealed the tail into a new segment.\nrecords: %d   chain head: %s\nverified ✓\n", recs, head)
+		fmt.Printf("sealed the tail into a new segment.\nrecords: %d   chain head: %s\n", recs, head)
+		if len(gc) > 0 {
+			fmt.Printf("cleaned %d orphaned file(s)\n", len(gc))
+		}
+		fmt.Println("verified ✓")
 		return
 	}
 

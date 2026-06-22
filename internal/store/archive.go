@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/segment"
@@ -117,6 +118,64 @@ func WriteArchive(srcLog, destDir string, maxRecords int) (*segment.Manifest, er
 		return nil, err
 	}
 	return man, nil
+}
+
+// GCArchive removes files a crash can orphan: stale tail generations
+// (current*.log that aren't the manifest's active tail), unreferenced segment
+// files, and a leftover manifest.json.tmp. It is always safe — it only ever
+// deletes files the (atomic, authoritative) manifest does not reference — and
+// re-runnable. The caller should hold the archive's single-writer lock so no
+// Seal is mid-flight. Returns the names removed. Only files matching our own
+// patterns are touched; anything else in the directory is left alone.
+func GCArchive(dir string) ([]string, error) {
+	mb, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		return nil, err
+	}
+	man, err := segment.ParseManifest(mb)
+	if err != nil {
+		return nil, err
+	}
+	activeTail := man.Tail
+	if activeTail == "" {
+		activeTail = "current.log"
+	}
+	keepSeg := map[string]bool{}
+	for _, e := range man.Segments {
+		keepSeg[filepath.Base(filepath.FromSlash(e.Path))] = true
+	}
+
+	var removed []string
+	if ents, err := os.ReadDir(dir); err == nil {
+		for _, ent := range ents {
+			if ent.IsDir() {
+				continue
+			}
+			name := ent.Name()
+			stale := name == "manifest.json.tmp" ||
+				(strings.HasPrefix(name, "current") && strings.HasSuffix(name, ".log") && name != activeTail)
+			if stale {
+				if os.Remove(filepath.Join(dir, name)) == nil {
+					removed = append(removed, name)
+				}
+			}
+		}
+	}
+	segDir := filepath.Join(dir, "segments")
+	if ents, err := os.ReadDir(segDir); err == nil {
+		for _, ent := range ents {
+			if ent.IsDir() {
+				continue
+			}
+			name := ent.Name()
+			if strings.HasSuffix(name, ".seg") && !keepSeg[name] {
+				if os.Remove(filepath.Join(segDir, name)) == nil {
+					removed = append(removed, "segments/"+name)
+				}
+			}
+		}
+	}
+	return removed, nil
 }
 
 // VerifyArchive walks an archive in order, decompresses each segment, recomputes

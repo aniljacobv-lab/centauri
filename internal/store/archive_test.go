@@ -185,3 +185,51 @@ func TestSeal(t *testing.T) {
 	}
 }
 
+// GC must remove crash-orphaned files (stale tail generations, unreferenced
+// segments, a temp manifest) and nothing the manifest references.
+func TestGCArchive(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Append(1000, []*model.Event{{Subject: "item:1", Facet: "f", Type: model.Observed,
+		Value: map[string]any{"n": 1}, Provenance: model.SystemFeed, Confidence: 1}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 100); err != nil {
+		t.Fatal(err)
+	}
+
+	// Plant crash-orphans.
+	orphans := []string{"current.00000099.log", filepath.Join("segments", "00000099.seg"), "manifest.json.tmp"}
+	for _, o := range orphans {
+		if err := os.WriteFile(filepath.Join(arch, o), []byte("junk"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	removed, err := GCArchive(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 3 {
+		t.Fatalf("removed %v, want 3 orphans", removed)
+	}
+	for _, o := range orphans {
+		if _, err := os.Stat(filepath.Join(arch, o)); !os.IsNotExist(err) {
+			t.Fatalf("orphan %s should have been removed", o)
+		}
+	}
+	// The real segment + manifest survive and the archive still verifies.
+	if _, err := os.Stat(filepath.Join(arch, "segments", "00000001.seg")); err != nil {
+		t.Fatal("GC removed a referenced segment!")
+	}
+	if _, _, err := VerifyArchive(arch); err != nil {
+		t.Fatalf("verify after GC: %v", err)
+	}
+}
+

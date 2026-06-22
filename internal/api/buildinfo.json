@@ -1,1 +1,1 @@
-{"built":"2026-06-22T03:42:52Z","desc":"tablespaces #3: online crash-safe Seal (atomic manifest tail-generation switch) + centauri seal"}
+{"built":"2026-06-22T03:47:09Z","desc":"tablespaces #4: crash-orphan GCArchive, wired into centauri seal"}
