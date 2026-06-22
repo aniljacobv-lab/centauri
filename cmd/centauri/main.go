@@ -246,6 +246,31 @@ func main() {
 		return
 	}
 
+	// seal rolls a served/idle archive's appendable tail into a new compressed,
+	// tamper-evident segment (crash-safe atomic manifest switch). Run it on an
+	// archive directory; it takes the single-writer lock, so don't run it while
+	// 'serve' holds that archive.
+	if cmd == "seal" {
+		if !isArchiveDir(*data) {
+			log.Fatalf("seal: %s is not an archive directory — run 'centauri archive -data <log> -to %s' first", *data, *data)
+		}
+		a, err := store.OpenArchive(*data, store.Options{Lock: true})
+		if err != nil {
+			log.Fatalf("seal: %v", err)
+		}
+		if err := a.Seal(); err != nil {
+			a.Close()
+			log.Fatalf("seal: %v", err)
+		}
+		a.Close()
+		head, recs, verr := store.VerifyArchive(*data)
+		if verr != nil {
+			log.Fatalf("seal: post-seal verify FAILED: %v", verr)
+		}
+		fmt.Printf("sealed the tail into a new segment.\nrecords: %d   chain head: %s\nverified ✓\n", recs, head)
+		return
+	}
+
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
@@ -968,6 +993,7 @@ Commands
   doctor   read-only health check (chain, checkpoint, lock); safe on a live DB
   backup   copy a database to -to <file> and verify the copy's chain
   archive  seal a log into compressed, tamper-evident segments: -to <dir>
+  seal     roll an archive's tail into a new segment: -data <archive-dir>
   merge    reconcile diverged copies: merge -to merged.log a.log b.log
   export   run a CeQL query and print/write results in a chosen format
 

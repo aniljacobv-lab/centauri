@@ -3,9 +3,11 @@
 **Status:** storage core built &amp; tested (`internal/segment`); the offline
 archiver (`WriteArchive`/`VerifyArchive`, `centauri archive`) and the
 **run-on-an-archive** path (`OpenArchive`: replay compressed, chain-verified
-segments + an appendable tail; `serve -data <archive-dir>`) are built &amp; tested.
-Remaining: online seal/compaction (crash-safe tail rolling) and a disk-backed
-index so RAM &lt; total data. · **Builds on:** [design-segmentation.md](design-segmentation.md),
+segments + an appendable tail; `serve -data <archive-dir>`) and **online
+crash-safe sealing** (`Seal` / `centauri seal`: roll the tail into a new
+compressed segment via one atomic manifest switch to a fresh tail generation)
+are built &amp; tested. Remaining: GC of orphaned tail generations, and a
+disk-backed index so RAM &lt; total data. · **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
 The goal: make Centauri a full-fledged database that **scales with disk, not

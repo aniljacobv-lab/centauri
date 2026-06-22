@@ -112,11 +112,15 @@ type Entry struct {
 	Zones      Zones  `json:"zones"`
 }
 
-// Manifest is the ordered list of segments plus the open tail — read first by
-// every query to decide which segments to even open (data skipping).
+// Manifest is the ordered list of segments plus the name of the open tail file —
+// read first by every query to decide which segments to even open (data
+// skipping). Tail names the current appendable log; sealing switches it to a
+// fresh generation in one atomic manifest write, which is what makes online
+// sealing crash-safe (no two-file update to race).
 type Manifest struct {
 	Version  int     `json:"version"`
 	Segments []Entry `json:"segments"`
+	Tail     string  `json:"tail,omitempty"` // current appendable tail filename (default current.log)
 }
 
 // JSON serializes the manifest (small; lives next to the data, kept in RAM).

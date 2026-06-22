@@ -121,3 +121,67 @@ func TestOpenArchive(t *testing.T) {
 	}
 }
 
+// Sealing must roll the tail into a new segment without changing the chain,
+// reset the tail, keep data queryable, and survive a reopen + verify.
+func TestSeal(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Append(1000, []*model.Event{{Subject: "item:1", Facet: "f", Type: model.Observed,
+		Value: map[string]any{"n": 1}, Provenance: model.SystemFeed, Confidence: 1}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 100); err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := OpenArchive(arch, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 2; i <= 4; i++ {
+		if err := a.Append(int64(1000+i), []*model.Event{{Subject: fmt.Sprintf("item:%d", i), Facet: "f",
+			Type: model.Observed, Value: map[string]any{"n": i}, Provenance: model.SystemFeed, Confidence: 1}}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	headBefore, _ := a.ChainHead()
+	if err := a.Seal(); err != nil {
+		t.Fatalf("seal: %v", err)
+	}
+	headAfter, sz := a.ChainHead()
+	if headAfter != headBefore {
+		t.Fatalf("seal must not change the chain head: %s != %s", headAfter, headBefore)
+	}
+	if sz != 0 {
+		t.Fatalf("tail size after seal = %d, want 0", sz)
+	}
+	if c := a.Current("item:3", "f"); len(c) != 1 {
+		t.Fatal("item:3 missing in-RAM after seal")
+	}
+	a.Close()
+
+	// Reopen entirely from segments; data + chain intact, archive verifies.
+	b, err := OpenArchive(arch, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	if h, _ := b.ChainHead(); h != headBefore {
+		t.Fatalf("reopen head %s != %s", h, headBefore)
+	}
+	for i := 1; i <= 4; i++ {
+		if c := b.Current(fmt.Sprintf("item:%d", i), "f"); len(c) != 1 {
+			t.Fatalf("item:%d missing after reopen", i)
+		}
+	}
+	if _, _, err := VerifyArchive(arch); err != nil {
+		t.Fatalf("verify after seal: %v", err)
+	}
+}
+
