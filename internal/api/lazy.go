@@ -89,6 +89,22 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 		writeJSON(w, evs)
 	})
 
+	mux.HandleFunc("/v1/search", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		query := q.Get("q")
+		if query == "" {
+			http.Error(w, "q required", http.StatusBadRequest)
+			return
+		}
+		limit := 20
+		if s := q.Get("limit"); s != "" {
+			if n, err := strconv.Atoi(s); err == nil && n > 0 {
+				limit = n
+			}
+		}
+		writeJSON(w, li.Search(query, limit))
+	})
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -100,7 +116,8 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 			"GET /v1/lazy/stats\n" +
 			"GET /v1/current?subject=…&facet=…\n" +
 			"GET /v1/history?subject=…&facet=…\n" +
-			"GET /v1/asof?subject=…&facet=…&at=<micros>&known=<micros>\n"))
+			"GET /v1/asof?subject=…&facet=…&at=<micros>&known=<micros>\n" +
+			"GET /v1/search?q=<text>&limit=<n>\n"))
 	})
 
 	return mux

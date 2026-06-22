@@ -1,1 +1,1 @@
-{"built":"2026-06-22T04:12:52Z","desc":"tablespaces #8: lazy-index pointer-checkpoint (lazy.ckpt, Merkle-validated) — near-O(tail) restart; saved on serve -lazy-index; + test"}
+{"built":"2026-06-22T04:18:19Z","desc":"tablespaces #9: keyword BM25 SEARCH over cold segments — LazyIndex.Search + store.ScanSearch (selectivity-bounded RAM) + /v1/search + test"}

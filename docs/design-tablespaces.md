@@ -11,8 +11,9 @@ tested. The **disk-backed index** is now reachable: `serve -lazy-index` opens an
 archive holding only the current fact per subject in RAM (scales with live
 subjects, not total events) and answers current/history/asof over HTTP, with a
 Merkle-validated **pointer-checkpoint** (`lazy.ckpt`) that makes restart replay
-only the tail + newly-sealed segments. Remaining: lazy coverage of the richer
-queries (SEARCH, causal). · **Builds on:** [design-segmentation.md](design-segmentation.md),
+only the tail + newly-sealed segments, plus keyword **SEARCH** (BM25) over cold
+data at `/v1/search`. Remaining: causal `MATCH`/trace over cold segments. ·
+**Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
 The goal: make Centauri a full-fledged database that **scales with disk, not
@@ -110,8 +111,15 @@ persists the resident facts + the segments already folded in, so reopen seeds
 from it and replays only segments sealed since + the always-fresh tail.
 Re-applying the tail over the checkpoint is idempotent, so the result is
 byte-identical to a full rebuild (a test corrupts every segment after
-checkpointing and shows `Current` still answers from the checkpoint). Next: lazy
-coverage of the richer queries (SEARCH / causal).
+checkpointing and shows `Current` still answers from the checkpoint).
+
+**Keyword SEARCH** over cold data is now covered too: `LazyIndex.Search` ranks
+the resident current facts with Okapi BM25 (and `store.ScanSearch` does the same
+standalone over an archive, retaining only docs that contain a query term so RAM
+scales with query selectivity, not corpus size); both are exposed at
+`/v1/search`. This is the keyword surface only — vector similarity, causal
+centrality and recency/trust weighting need the full in-RAM index. Next: causal
+`MATCH`/trace over cold segments.
 
 The three approaches considered, by RAM/latency/complexity:
 

@@ -301,7 +301,8 @@ func main() {
 		fmt.Println(`try:  curl 'localhost:7771/v1/lazy/stats'
       curl 'localhost:7771/v1/current?subject=item:1&facet=f'
       curl 'localhost:7771/v1/history?subject=item:1&facet=f'
-      curl 'localhost:7771/v1/asof?subject=item:1&facet=f&at=1500'`)
+      curl 'localhost:7771/v1/asof?subject=item:1&facet=f&at=1500'
+      curl 'localhost:7771/v1/search?q=jacket&limit=10'`)
 		log.Fatal(http.ListenAndServe(*addr, api.LazyRoutes(li)))
 	}
 

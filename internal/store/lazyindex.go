@@ -254,6 +254,17 @@ func (li *LazyIndex) AsOf(subject, facet string, effectiveAt, knownAt int64) ([]
 	return ScanAsOf(li.dir, subject, facet, effectiveAt, knownAt)
 }
 
+// Search ranks the resident current facts with keyword BM25 — served from RAM,
+// no disk read. (Cold-segment search has no vector/causal signals; this is the
+// keyword surface.)
+func (li *LazyIndex) Search(query string, limit int) []SearchHit {
+	events := make([]*model.Event, 0, len(li.open))
+	for _, e := range li.open {
+		events = append(events, e)
+	}
+	return rankEventsBM25(events, query, limit)
+}
+
 // Keys reports the number of resident current-fact pointers — the in-RAM
 // footprint, which scales with live subjects, not total events.
 func (li *LazyIndex) Keys() int { return len(li.open) }

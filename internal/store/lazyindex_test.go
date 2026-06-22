@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/proxima360/centauri/internal/model"
 )
@@ -131,5 +132,57 @@ func TestLazyCheckpointSkipsFoldedSegments(t *testing.T) {
 	got := li2.Current("item:1", "f")
 	if len(got) != 1 || fmt.Sprint(got[0].Value["v"]) != fmt.Sprint(want[0].Value["v"]) {
 		t.Fatalf("reopen Current = %v, want %v (from checkpoint)", got, want)
+	}
+}
+
+// Keyword BM25 over the archive must find the right current fact, both via the
+// resident LazyIndex.Search and the standalone ScanSearch.
+func TestLazySearch(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	put := func(subject, name string) {
+		now := time.Now().UnixMicro()
+		e := &model.Event{Subject: subject, Facet: "pdt", Type: model.Observed,
+			Value: map[string]any{"name": name}, EffectiveTime: now,
+			Provenance: model.SystemFeed, Confidence: 1}
+		if err := st.Append(now, []*model.Event{e}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("item:1", "red winter jacket")
+	put("item:2", "blue denim jeans")
+	put("item:3", "winter gloves")
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 2); err != nil {
+		t.Fatal(err)
+	}
+
+	// "jacket" appears only in item:1.
+	li, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hits := li.Search("jacket", 10)
+	if len(hits) != 1 || hits[0].Event.Subject != "item:1" {
+		t.Fatalf("Search(jacket) = %v, want only item:1", hits)
+	}
+	// "winter" appears in item:1 and item:3.
+	winter := li.Search("winter", 10)
+	if len(winter) != 2 {
+		t.Fatalf("Search(winter) returned %d hits, want 2", len(winter))
+	}
+	// Standalone disk scan agrees on the top hit.
+	scan, err := ScanSearch(arch, "jacket", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scan) != 1 || scan[0].Event.Subject != "item:1" {
+		t.Fatalf("ScanSearch(jacket) = %v, want only item:1", scan)
 	}
 }
