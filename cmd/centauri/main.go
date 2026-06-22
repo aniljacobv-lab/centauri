@@ -82,7 +82,10 @@ func main() {
 	manageOllama := fs.Bool("ollama", true, "desktop: auto-start a local Ollama if one isn't running, and stop it on exit (only the one we start)")
 	segMax := fs.Int("seg-max", 100000, "records per segment (archive)")
 	_ = fs.Parse(os.Args[2:])
-	*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
+	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
+	if !archiveMode {
+		*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
+	}
 
 	// backup copies the committed log (safe while the server runs — the
 	// log only ever appends, and we stop at the last complete record),
@@ -246,8 +249,15 @@ func main() {
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
-	st, err := store.OpenOptions(*data, store.Options{NoSync: cmd == "seed",
-		Lock: cmd == "serve" || cmd == "desktop" || cmd == "shell" || cmd == "sync", LazyPayloads: *lazy})
+	wantsLock := cmd == "serve" || cmd == "desktop" || cmd == "shell" || cmd == "sync"
+	var st *store.Store
+	var err error
+	if archiveMode {
+		// Run directly on a sealed-segment archive (compressed + tamper-verified).
+		st, err = store.OpenArchive(*data, store.Options{Lock: wantsLock, LazyPayloads: *lazy})
+	} else {
+		st, err = store.OpenOptions(*data, store.Options{NoSync: cmd == "seed", Lock: wantsLock, LazyPayloads: *lazy})
+	}
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
@@ -979,6 +989,16 @@ Examples
 CDC: tail new facts over HTTP — GET /v1/changes?from=<cursor> returns events
 plus a cursor to resume from. Learn CeQL at /ceql (run 'centauri desktop').`)
 	os.Exit(1)
+}
+
+// isArchiveDir reports whether p is a directory holding a sealed-segment archive
+// (a manifest.json) — in which case the engine opens it via OpenArchive.
+func isArchiveDir(p string) bool {
+	if fi, err := os.Stat(p); err != nil || !fi.IsDir() {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(p, "manifest.json"))
+	return err == nil
 }
 
 // ensureDataPath makes pointing -data at a folder (e.g. a OneDrive directory)

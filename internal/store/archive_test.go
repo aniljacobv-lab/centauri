@@ -64,3 +64,60 @@ func TestArchiveRoundTripAndTamper(t *testing.T) {
 		t.Fatal("verification must fail on a tampered segment")
 	}
 }
+
+// Opening a store directly on a segmented archive must reproduce the source
+// log's chain + index, queries must work, and appends must land in the tail and
+// persist across reopen.
+func TestOpenArchive(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 4; i++ {
+		e := &model.Event{Subject: fmt.Sprintf("item:%d", i), Facet: "f", Type: model.Observed,
+			Value: map[string]any{"price_cents": i * 10}, Provenance: model.SystemFeed, Confidence: 1}
+		if err := st.Append(int64(1000+i), []*model.Event{e}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	liveHead, _ := st.ChainHead()
+	wantSubjects := len(st.Subjects())
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 2); err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := OpenArchive(arch, Options{})
+	if err != nil {
+		t.Fatalf("OpenArchive: %v", err)
+	}
+	if got, _ := a.ChainHead(); got != liveHead {
+		t.Fatalf("archive head %s != live %s — segment replay not faithful", got, liveHead)
+	}
+	if len(a.Subjects()) != wantSubjects {
+		t.Fatalf("archive subjects = %d, want %d", len(a.Subjects()), wantSubjects)
+	}
+	if c := a.Current("item:2", "f"); len(c) != 1 || fmt.Sprint(c[0].Value["price_cents"]) != "20" {
+		t.Fatalf("item:2 current = %#v, want price 20", c)
+	}
+	// Append → lands in the appendable tail.
+	if err := a.Append(5000, []*model.Event{{Subject: "item:new", Facet: "f", Type: model.Observed,
+		Value: map[string]any{"price_cents": 999}, Provenance: model.SystemFeed, Confidence: 1}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	a.Close()
+
+	b, err := OpenArchive(arch, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	if c := b.Current("item:new", "f"); len(c) != 1 || fmt.Sprint(c[0].Value["price_cents"]) != "999" {
+		t.Fatalf("appended fact didn't persist in the tail: %#v", c)
+	}
+}
+

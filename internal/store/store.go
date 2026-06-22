@@ -91,10 +91,11 @@ type Store struct {
 	path   string
 	f      *os.File
 	size   int64 // committed file size; rollback target on write error
-	opts     Options
-	closed   bool
-	failed   bool
-	lockPath string // single-writer lock marker; "" when unlocked
+	opts      Options
+	closed    bool
+	failed    bool
+	lockPath  string // single-writer lock marker; "" when unlocked
+	archiveDir string // non-empty when opened via OpenArchive (segments + tail)
 
 	events map[string]*model.Event // event_id -> event (Value nil when offloaded)
 	// offsets is the on-disk location {byteOffset, length} of each event's
@@ -181,9 +182,11 @@ func (s *Store) recomputeOpen(k string) {
 // truncated away; corruption anywhere else fails loudly.
 func Open(path string) (*Store, error) { return OpenOptions(path, Options{}) }
 
-// OpenOptions is Open with explicit durability options.
-func OpenOptions(path string, opts Options) (*Store, error) {
-	s := &Store{
+// newStore returns a Store with all indexes initialized (no file opened yet).
+// Shared by OpenOptions (single log) and OpenArchive (segments + tail) so the
+// in-memory index layout can never drift between the two open paths.
+func newStore(path string, opts Options) *Store {
+	return &Store{
 		path:           path,
 		opts:           opts,
 		events:         map[string]*model.Event{},
@@ -204,6 +207,11 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		vectors:        map[string][]float32{},
 		subs:           map[int]chan *model.Event{},
 	}
+}
+
+// OpenOptions is Open with explicit durability options.
+func OpenOptions(path string, opts Options) (*Store, error) {
+	s := newStore(path, opts)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return nil, err

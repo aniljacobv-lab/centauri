@@ -1,1 +1,1 @@
-{"built":"2026-06-22T03:27:20Z","desc":"tablespaces #1: offline log→segment archiver (compress+Merkle+zones+manifest) + verify"}
+{"built":"2026-06-22T03:37:14Z","desc":"tablespaces #2: OpenArchive (run on compressed, chain-verified segments + tail) + auto-detect"}

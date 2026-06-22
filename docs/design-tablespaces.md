@@ -1,7 +1,11 @@
 # Design: tablespaces — disk-backed, compressed, tamper-proof storage
 
-**Status:** storage core built &amp; tested (`internal/segment`); wiring into the
-live log is the staged work below · **Builds on:** [design-segmentation.md](design-segmentation.md),
+**Status:** storage core built &amp; tested (`internal/segment`); the offline
+archiver (`WriteArchive`/`VerifyArchive`, `centauri archive`) and the
+**run-on-an-archive** path (`OpenArchive`: replay compressed, chain-verified
+segments + an appendable tail; `serve -data <archive-dir>`) are built &amp; tested.
+Remaining: online seal/compaction (crash-safe tail rolling) and a disk-backed
+index so RAM &lt; total data. · **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
 The goal: make Centauri a full-fledged database that **scales with disk, not
