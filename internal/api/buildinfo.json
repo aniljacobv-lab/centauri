@@ -1,1 +1,1 @@
-{"built":"2026-06-22T03:58:41Z","desc":"tablespaces #6: LazyIndex (approach A) — RAM scales with live subjects, current from RAM + history/asof from disk; + test"}
+{"built":"2026-06-22T04:01:57Z","desc":"tablespaces #7: serve -lazy-index — disk-backed index over HTTP (api.LazyRoutes), read-only current/history/asof + test"}

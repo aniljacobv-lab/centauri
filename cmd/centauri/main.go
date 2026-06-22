@@ -81,6 +81,7 @@ func main() {
 	install := fs.Bool("install", false, "with 'setup vision': install missing prerequisites via your OS package manager")
 	manageOllama := fs.Bool("ollama", true, "desktop: auto-start a local Ollama if one isn't running, and stop it on exit (only the one we start)")
 	segMax := fs.Int("seg-max", 100000, "records per segment (archive)")
+	lazyIndex := fs.Bool("lazy-index", false, "serve: open an archive with the disk-backed index — RAM scales with live subjects, not total events (read-only: current/history/asof)")
 	_ = fs.Parse(os.Args[2:])
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
 	if !archiveMode {
@@ -274,6 +275,30 @@ func main() {
 		}
 		fmt.Println("verified ✓")
 		return
+	}
+
+	// serve -lazy-index runs the disk-backed read path: open an archive WITHOUT
+	// replaying it into RAM — only the current fact per (subject,facet) stays
+	// resident, so memory scales with live subjects rather than total events. It
+	// answers current/history/asof (history/asof stream pruned segments from
+	// disk). Read-only by design; for writes, serve the archive normally.
+	if cmd == "serve" && *lazyIndex {
+		if !archiveMode {
+			log.Fatalf("-lazy-index needs -data to be a sealed-segment archive directory (run 'centauri archive' first)")
+		}
+		li, err := store.OpenLazyIndex(*data)
+		if err != nil {
+			log.Fatalf("open lazy index: %v", err)
+		}
+		fmt.Print(banner)
+		fmt.Println(api.BuildLine())
+		fmt.Printf("lazy disk-backed index: %d live keys resident (RAM scales with subjects, not events)\n", li.Keys())
+		fmt.Printf("data: %s   (read-only: current / history / asof)\nlistening on %s\n", *data, *addr)
+		fmt.Println(`try:  curl 'localhost:7771/v1/lazy/stats'
+      curl 'localhost:7771/v1/current?subject=item:1&facet=f'
+      curl 'localhost:7771/v1/history?subject=item:1&facet=f'
+      curl 'localhost:7771/v1/asof?subject=item:1&facet=f&at=1500'`)
+		log.Fatal(http.ListenAndServe(*addr, api.LazyRoutes(li)))
 	}
 
 	// seed is a redoable bulk load: skip per-commit fsync for speed.

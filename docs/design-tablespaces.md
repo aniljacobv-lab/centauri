@@ -7,8 +7,11 @@ segments + an appendable tail; `serve -data <archive-dir>`) and **online
 crash-safe sealing** (`Seal` / `centauri seal`: roll the tail into a new
 compressed segment via one atomic manifest switch to a fresh tail generation)
 and **crash-orphan GC** (`GCArchive`, run by `centauri seal`) are built &amp;
-tested. Remaining: a disk-backed index so RAM &lt; total data (the big scaling
-win). · **Builds on:** [design-segmentation.md](design-segmentation.md),
+tested. The **disk-backed index** is now reachable: `serve -lazy-index` opens an
+archive holding only the current fact per subject in RAM (scales with live
+subjects, not total events) and answers current/history/asof over HTTP.
+Remaining: a persisted pointer-checkpoint for O(1) restart, and lazy coverage of
+the richer queries (SEARCH, causal). · **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
 The goal: make Centauri a full-fledged database that **scales with disk, not
@@ -92,9 +95,15 @@ test proves they match the in-RAM engine exactly.
 dropping superseded/historical events as they pass. `Current` is served from RAM;
 `History`/`AsOf` stream the pruned segments from disk. A test asserts RAM holds
 one pointer per subject (not per event) and that `Current`/`History` match the
-in-RAM engine. It is standalone (the live `Store` is untouched) — wiring it behind
-`serve -data <archive>` and a persisted pointer-checkpoint (O(1) restart) are the
-next slices.
+in-RAM engine.
+
+It is now reachable over HTTP: **`serve -lazy-index`** (on an archive directory)
+opens the `LazyIndex` and mounts a small read-only surface (`api.LazyRoutes`):
+`/v1/current` from the resident pointer, `/v1/history` and `/v1/asof` streamed
+from pruned segments, and `/v1/lazy/stats` reporting the resident-key footprint.
+The full in-RAM `Server` is untouched (writes still use a normal `serve`). Next:
+a persisted pointer-checkpoint for O(1) restart, then lazy coverage of SEARCH /
+causal.
 
 The three approaches considered, by RAM/latency/complexity:
 
