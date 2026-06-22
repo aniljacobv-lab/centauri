@@ -9,9 +9,10 @@ compressed segment via one atomic manifest switch to a fresh tail generation)
 and **crash-orphan GC** (`GCArchive`, run by `centauri seal`) are built &amp;
 tested. The **disk-backed index** is now reachable: `serve -lazy-index` opens an
 archive holding only the current fact per subject in RAM (scales with live
-subjects, not total events) and answers current/history/asof over HTTP.
-Remaining: a persisted pointer-checkpoint for O(1) restart, and lazy coverage of
-the richer queries (SEARCH, causal). · **Builds on:** [design-segmentation.md](design-segmentation.md),
+subjects, not total events) and answers current/history/asof over HTTP, with a
+Merkle-validated **pointer-checkpoint** (`lazy.ckpt`) that makes restart replay
+only the tail + newly-sealed segments. Remaining: lazy coverage of the richer
+queries (SEARCH, causal). · **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
 The goal: make Centauri a full-fledged database that **scales with disk, not
@@ -101,9 +102,16 @@ It is now reachable over HTTP: **`serve -lazy-index`** (on an archive directory)
 opens the `LazyIndex` and mounts a small read-only surface (`api.LazyRoutes`):
 `/v1/current` from the resident pointer, `/v1/history` and `/v1/asof` streamed
 from pruned segments, and `/v1/lazy/stats` reporting the resident-key footprint.
-The full in-RAM `Server` is untouched (writes still use a normal `serve`). Next:
-a persisted pointer-checkpoint for O(1) restart, then lazy coverage of SEARCH /
-causal.
+The full in-RAM `Server` is untouched (writes still use a normal `serve`).
+
+Restart is now near-O(tail), not O(total): a **pointer-checkpoint** (`lazy.ckpt`,
+written atomically on start and validated by each folded segment's Merkle root)
+persists the resident facts + the segments already folded in, so reopen seeds
+from it and replays only segments sealed since + the always-fresh tail.
+Re-applying the tail over the checkpoint is idempotent, so the result is
+byte-identical to a full rebuild (a test corrupts every segment after
+checkpointing and shows `Current` still answers from the checkpoint). Next: lazy
+coverage of the richer queries (SEARCH / causal).
 
 The three approaches considered, by RAM/latency/complexity:
 

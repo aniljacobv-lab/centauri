@@ -290,6 +290,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("open lazy index: %v", err)
 		}
+		// Persist the pointer-checkpoint so the next start replays only the tail.
+		if err := li.SaveCheckpoint(); err != nil {
+			log.Printf("lazy checkpoint: %v (restart will rebuild from segments)", err)
+		}
 		fmt.Print(banner)
 		fmt.Println(api.BuildLine())
 		fmt.Printf("lazy disk-backed index: %d live keys resident (RAM scales with subjects, not events)\n", li.Keys())

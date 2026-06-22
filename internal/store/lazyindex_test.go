@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -66,5 +67,69 @@ func TestLazyIndexScalesWithSubjects(t *testing.T) {
 		if len(h) != versions {
 			t.Fatalf("lazy History(%s) = %d events, want %d (full timeline from disk)", subj, len(h), versions)
 		}
+	}
+}
+
+// The pointer-checkpoint must let reopen skip segments already folded in: after
+// SaveCheckpoint, corrupting every segment file must NOT break Current (it is
+// served from the checkpoint, not re-read from disk), and the answer must match.
+func TestLazyCheckpointSkipsFoldedSegments(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for v := 0; v < 3; v++ {
+		now := int64(1000 + v)
+		e := &model.Event{Subject: "item:1", Facet: "f", Type: model.Observed,
+			Value: map[string]any{"v": v}, EffectiveTime: now,
+			Provenance: model.SystemFeed, Confidence: 1}
+		if err := st.Append(now, []*model.Event{e}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 1); err != nil { // every record in its own segment
+		t.Fatal(err)
+	}
+
+	li1, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := li1.Current("item:1", "f")
+	if len(want) != 1 {
+		t.Fatalf("first open Current = %d, want 1", len(want))
+	}
+	if err := li1.SaveCheckpoint(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(arch, lazyCheckpointName)); err != nil {
+		t.Fatalf("checkpoint not written: %v", err)
+	}
+
+	// Corrupt every sealed segment. A correct reopen seeds from the checkpoint and
+	// never re-reads them, so Current must still work.
+	segDir := filepath.Join(arch, "segments")
+	entries, err := os.ReadDir(segDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if err := os.WriteFile(filepath.Join(segDir, e.Name()), []byte("CORRUPT"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	li2, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatalf("reopen from checkpoint failed (did it re-read corrupt segments?): %v", err)
+	}
+	got := li2.Current("item:1", "f")
+	if len(got) != 1 || fmt.Sprint(got[0].Value["v"]) != fmt.Sprint(want[0].Value["v"]) {
+		t.Fatalf("reopen Current = %v, want %v (from checkpoint)", got, want)
 	}
 }

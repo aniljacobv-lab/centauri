@@ -1,15 +1,22 @@
 package store
 
 // LazyIndex is the disk-backed, RAM-scaling read path (design-tablespaces.md,
-// approach A). Opening it streams an archive's segments + tail ONCE and keeps in
-// RAM only the *current* fact per (subject, facet) — superseded and historical
+// approach A). Opening it streams an archive's segments + tail and keeps in RAM
+// only the *current* fact per (subject, facet) — superseded and historical
 // events are dropped as they're passed. So RAM scales with the number of live
 // subjects, not the total number of events: you can query a database far larger
 // than memory. Current is answered from the resident pointer; History and AsOf
 // stream the zone-map-pruned segments from disk (ScanHistory / ScanAsOf).
 //
+// A pointer-checkpoint (lazy.ckpt) makes restart O(tail) instead of O(total):
+// it persists the non-superseded facts and the set of (immutable) segments
+// already folded in, so reopen seeds from it and replays only segments added
+// since + the always-fresh tail. Re-applying the tail over the checkpoint is
+// idempotent (events key by id; supersede markers re-delete), so the result is
+// identical to a full rebuild — a test asserts this.
+//
 // It is standalone (it does not change the in-RAM Store), so it carries no
-// regression risk; wiring it behind `serve -data <archive>` is the next slice.
+// regression risk; `serve -lazy-index` mounts it via api.LazyRoutes.
 
 import (
 	"bytes"
@@ -21,65 +28,72 @@ import (
 	"github.com/proxima360/centauri/internal/segment"
 )
 
+const lazyCheckpointName = "lazy.ckpt"
+
 // LazyIndex answers reads over an archive while holding only the current facts.
 type LazyIndex struct {
-	dir    string
-	open   map[string]*model.Event    // subject|facet -> current (non-superseded, beats-max) fact
-	facets map[string]map[string]bool // subject -> facets (for Current with facet == "")
+	dir     string
+	open    map[string]*model.Event             // subject|facet -> current (beats-max) fact
+	facets  map[string]map[string]bool          // subject -> facets that have a current fact
+	live    map[string]map[string]*model.Event  // key -> id -> non-superseded event (for checkpoint + tail merge)
+	idKey   map[string]string                   // event id -> key (to drop on supersession)
+	covered map[string]string                   // segment path -> merkle root already folded into live
 }
 
-// OpenLazyIndex builds the current-pointer index by a single streaming pass over
-// the archive — keeping only non-superseded facts, then resolving each
-// (subject,facet) to its deterministic current fact (the same beats rule the
-// in-RAM engine uses).
-func OpenLazyIndex(dir string) (*LazyIndex, error) {
-	li := &LazyIndex{dir: dir, open: map[string]*model.Event{}, facets: map[string]map[string]bool{}}
-	live := map[string]map[string]*model.Event{} // key -> id -> event (non-superseded so far)
-	idKey := map[string]string{}                 // event id -> key (to drop on supersession)
+// lazyCheckpoint is the on-disk pointer-checkpoint. Covered maps each folded
+// segment path to its Merkle root, so a reused path whose content changed (e.g.
+// a re-archived log) invalidates the checkpoint instead of seeding stale state.
+type lazyCheckpoint struct {
+	Covered map[string]string         `json:"covered"`
+	Live    map[string][]*model.Event `json:"live"`
+}
 
-	process := func(data []byte) {
-		for len(data) > 0 {
-			i := bytes.IndexByte(data, '\n')
-			var ln []byte
-			if i < 0 {
-				ln, data = data, nil
-			} else {
-				ln, data = data[:i+1], data[i+1:]
-			}
-			t := bytes.TrimSpace(ln)
-			if len(t) == 0 {
+// applyRecordsLazy folds one buffer of log records into the live sets: keep
+// non-superseded, non-lifecycle events (by id), and drop on supersede markers.
+// Idempotent w.r.t. re-applying the same bytes.
+func applyRecordsLazy(data []byte, live map[string]map[string]*model.Event, idKey map[string]string) {
+	for len(data) > 0 {
+		i := bytes.IndexByte(data, '\n')
+		var ln []byte
+		if i < 0 {
+			ln, data = data, nil
+		} else {
+			ln, data = data[:i+1], data[i+1:]
+		}
+		t := bytes.TrimSpace(ln)
+		if len(t) == 0 {
+			continue
+		}
+		var r record
+		if json.Unmarshal(t, &r) != nil {
+			continue
+		}
+		switch {
+		case r.Event != nil:
+			e := r.Event
+			if e.Type == model.Activated || e.SupersededBy != "" {
 				continue
 			}
-			var r record
-			if json.Unmarshal(t, &r) != nil {
-				continue
+			k := key(e.Subject, e.Facet)
+			if live[k] == nil {
+				live[k] = map[string]*model.Event{}
 			}
-			switch {
-			case r.Event != nil:
-				e := r.Event
-				if e.Type == model.Activated || e.SupersededBy != "" {
-					continue
-				}
-				k := key(e.Subject, e.Facet)
-				if live[k] == nil {
-					live[k] = map[string]*model.Event{}
-				}
-				live[k][e.EventID] = e
-				idKey[e.EventID] = k
-				if li.facets[e.Subject] == nil {
-					li.facets[e.Subject] = map[string]bool{}
-				}
-				li.facets[e.Subject][e.Facet] = true
-			case r.Supersede != nil:
-				id := r.Supersede.EventID
-				if k, ok := idKey[id]; ok {
-					delete(live[k], id)
-					delete(idKey, id)
-				}
+			live[k][e.EventID] = e
+			idKey[e.EventID] = k
+		case r.Supersede != nil:
+			id := r.Supersede.EventID
+			if k, ok := idKey[id]; ok {
+				delete(live[k], id)
+				delete(idKey, id)
 			}
 		}
 	}
+}
 
+// OpenLazyIndex builds (or restores) the current-pointer index. It seeds from a
+// pointer-checkpoint when present and still consistent with the manifest, then
+// replays only the segments not yet folded in plus the tail.
+func OpenLazyIndex(dir string) (*LazyIndex, error) {
 	mb, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
 		return nil, err
@@ -88,7 +102,52 @@ func OpenLazyIndex(dir string) (*LazyIndex, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	li := &LazyIndex{
+		dir:     dir,
+		live:    map[string]map[string]*model.Event{},
+		idKey:   map[string]string{},
+		covered: map[string]string{},
+	}
+
+	// Current segment identities (path -> Merkle root) for checkpoint validation.
+	segRoot := map[string]string{}
 	for _, e := range man.Segments {
+		segRoot[e.Path] = e.MerkleRoot
+	}
+
+	// Seed from the checkpoint only if every segment it folded in still exists in
+	// the manifest with the SAME content (matching Merkle root). Otherwise (a
+	// segment was compacted away or a path was rewritten) fall back to a full
+	// rebuild.
+	if ck, _ := loadLazyCheckpoint(dir); ck != nil {
+		stale := false
+		for p, root := range ck.Covered {
+			if segRoot[p] != root {
+				stale = true
+				break
+			}
+		}
+		if !stale {
+			for k, evs := range ck.Live {
+				m := map[string]*model.Event{}
+				for _, e := range evs {
+					m[e.EventID] = e
+					li.idKey[e.EventID] = k
+				}
+				li.live[k] = m
+			}
+			for p, root := range ck.Covered {
+				li.covered[p] = root
+			}
+		}
+	}
+
+	// Fold in any segments not already covered (immutable, so safe to skip once folded).
+	for _, e := range man.Segments {
+		if _, ok := li.covered[e.Path]; ok {
+			continue
+		}
 		raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(e.Path)))
 		if err != nil {
 			return nil, err
@@ -98,15 +157,25 @@ func OpenLazyIndex(dir string) (*LazyIndex, error) {
 				return nil, err
 			}
 		}
-		process(raw)
-	}
-	if tb, err := os.ReadFile(archiveTailPath(dir, man)); err == nil {
-		process(tb)
+		applyRecordsLazy(raw, li.live, li.idKey)
+		li.covered[e.Path] = e.MerkleRoot
 	}
 
-	// Resolve each key to its current fact (deterministic max), then drop the
-	// rest — only the current facts stay resident.
-	for k, m := range live {
+	// The tail is mutable/appendable, so it is never covered — always replayed.
+	if tb, err := os.ReadFile(archiveTailPath(dir, man)); err == nil {
+		applyRecordsLazy(tb, li.live, li.idKey)
+	}
+
+	li.resolve()
+	return li, nil
+}
+
+// resolve recomputes the current fact per key (deterministic beats-max) and the
+// per-subject facet set from the live sets.
+func (li *LazyIndex) resolve() {
+	li.open = map[string]*model.Event{}
+	li.facets = map[string]map[string]bool{}
+	for k, m := range li.live {
 		var best *model.Event
 		for _, e := range m {
 			if beats(e, best) {
@@ -115,9 +184,48 @@ func OpenLazyIndex(dir string) (*LazyIndex, error) {
 		}
 		if best != nil {
 			li.open[k] = best
+			if li.facets[best.Subject] == nil {
+				li.facets[best.Subject] = map[string]bool{}
+			}
+			li.facets[best.Subject][best.Facet] = true
 		}
 	}
-	return li, nil
+}
+
+// SaveCheckpoint atomically persists the current pointer state so the next open
+// replays only the tail (+ any segments sealed since). Tail records are not
+// covered, so they are always replayed — re-applying them is idempotent.
+func (li *LazyIndex) SaveCheckpoint() error {
+	ck := lazyCheckpoint{Covered: map[string]string{}, Live: map[string][]*model.Event{}}
+	for p, root := range li.covered {
+		ck.Covered[p] = root
+	}
+	for k, m := range li.live {
+		for _, e := range m {
+			ck.Live[k] = append(ck.Live[k], e)
+		}
+	}
+	b, err := json.Marshal(ck)
+	if err != nil {
+		return err
+	}
+	tmp := filepath.Join(li.dir, lazyCheckpointName+".tmp")
+	if err := writeFileSync(tmp, b); err != nil {
+		return err
+	}
+	return os.Rename(tmp, filepath.Join(li.dir, lazyCheckpointName))
+}
+
+func loadLazyCheckpoint(dir string) (*lazyCheckpoint, error) {
+	b, err := os.ReadFile(filepath.Join(dir, lazyCheckpointName))
+	if err != nil {
+		return nil, err
+	}
+	var ck lazyCheckpoint
+	if err := json.Unmarshal(b, &ck); err != nil {
+		return nil, err
+	}
+	return &ck, nil
 }
 
 // Current returns the current fact(s) for a subject (one facet, or all when
