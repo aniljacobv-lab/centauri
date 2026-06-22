@@ -105,6 +105,31 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 		writeJSON(w, li.Search(query, limit))
 	})
 
+	mux.HandleFunc("/v1/trace", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		id := q.Get("event")
+		if id == "" {
+			http.Error(w, "event required", http.StatusBadRequest)
+			return
+		}
+		dir := q.Get("direction")
+		if dir == "" {
+			dir = "cause"
+		}
+		depth := 16
+		if s := q.Get("depth"); s != "" {
+			if n, err := strconv.Atoi(s); err == nil && n > 0 {
+				depth = n
+			}
+		}
+		nodes, err := li.Trace(id, dir, depth)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, nodes)
+	})
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -117,7 +142,8 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 			"GET /v1/current?subject=…&facet=…\n" +
 			"GET /v1/history?subject=…&facet=…\n" +
 			"GET /v1/asof?subject=…&facet=…&at=<micros>&known=<micros>\n" +
-			"GET /v1/search?q=<text>&limit=<n>\n"))
+			"GET /v1/search?q=<text>&limit=<n>\n" +
+			"GET /v1/trace?event=<id>&direction=cause|effect&depth=<n>\n"))
 	})
 
 	return mux

@@ -186,3 +186,46 @@ func TestLazySearch(t *testing.T) {
 		t.Fatalf("ScanSearch(jacket) = %v, want only item:1", scan)
 	}
 }
+
+// Causal trace over the archive must follow Link records in both directions.
+func TestScanTrace(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &model.Event{EventID: "evA", Subject: "order:1", Facet: "f", Type: model.Observed,
+		Value: map[string]any{"x": 1}, EffectiveTime: 1000, Provenance: model.SystemFeed, Confidence: 1}
+	if err := st.Append(1000, []*model.Event{a}, nil); err != nil {
+		t.Fatal(err)
+	}
+	b := &model.Event{EventID: "evB", Subject: "shipment:1", Facet: "f", Type: model.Observed,
+		Value: map[string]any{"x": 2}, EffectiveTime: 2000, Provenance: model.SystemFeed, Confidence: 1}
+	// evA caused evB.
+	if err := st.Append(2000, []*model.Event{b},
+		[]model.CausalLink{{From: "evA", To: "evB", Type: model.Triggered}}); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 2); err != nil {
+		t.Fatal(err)
+	}
+
+	causes, err := ScanTrace(arch, "evB", "cause", 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(causes) != 1 || causes[0].Event.EventID != "evA" {
+		t.Fatalf("cause trace of evB = %v, want [evA]", causes)
+	}
+	effects, err := ScanTrace(arch, "evA", "effect", 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(effects) != 1 || effects[0].Event.EventID != "evB" {
+		t.Fatalf("effect trace of evA = %v, want [evB]", effects)
+	}
+}

@@ -265,6 +265,12 @@ func (li *LazyIndex) Search(query string, limit int) []SearchHit {
 	return rankEventsBM25(events, query, limit)
 }
 
+// Trace walks the causal lineage of an event ("cause" or "effect") by scanning
+// Link records from disk.
+func (li *LazyIndex) Trace(eventID, direction string, maxDepth int) ([]TraceNode, error) {
+	return ScanTrace(li.dir, eventID, direction, maxDepth)
+}
+
 // Keys reports the number of resident current-fact pointers — the in-RAM
 // footprint, which scales with live subjects, not total events.
 func (li *LazyIndex) Keys() int { return len(li.open) }

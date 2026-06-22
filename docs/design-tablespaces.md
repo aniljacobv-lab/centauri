@@ -11,8 +11,9 @@ tested. The **disk-backed index** is now reachable: `serve -lazy-index` opens an
 archive holding only the current fact per subject in RAM (scales with live
 subjects, not total events) and answers current/history/asof over HTTP, with a
 Merkle-validated **pointer-checkpoint** (`lazy.ckpt`) that makes restart replay
-only the tail + newly-sealed segments, plus keyword **SEARCH** (BM25) over cold
-data at `/v1/search`. Remaining: causal `MATCH`/trace over cold segments. ·
+only the tail + newly-sealed segments, plus keyword **SEARCH** (BM25, `/v1/search`)
+and **causal trace** (`/v1/trace`) over cold data — so the lazy path now covers
+the full read surface (current, history, asof, search, trace). ·
 **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
@@ -118,8 +119,16 @@ the resident current facts with Okapi BM25 (and `store.ScanSearch` does the same
 standalone over an archive, retaining only docs that contain a query term so RAM
 scales with query selectivity, not corpus size); both are exposed at
 `/v1/search`. This is the keyword surface only — vector similarity, causal
-centrality and recency/trust weighting need the full in-RAM index. Next: causal
-`MATCH`/trace over cold segments.
+centrality and recency/trust weighting need the full in-RAM index.
+
+**Causal trace** over cold data closes the loop: `LazyIndex.Trace` /
+`store.ScanTrace` (exposed at `/v1/trace`) walk an event's lineage — its causes
+(inbound edges) or effects (outbound) — by streaming the archive's `Link`
+records. A causal graph is inherently edge-sized, so this builds the adjacency
+and materializes only the events that are link endpoints (a second pass), staying
+well under a full replay; the walk mirrors `Store.Trace` (same edges, depth,
+first-seen dedupe). The lazy read path now covers current, history, asof, search,
+and trace — the full read surface a database-larger-than-RAM needs.
 
 The three approaches considered, by RAM/latency/complexity:
 
