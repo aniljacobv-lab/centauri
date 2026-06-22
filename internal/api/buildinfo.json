@@ -1,1 +1,1 @@
-{"built":"2026-06-22T03:58:31Z","desc":"tablespaces #5: disk-scan read primitives (ScanHistory/ScanAsOf, zone-map-pruned) + test"}
+{"built":"2026-06-22T03:58:41Z","desc":"tablespaces #6: LazyIndex (approach A) — RAM scales with live subjects, current from RAM + history/asof from disk; + test"}
