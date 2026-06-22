@@ -40,6 +40,8 @@
   nav .links a{color:#c6d4e6}nav .links a:hover{color:#fff;text-decoration:none}
   @media(max-width:900px){nav .links a:not(.gh){display:none}}
   .gh{border:1px solid #38506b;border-radius:7px;padding:6px 13px;color:#fff!important}
+  .btn-nav{background:linear-gradient(135deg,#00add8,#2f6fb0);border-radius:7px;padding:6px 13px;color:#fff!important;font-weight:600}
+  .btn-nav:hover{filter:brightness(1.08)}
   .announce{background:var(--blue);color:#fff;text-align:center;font-size:14px;padding:9px 16px}
   .announce a{color:#fff;font-weight:700;text-decoration:underline}
 
@@ -220,20 +222,16 @@
 <nav><div class="wrap">
   <span class="brand"><span class="star">✦</span> Centauri</span>
   <span class="links">
-    <a href="#what">What is it?</a>
+    <a href="#what">Overview</a>
     <a href="#own">Own your data</a>
-    <a href="#ask">Ask AI</a>
-    <a href="#agents">For agents</a>
     <a href="#vision">Vision &amp; AI</a>
+    <a href="#agents">For agents</a>
     <a href="#quickstart">Quickstart</a>
-    <a href="#playground">Playground</a>
-    <a href="#reference">CeQL Reference</a>
-    <a href="#sql">From SQL</a>
-    <a href="#integrations">Integrations</a>
+    <a href="#reference">Reference</a>
     <a href="#sdks">SDKs</a>
-    <a href="#examples">Examples</a>
+    <a href="#compare">Compare</a>
     <a href="#docs">Docs</a>
-    <a href="#download">Download</a>
+    <a class="btn-nav" href="#download">⬇ Download</a>
     <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
   </span>
 </div></nav>
@@ -323,7 +321,7 @@
 </div></section>
 
 <!-- ASK AI -->
-<section id="ask"><div class="wrap">
+<section class="alt" id="ask"><div class="wrap">
   <div class="kicker">Ask Centauri</div>
   <h2>Ask a question — get an answer <span class="rule">and the query</span>.</h2>
   <p class="lead">This assistant <b>indexes the entire page</b> — every reference entry, example, and feature — and answers with Centauri's own BM25 search. <b>No LLM, no API key, no token cost</b>: it runs entirely in your browser, and it's the same engine you'd self-host. Ask about the product, or pose a data question and watch it become a query.</p>
@@ -592,7 +590,7 @@ centauri setup vision -install</pre>
 </div></section>
 
 <!-- COMING FROM SQL -->
-<section id="sql"><div class="wrap">
+<section class="alt" id="sql"><div class="wrap">
   <div class="kicker">Coming from SQL?</div>
   <h2>You already know most of CeQL.</h2>
   <p class="lead">The everyday operations map almost one-to-one — then CeQL adds what SQL can't express. The full mapping (Oracle, PostgreSQL, MongoDB, Cypher, KSQL) is in <a href="ceql.html">the Rosetta Stone</a>.</p>
@@ -630,7 +628,7 @@ centauri setup vision -install</pre>
 </div></section>
 
 <!-- SDKs & PROCEDURES -->
-<section id="sdks"><div class="wrap">
+<section class="alt" id="sdks"><div class="wrap">
   <div class="kicker">SDKs &amp; procedures</div>
   <h2>Use it from your language — or teach it procedures.</h2>
   <p class="lead">Talk to Centauri with a <b>zero-dependency client</b> for Python, Go, or JavaScript — or over plain HTTP/MCP from anything. Insert and update are the same call; reads, time travel, context, and CDC are one method each.</p>
@@ -669,7 +667,7 @@ await db.run("reprice", {item:"toy:robot"});</pre>
 </div></section>
 
 <!-- EXAMPLES ACROSS DOMAINS -->
-<section class="alt" id="examples"><div class="wrap">
+<section id="examples"><div class="wrap">
   <div class="kicker">Examples across domains</div>
   <h2>The same operators, <span class="rule">everywhere</span>.</h2>
   <p class="lead">Centauri isn't a retail tool — the subjects are just names. Here's how each capability reads in healthcare, finance, security, ML, IoT, and more. Every query is real CeQL.</p>
@@ -758,7 +756,7 @@ $ centauri verify
 </div></section>
 
 <!-- DOCS LINKS -->
-<section id="docs"><div class="wrap">
+<section class="alt" id="docs"><div class="wrap">
   <div class="kicker">Learn more</div>
   <h2>Documentation &amp; resources</h2>
   <div class="doclinks">
