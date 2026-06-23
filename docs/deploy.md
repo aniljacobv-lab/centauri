@@ -8,12 +8,28 @@ recipes, lightest first.
 
 - **Always set `-token`** (writes/admin) and ideally `-read-token`
   (viewers/dashboards). Without a token, anyone with the URL owns your data.
-- **Never expose port 7771 directly.** Centauri speaks plain HTTP; run a
-  reverse proxy (Caddy/nginx) for TLS. Bind Centauri to localhost only.
+- **TLS:** Centauri can terminate HTTPS itself — pass `-tls-cert <pem> -tls-key <pem>`
+  to `serve`/`desktop`/`serve -lazy-index` (no reverse proxy required). A reverse
+  proxy (Caddy/nginx) is still a fine choice for defense in depth, automatic certs,
+  and HTTP/2; if you use one, bind Centauri to localhost. There is no mTLS / client-cert
+  auth or hot cert reload yet.
 - Take periodic `centauri backup` snapshots off the box, and record the
   chain head somewhere separate (tamper evidence needs an external anchor).
-- This is a v0.x single-node server: no rate limiting, no WAF. Treat it
-  like an internal tool with a password, not a hardened public API.
+- **Admission control:** `serve -lazy-index` accepts `-max-concurrency` (HTTP 429
+  over the cap) and `-query-timeout` seconds (HTTP 503) to protect the cold-read
+  path. The normal write/serve path has no rate limiting yet — treat it like an
+  internal tool with a password, not a hardened public API.
+- **Probes & metrics:** both `serve` and `serve -lazy-index` expose `/livez`,
+  `/readyz`, and a Prometheus `/metrics` endpoint (unauthenticated — no fact data),
+  so Kubernetes probes and Prometheus scraping work in either mode.
+
+## Read-only cold tier — `serve -lazy-index`
+
+For datasets larger than RAM, archive the log (`centauri archive -data <log> -to <dir>`)
+and serve the archive read-only: `centauri serve -lazy-index -data <dir>`. Only current
+facts + zone maps stay resident; the data routes honour `-read-token`, and the
+Tablespace Console dashboard, health probes, and metrics are served too. See
+[demo-tablespaces.md](demo-tablespaces.md).
 
 ## Recipe 1 — VPS + Caddy (~20 minutes, ~$5/month)
 

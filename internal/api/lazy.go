@@ -258,7 +258,9 @@ func lazyAuth(token string, h http.Handler) http.Handler {
 		return h
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/v1/") {
+		// /v1/version is build info only (no fact data) — left open to match the
+		// normal server, so version checks don't need a token.
+		if strings.HasPrefix(r.URL.Path, "/v1/") && r.URL.Path != "/v1/version" {
 			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 			if got == "" {
 				got = r.URL.Query().Get("token")

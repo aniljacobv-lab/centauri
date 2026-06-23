@@ -148,7 +148,7 @@
         <tr><td>Online integrity verification</td><td><span class="y">✓</span></td><td>verify segments + chain without downtime</td></tr>
         <tr><td>Native TLS / HTTPS</td><td><span class="y">✓</span></td><td><code>-tls-cert</code>/<code>-tls-key</code> on serve &amp; lazy-index (no reverse proxy required)</td></tr>
         <tr><td>Auth on the read path</td><td><span class="y">✓</span></td><td>lazy-index data routes require a read token; dashboard/health/metrics stay open</td></tr>
-        <tr><td>Prometheus metrics + health probes</td><td><span class="y">✓</span></td><td><code>/metrics</code>, <code>/livez</code>, <code>/readyz</code> for Prometheus &amp; Kubernetes</td></tr>
+        <tr><td>Prometheus metrics + health probes</td><td><span class="y">✓</span></td><td><code>/metrics</code>, <code>/livez</code>, <code>/readyz</code> on both normal serve and lazy-index, for Prometheus &amp; Kubernetes</td></tr>
         <tr><td>Admission control (read path)</td><td><span class="y">✓</span></td><td><code>-max-concurrency</code> (429) + <code>-query-timeout</code> (503) guard against heavy cold scans; write-path/per-tenant quotas still open</td></tr>
         <tr><td>SQL interface</td><td><span class="n">✗</span></td><td>CeQL only (no SQL/JDBC)</td></tr>
         <tr><td>Multi-statement ACID transactions</td><td><span class="n">✗</span></td><td>single fact / batch append; no interactive MVCC transactions</td></tr>

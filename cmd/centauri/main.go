@@ -455,7 +455,7 @@ func main() {
 		if n, err := assistant.SeedIfEmpty(st, time.Now().UnixMicro()); err == nil {
 			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
 		}
-		fmt.Printf("data: %s\nlistening on %s\n", *data, *addr)
+		fmt.Printf("data: %s\nlistening on %s   metrics: /metrics   health: /livez /readyz\n", *data, *addr)
 		fmt.Println(`try:  curl 'localhost:7771/v1/stats'
       curl 'localhost:7771/v1/context?subject=item:100001/store:4001'
       curl 'localhost:7771/v1/asof?subject=item:100001/store:4001&at=2026-03-15'

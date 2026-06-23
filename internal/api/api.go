@@ -241,6 +241,9 @@ func (s *Server) Routes() http.Handler {
 	root := http.NewServeMux()
 	root.Handle("/", s.auth(mux))
 	root.HandleFunc("GET /v1/version", s.handleVersion) // deploy stamp, no auth
+	root.HandleFunc("GET /livez", s.handleLivez)        // k8s liveness, no data
+	root.HandleFunc("GET /readyz", s.handleReadyz)      // k8s readiness, no data
+	root.HandleFunc("GET /metrics", s.handleMetrics)    // prometheus, no fact data
 	root.HandleFunc("GET /{$}", s.handleUI)             // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE

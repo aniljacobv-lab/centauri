@@ -24,7 +24,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Single zero-dependency binary | ✓ | Go stdlib only; no third-party runtime. |
 | Native TLS / HTTPS | ✓ | `-tls-cert`/`-tls-key` on `serve` and `serve -lazy-index` — no reverse proxy required (one is still fine). |
 | Auth on the read path | ✓ | `serve -lazy-index` data routes (`/v1/*`) require a read token; the dashboard, health probes, and `/metrics` stay open (no fact data). |
-| Prometheus metrics + health probes | ✓ | `/metrics` (text exposition), `/livez`, `/readyz` for Prometheus/Grafana and Kubernetes liveness/readiness. |
+| Prometheus metrics + health probes | ✓ | `/metrics` (text exposition), `/livez`, `/readyz` on **both** the normal `serve` and `serve -lazy-index` paths — Prometheus/Grafana scraping and Kubernetes liveness/readiness in either deployment mode. The lazy `/metrics` adds segment-cache gauges; the normal one exposes store counters + build info. |
 
 ## What it does not do (yet)
 
