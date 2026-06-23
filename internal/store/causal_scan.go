@@ -6,26 +6,19 @@ package store
 // the adjacency (O(edges)) and materializes ONLY the events that are link
 // endpoints (not the whole corpus) via a second pass — keeping it well below a
 // full in-RAM replay. Mirrors Store.Trace's walk (same inbound/outbound edges,
-// depth, and first-seen dedupe).
+// depth, and first-seen dedupe). Reads go through the cached archiveReader.
 
 import (
 	"bytes"
 	"encoding/json"
-	"os"
-	"path/filepath"
 
 	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/segment"
 )
 
-// forEachArchiveRecord streams every record in an archive (all segments + tail),
-// calling fn once per parsed record.
-func forEachArchiveRecord(dir string, fn func(r *record)) error {
-	mb, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		return err
-	}
-	man, err := segment.ParseManifest(mb)
+// forEachArchiveRecordR streams every record in an archive (all segments + tail)
+// via the cached reader, calling fn once per parsed record.
+func forEachArchiveRecordR(a *archiveReader, fn func(r *record)) error {
+	man, err := a.manifest()
 	if err != nil {
 		return err
 	}
@@ -49,26 +42,19 @@ func forEachArchiveRecord(dir string, fn func(r *record)) error {
 		}
 	}
 	for _, e := range man.Segments {
-		raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(e.Path)))
+		raw, err := a.segmentBytes(e)
 		if err != nil {
 			return err
 		}
-		if e.Compressed {
-			if raw, err = segment.Decompress(raw); err != nil {
-				return err
-			}
-		}
 		feed(raw)
 	}
-	if tb, err := os.ReadFile(archiveTailPath(dir, man)); err == nil {
+	if tb, err := a.tailBytes(); err == nil {
 		feed(tb)
 	}
 	return nil
 }
 
-// ScanTrace walks the causal graph from eventID over an archive. direction is
-// "cause" (inbound — what led to this) or "effect" (outbound — what this led to).
-func ScanTrace(dir, eventID, direction string, maxDepth int) ([]TraceNode, error) {
+func traceR(a *archiveReader, eventID, direction string, maxDepth int) ([]TraceNode, error) {
 	if maxDepth <= 0 {
 		maxDepth = 16
 	}
@@ -77,7 +63,7 @@ func ScanTrace(dir, eventID, direction string, maxDepth int) ([]TraceNode, error
 	causalIn := map[string][]model.CausalLink{}
 	causalOut := map[string][]model.CausalLink{}
 	linked := map[string]bool{}
-	if err := forEachArchiveRecord(dir, func(r *record) {
+	if err := forEachArchiveRecordR(a, func(r *record) {
 		if r.Link == nil {
 			return
 		}
@@ -92,7 +78,7 @@ func ScanTrace(dir, eventID, direction string, maxDepth int) ([]TraceNode, error
 
 	// Second pass: materialize only the events that are link endpoints.
 	nodeEvents := map[string]*model.Event{}
-	if err := forEachArchiveRecord(dir, func(r *record) {
+	if err := forEachArchiveRecordR(a, func(r *record) {
 		if r.Event != nil && linked[r.Event.EventID] {
 			nodeEvents[r.Event.EventID] = r.Event
 		}
@@ -128,4 +114,10 @@ func ScanTrace(dir, eventID, direction string, maxDepth int) ([]TraceNode, error
 	}
 	walk(eventID, 1)
 	return out, nil
+}
+
+// ScanTrace walks the causal graph from eventID over an archive. direction is
+// "cause" (inbound — what led to this) or "effect" (outbound — what this led to).
+func ScanTrace(dir, eventID, direction string, maxDepth int) ([]TraceNode, error) {
+	return traceR(newArchiveReader(dir, 0), eventID, direction, maxDepth)
 }

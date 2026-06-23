@@ -8,6 +8,7 @@ package api
 // -lazy-index` mounts this instead. See docs/design-tablespaces.md.
 
 import (
+	_ "embed"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -15,6 +16,13 @@ import (
 
 	"github.com/proxima360/centauri/internal/store"
 )
+
+// The lazy-archive dashboard: a self-contained HTML page (storage inspector,
+// integrity verification, query console, cache/performance metrics) served at
+// "/" in serve -lazy-index mode.
+//
+//go:embed lazy.html
+var lazyDashboardHTML []byte
 
 // LazyRoutes returns the read-only mux backed by a LazyIndex.
 func LazyRoutes(li *store.LazyIndex) http.Handler {
@@ -26,11 +34,51 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 	}
 
 	mux.HandleFunc("/v1/lazy/stats", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{
+		out := map[string]any{
 			"mode":          "lazy-index",
 			"resident_keys": li.Keys(),
+			"cache":         li.CacheStats(),
 			"note":          "RAM scales with live subjects, not total events",
-		})
+		}
+		if man, err := li.Manifest(); err == nil {
+			out["segments"] = len(man.Segments)
+			var records int64
+			for _, e := range man.Segments {
+				records += e.Records
+			}
+			out["segment_records"] = records
+			out["tail"] = man.Tail
+		}
+		writeJSON(w, out)
+	})
+
+	// Storage inspector: the segment catalog (the "tablespace" listing).
+	mux.HandleFunc("/v1/segments", func(w http.ResponseWriter, r *http.Request) {
+		man, err := li.Manifest()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"tail": man.Tail, "segments": man.Segments})
+	})
+
+	// Integrity & tamper verification: recompute Merkle roots + hash chain.
+	mux.HandleFunc("/v1/verify", func(w http.ResponseWriter, r *http.Request) {
+		head, records, err := li.Verify()
+		out := map[string]any{"ok": err == nil, "chain_head": head, "records": records}
+		if err != nil {
+			out["error"] = err.Error()
+		}
+		writeJSON(w, out)
+	})
+
+	// Performance: segment-cache scorecard.
+	mux.HandleFunc("/v1/cache", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, li.CacheStats())
+	})
+
+	mux.HandleFunc("/v1/version", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, Build)
 	})
 
 	mux.HandleFunc("/v1/current", func(w http.ResponseWriter, r *http.Request) {
@@ -135,15 +183,8 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("Centauri — lazy disk-backed index (read-only).\n" +
-			"RAM scales with live subjects, not total events.\n\n" +
-			"GET /v1/lazy/stats\n" +
-			"GET /v1/current?subject=…&facet=…\n" +
-			"GET /v1/history?subject=…&facet=…\n" +
-			"GET /v1/asof?subject=…&facet=…&at=<micros>&known=<micros>\n" +
-			"GET /v1/search?q=<text>&limit=<n>\n" +
-			"GET /v1/trace?event=<id>&direction=cause|effect&depth=<n>\n"))
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(lazyDashboardHTML)
 	})
 
 	return mux

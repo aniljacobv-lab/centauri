@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri — Tablespace Console</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121826; --panel2:#0f1421; --line:#1e2638;
+    --txt:#dbe3f4; --muted:#8390ab; --accent:#5b9dff; --good:#3fd07f;
+    --bad:#ff6b6b; --warn:#ffcc66; --chip:#1b2335;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#121a2b,#0b0e14)}
+  header h1{margin:0;font-size:18px;letter-spacing:.3px}
+  header .sub{color:var(--muted);font-size:12px;margin-top:3px}
+  .wrap{padding:20px 24px;max-width:1180px;margin:0 auto}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;flex:1;min-width:280px}
+  .card h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .stat{display:flex;flex-direction:column;gap:2px}
+  .stat .n{font-size:24px;font-weight:600}
+  .stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td.mono,code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .scroll{overflow:auto;max-height:360px;border:1px solid var(--line);border-radius:8px}
+  .chip{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:11px}
+  .chip.ok{color:var(--good)} .chip.no{color:var(--muted)}
+  button{background:var(--accent);color:#06101f;border:0;border-radius:7px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px}
+  button.ghost{background:var(--chip);color:var(--txt);border:1px solid var(--line)}
+  input,select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:7px 9px;font-size:13px}
+  .qrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:340px;font-size:12px;margin:0}
+  .verify-box{display:flex;align-items:center;gap:12px}
+  .badge{font-weight:700;padding:4px 10px;border-radius:7px}
+  .badge.ok{background:rgba(63,208,127,.15);color:var(--good)}
+  .badge.bad{background:rgba(255,107,107,.15);color:var(--bad)}
+  .badge.idle{background:var(--chip);color:var(--muted)}
+  .matrix td .y{color:var(--good)} .matrix td .n{color:var(--bad)} .matrix td .p{color:var(--warn)}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .tab{padding:6px 12px;border-radius:7px;background:var(--chip);cursor:pointer;font-size:12.5px;color:var(--muted)}
+  .tab.active{background:var(--accent);color:#06101f;font-weight:600}
+  .muted{color:var(--muted)}
+  .err{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Centauri — Tablespace Console <span class="chip" id="mode">lazy disk-backed</span></h1>
+  <div class="sub">Read-only over a sealed-segment archive. RAM scales with live subjects, not total events. Cold data is compressed &amp; tamper-evident.</div>
+</header>
+
+<div class="wrap">
+
+  <!-- OVERVIEW -->
+  <div class="card">
+    <h2>Overview</h2>
+    <div class="stats4">
+      <div class="stat"><span class="n" id="ov-keys">–</span><span class="l">Resident keys (RAM)</span></div>
+      <div class="stat"><span class="n" id="ov-segs">–</span><span class="l">Segments</span></div>
+      <div class="stat"><span class="n" id="ov-recs">–</span><span class="l">Segment records</span></div>
+      <div class="stat"><span class="n" id="ov-tail">–</span><span class="l">Active tail</span></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- INTEGRITY -->
+    <div class="card">
+      <h2>Integrity &amp; tamper verification</h2>
+      <div class="verify-box">
+        <button id="btn-verify">Verify archive</button>
+        <span class="badge idle" id="verify-badge">not run</span>
+      </div>
+      <div class="muted" style="margin-top:10px;font-size:12px">
+        Recomputes every segment's Merkle root and the continuous hash chain across all
+        segments. Any altered byte breaks the chain.
+      </div>
+      <div id="verify-detail" style="margin-top:10px"></div>
+    </div>
+
+    <!-- PERFORMANCE -->
+    <div class="card">
+      <h2>Performance — segment cache</h2>
+      <div class="stats4">
+        <div class="stat"><span class="n" id="c-hits">–</span><span class="l">Cache hits</span></div>
+        <div class="stat"><span class="n" id="c-miss">–</span><span class="l">Misses</span></div>
+        <div class="stat"><span class="n" id="c-dec">–</span><span class="l">Decompressions</span></div>
+        <div class="stat"><span class="n" id="c-rate">–</span><span class="l">Hit rate</span></div>
+      </div>
+      <div class="muted" style="margin-top:10px;font-size:12px">
+        Cached segments: <span id="c-segs">–</span>/<span id="c-cap">–</span> ·
+        Resident bytes: <span id="c-bytes">–</span>
+        <button class="ghost" id="btn-cache" style="float:right;padding:4px 10px">Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORAGE INSPECTOR -->
+  <div class="card">
+    <h2>Storage inspector — segments (the tablespace)</h2>
+    <div class="scroll">
+      <table id="seg-table">
+        <thead><tr>
+          <th>#</th><th>Records</th><th>On-disk</th><th>Tier</th><th>Compressed</th>
+          <th>Encrypted</th><th>Effective range</th><th>Namespaces</th><th>Merkle root</th>
+        </tr></thead>
+        <tbody><tr><td colspan="9" class="muted">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- QUERY CONSOLE -->
+  <div class="card">
+    <h2>Query console</h2>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-q="current">current</div>
+      <div class="tab" data-q="history">history</div>
+      <div class="tab" data-q="asof">asof</div>
+      <div class="tab" data-q="search">search</div>
+      <div class="tab" data-q="trace">trace</div>
+    </div>
+    <div id="q-fields" class="qrow"></div>
+    <div class="qrow"><button id="btn-run">Run</button></div>
+    <pre id="q-out">—</pre>
+  </div>
+
+  <!-- ENTERPRISE READINESS -->
+  <div class="card">
+    <h2>Enterprise readiness — honest capability matrix</h2>
+    <table class="matrix">
+      <thead><tr><th>Capability</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Immutable append-only log</td><td><span class="y">✓</span></td><td>nothing is ever erased; "update" = append a superseding fact</td></tr>
+        <tr><td>Cryptographic tamper-evidence</td><td><span class="y">✓</span></td><td>per-line hash chain + per-segment Merkle root</td></tr>
+        <tr><td>Compressed cold tier</td><td><span class="y">✓</span></td><td>flate-compressed sealed segments; zone maps stay uncompressed</td></tr>
+        <tr><td>Bi-temporal time travel</td><td><span class="y">✓</span></td><td>AS OF / AS KNOWN AT, from cold disk</td></tr>
+        <tr><td>Crypto-erasure (GDPR)</td><td><span class="y">✓</span></td><td>destroy a key to forget payloads while the audit chain stays intact</td></tr>
+        <tr><td>Scales beyond RAM</td><td><span class="y">✓</span></td><td>lazy index: only current facts + zone maps resident</td></tr>
+        <tr><td>Online integrity verification</td><td><span class="y">✓</span></td><td>verify segments + chain without downtime</td></tr>
+        <tr><td>SQL interface</td><td><span class="n">✗</span></td><td>CeQL only (no SQL/JDBC)</td></tr>
+        <tr><td>Multi-statement ACID transactions</td><td><span class="n">✗</span></td><td>single fact / batch append; no interactive MVCC transactions</td></tr>
+        <tr><td>Concurrent multi-writer</td><td><span class="n">✗</span></td><td>single-writer lock; multi-master is convergent, not concurrent OLTP</td></tr>
+        <tr><td>Disk secondary index for arbitrary WHERE</td><td><span class="p">partial</span></td><td>zone-map pruning + scans; no persisted B-tree index yet</td></tr>
+        <tr><td>Replication / HA failover</td><td><span class="p">partial</span></td><td>log shipping + CDC slots; no automatic failover</td></tr>
+      </tbody>
+    </table>
+    <div class="muted" style="margin-top:8px;font-size:12px">This matrix is deliberately not inflated — it states what Centauri does and does not do today.</div>
+  </div>
+
+  <div class="muted" style="font-size:11px;margin-top:8px" id="build">—</div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+async function getJSON(path){ const r = await fetch(path); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+const fmtN = n => (n==null?'–':Number(n).toLocaleString());
+const fmtBytes = b => { if(b==null) return '–'; const u=['B','KB','MB','GB','TB']; let i=0,v=b; while(v>=1024&&i<u.length-1){v/=1024;i++;} return v.toFixed(i?1:0)+' '+u[i]; };
+const fmtTime = us => { if(!us) return '—'; const d=new Date(us/1000); return isNaN(d)?'—':d.toISOString().replace('T',' ').slice(0,19); };
+
+async function loadOverview(){
+  try{
+    const s = await getJSON('/v1/lazy/stats');
+    $('#ov-keys').textContent = fmtN(s.resident_keys);
+    $('#ov-segs').textContent = fmtN(s.segments);
+    $('#ov-recs').textContent = fmtN(s.segment_records);
+    $('#ov-tail').textContent = s.tail || 'current.log';
+    if(s.cache) renderCache(s.cache);
+  }catch(e){ console.error(e); }
+}
+
+function renderCache(c){
+  $('#c-hits').textContent = fmtN(c.hits);
+  $('#c-miss').textContent = fmtN(c.misses);
+  $('#c-dec').textContent = fmtN(c.decompressions);
+  const tot = (c.hits||0)+(c.misses||0);
+  $('#c-rate').textContent = tot? Math.round(100*c.hits/tot)+'%' : '–';
+  $('#c-segs').textContent = fmtN(c.cached_segments);
+  $('#c-cap').textContent = fmtN(c.capacity);
+  $('#c-bytes').textContent = fmtBytes(c.bytes_cached);
+}
+async function loadCache(){ try{ renderCache(await getJSON('/v1/cache')); }catch(e){} }
+
+async function loadSegments(){
+  const tb = $('#seg-table tbody');
+  try{
+    const s = await getJSON('/v1/segments');
+    const segs = s.segments||[];
+    if(!segs.length){ tb.innerHTML = '<tr><td colspan="9" class="muted">no sealed segments</td></tr>'; return; }
+    tb.innerHTML = segs.map(e=>{
+      const z = e.zones||{};
+      const ns = (z.subjects||[]).join(', ')||'—';
+      const root = (e.merkle_root||'').slice(0,12);
+      return `<tr>
+        <td>${e.id}</td>
+        <td>${fmtN(e.records)}</td>
+        <td>${fmtBytes(e.bytes)}</td>
+        <td>${e.tier||'local'}</td>
+        <td>${e.compressed?'<span class="chip ok">yes</span>':'<span class="chip no">no</span>'}</td>
+        <td>${e.encrypted?'<span class="chip ok">yes</span>':'<span class="chip no">no</span>'}</td>
+        <td class="mono">${fmtTime(z.eff_min)} → ${fmtTime(z.eff_max)}</td>
+        <td>${ns}</td>
+        <td class="mono">${root}…</td>
+      </tr>`;
+    }).join('');
+  }catch(e){ tb.innerHTML = `<tr><td colspan="9" class="err">${e.message}</td></tr>`; }
+}
+
+$('#btn-verify').onclick = async ()=>{
+  const b = $('#verify-badge'); b.className='badge idle'; b.textContent='verifying…';
+  $('#verify-detail').innerHTML='';
+  try{
+    const v = await getJSON('/v1/verify');
+    if(v.ok){
+      b.className='badge ok'; b.textContent='✓ verified';
+      $('#verify-detail').innerHTML = `<div class="muted" style="font-size:12px">records: <b>${fmtN(v.records)}</b><br>chain head: <code>${(v.chain_head||'').slice(0,24)}…</code></div>`;
+    }else{
+      b.className='badge bad'; b.textContent='✗ FAILED';
+      $('#verify-detail').innerHTML = `<div class="err">${v.error||'verification failed'}</div>`;
+    }
+  }catch(e){ b.className='badge bad'; b.textContent='✗ error'; $('#verify-detail').innerHTML=`<div class="err">${e.message}</div>`; }
+};
+$('#btn-cache').onclick = loadCache;
+
+// Query console
+const FORMS = {
+  current: [['subject','item:1'],['facet','']],
+  history: [['subject','item:1'],['facet','']],
+  asof:    [['subject','item:1'],['facet',''],['at (micros)','',{q:'at'}],['known (micros)','',{q:'known'}]],
+  search:  [['q','jacket'],['limit','10']],
+  trace:   [['event','<event-id>'],['direction','cause'],['depth','8']],
+};
+let activeQ = 'current';
+function renderForm(){
+  $('#q-fields').innerHTML = FORMS[activeQ].map((f,i)=>
+    `<input id="qf${i}" placeholder="${f[0]}" value="${f[1]}">`).join('');
+}
+function buildQuery(){
+  const fields = FORMS[activeQ];
+  const params = new URLSearchParams();
+  const map = { 'subject':'subject','facet':'facet','q':'q','limit':'limit','event':'event','direction':'direction','depth':'depth' };
+  fields.forEach((f,i)=>{
+    const v = $('#qf'+i).value.trim();
+    if(v==='') return;
+    let key = f[2]&&f[2].q ? f[2].q : (map[f[0]]||f[0]);
+    params.set(key, v);
+  });
+  const path = { current:'/v1/current', history:'/v1/history', asof:'/v1/asof', search:'/v1/search', trace:'/v1/trace' }[activeQ];
+  return path + '?' + params.toString();
+}
+$('#tabs').addEventListener('click', e=>{
+  if(!e.target.classList.contains('tab')) return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active'); activeQ = e.target.dataset.q; renderForm();
+});
+$('#btn-run').onclick = async ()=>{
+  const out = $('#q-out'); out.textContent='running…';
+  try{ const data = await getJSON(buildQuery()); out.textContent = JSON.stringify(data, null, 2); }
+  catch(e){ out.innerHTML = `<span class="err">${e.message}</span>`; }
+};
+
+(async function(){
+  renderForm();
+  await loadOverview();
+  await loadSegments();
+  try{ const v = await getJSON('/v1/version'); $('#build').textContent = 'build '+(v.built||'')+' — '+(v.desc||''); }catch(e){}
+})();
+</script>
+</body>
+</html>

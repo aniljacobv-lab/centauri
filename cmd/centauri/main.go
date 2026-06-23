@@ -297,11 +297,12 @@ func main() {
 		fmt.Print(banner)
 		fmt.Println(api.BuildLine())
 		fmt.Printf("lazy disk-backed index: %d live keys resident (RAM scales with subjects, not events)\n", li.Keys())
-		fmt.Printf("data: %s   (read-only: current / history / asof)\nlistening on %s\n", *data, *addr)
+		fmt.Printf("data:      %s   (read-only)\n", *data)
+		fmt.Printf("dashboard: http://localhost%s   (storage inspector · verify · query console · cache metrics)\n", *addr)
+		fmt.Printf("listening on %s\n", *addr)
 		fmt.Println(`try:  curl 'localhost:7771/v1/lazy/stats'
-      curl 'localhost:7771/v1/current?subject=item:1&facet=f'
-      curl 'localhost:7771/v1/history?subject=item:1&facet=f'
-      curl 'localhost:7771/v1/asof?subject=item:1&facet=f&at=1500'
+      curl 'localhost:7771/v1/segments'
+      curl 'localhost:7771/v1/verify'
       curl 'localhost:7771/v1/search?q=jacket&limit=10'`)
 		log.Fatal(http.ListenAndServe(*addr, api.LazyRoutes(li)))
 	}

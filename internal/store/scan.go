@@ -1,17 +1,16 @@
 package store
 
 // Disk-backed read primitives: answer History / AsOf for a subject by reading
-// ONLY the zone-map-pruned segments from disk (plus the tail) — no full in-RAM
-// index. This is the foundation of the "scales with disk, not RAM" path: a query
-// touches its working set, not the whole history. These mirror Store.History /
-// Store.AsOf exactly (a test asserts equality), and are standalone (they don't
-// change the live engine), so they're the safe building block to wire a lazy-
-// index Store onto next. See docs/design-tablespaces.md.
+// ONLY the zone-map-pruned segments (plus the tail) — no full in-RAM index. This
+// is the foundation of the "scales with disk, not RAM" path: a query touches its
+// working set, not the whole history. The reader-based cores (…R) go through the
+// cached archiveReader so repeat queries hit RAM; the public Scan* helpers wrap
+// them with a one-shot reader. These mirror Store.History / Store.AsOf exactly
+// (a test asserts equality). See docs/design-tablespaces.md.
 
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"sort"
 
@@ -36,15 +35,11 @@ func archiveTailPath(dir string, man *segment.Manifest) string {
 	return filepath.Join(dir, t)
 }
 
-// scanSubjectEvents collects every event for subject (optionally one facet) from
-// the segments that survive prune(zones), plus the tail. Non-event records
-// (supersede markers, links) are ignored.
-func scanSubjectEvents(dir, subject, facet string, prune func(segment.Zones) bool) ([]*model.Event, error) {
-	mb, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	man, err := segment.ParseManifest(mb)
+// scanSubjectEventsR collects every event for subject (optionally one facet) from
+// the segments that survive prune(zones), plus the tail, using the cached reader.
+// prune also reports how many segments were skipped vs scanned (data skipping).
+func scanSubjectEventsR(a *archiveReader, subject, facet string, prune func(segment.Zones) bool) ([]*model.Event, error) {
+	man, err := a.manifest()
 	if err != nil {
 		return nil, err
 	}
@@ -73,28 +68,21 @@ func scanSubjectEvents(dir, subject, facet string, prune func(segment.Zones) boo
 		if prune != nil && !prune(e.Zones) {
 			continue // data skipping: this segment can't contribute
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(e.Path)))
+		raw, err := a.segmentBytes(e)
 		if err != nil {
 			return nil, err
 		}
-		if e.Compressed {
-			if raw, err = segment.Decompress(raw); err != nil {
-				return nil, err
-			}
-		}
 		collect(raw)
 	}
-	if tb, err := os.ReadFile(archiveTailPath(dir, man)); err == nil { // tail is never pruned
+	if tb, err := a.tailBytes(); err == nil { // tail is never pruned
 		collect(tb)
 	}
 	return out, nil
 }
 
-// ScanHistory returns the full timeline for subject/facet, reading only segments
-// in the subject's namespace + the tail. Mirrors Store.History.
-func ScanHistory(dir, subject, facet string) ([]*model.Event, error) {
+func historyR(a *archiveReader, subject, facet string) ([]*model.Event, error) {
 	ns := nsOf(subject)
-	evs, err := scanSubjectEvents(dir, subject, facet, func(z segment.Zones) bool {
+	evs, err := scanSubjectEventsR(a, subject, facet, func(z segment.Zones) bool {
 		return z.MayContainNamespace(ns)
 	})
 	if err != nil {
@@ -104,9 +92,7 @@ func ScanHistory(dir, subject, facet string) ([]*model.Event, error) {
 	return evs, nil
 }
 
-// ScanAsOf answers the bi-temporal point query from disk, pruning segments by
-// time + namespace zone maps. Mirrors Store.AsOf (same max-effective rule).
-func ScanAsOf(dir, subject, facet string, effectiveAt, knownAt int64) ([]*model.Event, error) {
+func asOfR(a *archiveReader, subject, facet string, effectiveAt, knownAt int64) ([]*model.Event, error) {
 	ns := nsOf(subject)
 	prune := func(z segment.Zones) bool {
 		if effectiveAt > 0 && !z.MayContainEffectiveAt(effectiveAt) {
@@ -117,7 +103,7 @@ func ScanAsOf(dir, subject, facet string, effectiveAt, knownAt int64) ([]*model.
 		}
 		return z.MayContainNamespace(ns)
 	}
-	evs, err := scanSubjectEvents(dir, subject, facet, prune)
+	evs, err := scanSubjectEventsR(a, subject, facet, prune)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +123,18 @@ func ScanAsOf(dir, subject, facet string, effectiveAt, knownAt int64) ([]*model.
 		}
 	}
 	return out, nil
+}
+
+// ScanHistory returns the full timeline for subject/facet, reading only segments
+// in the subject's namespace + the tail. Mirrors Store.History.
+func ScanHistory(dir, subject, facet string) ([]*model.Event, error) {
+	return historyR(newArchiveReader(dir, 0), subject, facet)
+}
+
+// ScanAsOf answers the bi-temporal point query from disk, pruning segments by
+// time + namespace zone maps. Mirrors Store.AsOf (same max-effective rule).
+func ScanAsOf(dir, subject, facet string, effectiveAt, knownAt int64) ([]*model.Event, error) {
+	return asOfR(newArchiveReader(dir, 0), subject, facet, effectiveAt, knownAt)
 }
 
 // pickAsOf mirrors asOfLocked's selection: among non-lifecycle events recorded by

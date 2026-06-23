@@ -33,12 +33,17 @@ const lazyCheckpointName = "lazy.ckpt"
 // LazyIndex answers reads over an archive while holding only the current facts.
 type LazyIndex struct {
 	dir     string
-	open    map[string]*model.Event             // subject|facet -> current (beats-max) fact
-	facets  map[string]map[string]bool          // subject -> facets that have a current fact
-	live    map[string]map[string]*model.Event  // key -> id -> non-superseded event (for checkpoint + tail merge)
-	idKey   map[string]string                   // event id -> key (to drop on supersession)
-	covered map[string]string                   // segment path -> merkle root already folded into live
+	reader  *archiveReader                     // cached segment reads (history/asof/trace/search)
+	open    map[string]*model.Event            // subject|facet -> current (beats-max) fact
+	facets  map[string]map[string]bool         // subject -> facets that have a current fact
+	live    map[string]map[string]*model.Event // key -> id -> non-superseded event (for checkpoint + tail merge)
+	idKey   map[string]string                  // event id -> key (to drop on supersession)
+	covered map[string]string                  // segment path -> merkle root already folded into live
 }
+
+// lazySegmentCacheCap is how many decompressed segments the lazy reader keeps
+// resident. Bounded so RAM stays predictable on archives far larger than memory.
+const lazySegmentCacheCap = 64
 
 // lazyCheckpoint is the on-disk pointer-checkpoint. Covered maps each folded
 // segment path to its Merkle root, so a reused path whose content changed (e.g.
@@ -94,17 +99,15 @@ func applyRecordsLazy(data []byte, live map[string]map[string]*model.Event, idKe
 // pointer-checkpoint when present and still consistent with the manifest, then
 // replays only the segments not yet folded in plus the tail.
 func OpenLazyIndex(dir string) (*LazyIndex, error) {
-	mb, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	man, err := segment.ParseManifest(mb)
+	reader := newArchiveReader(dir, lazySegmentCacheCap)
+	man, err := reader.manifest()
 	if err != nil {
 		return nil, err
 	}
 
 	li := &LazyIndex{
 		dir:     dir,
+		reader:  reader,
 		live:    map[string]map[string]*model.Event{},
 		idKey:   map[string]string{},
 		covered: map[string]string{},
@@ -148,21 +151,16 @@ func OpenLazyIndex(dir string) (*LazyIndex, error) {
 		if _, ok := li.covered[e.Path]; ok {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(e.Path)))
+		raw, err := reader.segmentBytes(e)
 		if err != nil {
 			return nil, err
-		}
-		if e.Compressed {
-			if raw, err = segment.Decompress(raw); err != nil {
-				return nil, err
-			}
 		}
 		applyRecordsLazy(raw, li.live, li.idKey)
 		li.covered[e.Path] = e.MerkleRoot
 	}
 
 	// The tail is mutable/appendable, so it is never covered — always replayed.
-	if tb, err := os.ReadFile(archiveTailPath(dir, man)); err == nil {
+	if tb, err := reader.tailBytes(); err == nil {
 		applyRecordsLazy(tb, li.live, li.idKey)
 	}
 
@@ -246,12 +244,13 @@ func (li *LazyIndex) Current(subject, facet string) []*model.Event {
 	return out
 }
 
-// History / AsOf stream the pruned segments from disk (no full index needed).
+// History / AsOf stream the pruned segments from disk via the cached reader, so
+// repeat queries hit RAM instead of re-decompressing.
 func (li *LazyIndex) History(subject, facet string) ([]*model.Event, error) {
-	return ScanHistory(li.dir, subject, facet)
+	return historyR(li.reader, subject, facet)
 }
 func (li *LazyIndex) AsOf(subject, facet string, effectiveAt, knownAt int64) ([]*model.Event, error) {
-	return ScanAsOf(li.dir, subject, facet, effectiveAt, knownAt)
+	return asOfR(li.reader, subject, facet, effectiveAt, knownAt)
 }
 
 // Search ranks the resident current facts with keyword BM25 — served from RAM,
@@ -266,9 +265,24 @@ func (li *LazyIndex) Search(query string, limit int) []SearchHit {
 }
 
 // Trace walks the causal lineage of an event ("cause" or "effect") by scanning
-// Link records from disk.
+// Link records from disk via the cached reader.
 func (li *LazyIndex) Trace(eventID, direction string, maxDepth int) ([]TraceNode, error) {
-	return ScanTrace(li.dir, eventID, direction, maxDepth)
+	return traceR(li.reader, eventID, direction, maxDepth)
+}
+
+// CacheStats reports the segment-cache scorecard for the dashboard's
+// performance panel.
+func (li *LazyIndex) CacheStats() CacheStats { return li.reader.Stats() }
+
+// Manifest returns the archive's segment catalog (the "tablespace" listing) for
+// the storage inspector.
+func (li *LazyIndex) Manifest() (*segment.Manifest, error) { return li.reader.manifest() }
+
+// Verify recomputes every segment's Merkle root and the continuous hash chain
+// across segments, returning the chain head and record count — the integrity /
+// tamper-evidence check. (Reads segments directly; independent of the cache.)
+func (li *LazyIndex) Verify() (head string, records int64, err error) {
+	return VerifyArchive(li.dir)
 }
 
 // Keys reports the number of resident current-fact pointers — the in-RAM

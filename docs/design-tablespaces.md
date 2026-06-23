@@ -13,7 +13,11 @@ subjects, not total events) and answers current/history/asof over HTTP, with a
 Merkle-validated **pointer-checkpoint** (`lazy.ckpt`) that makes restart replay
 only the tail + newly-sealed segments, plus keyword **SEARCH** (BM25, `/v1/search`)
 and **causal trace** (`/v1/trace`) over cold data — so the lazy path now covers
-the full read surface (current, history, asof, search, trace). ·
+the full read surface (current, history, asof, search, trace). Reads go through a
+cached **archiveReader** (LRU of decompressed segments, so repeat queries hit
+RAM), and `serve -lazy-index` ships a **Tablespace Console** dashboard (storage
+inspector, one-click integrity verify, query console, cache metrics) plus an
+honest [enterprise-readiness matrix](enterprise-readiness.md). ·
 **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 

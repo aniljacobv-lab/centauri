@@ -1,1 +1,1 @@
-{"built":"2026-06-22T04:22:35Z","desc":"tablespaces #10: causal trace over cold segments — ScanTrace + LazyIndex.Trace + /v1/trace (edge-sized, two-pass) + test"}
+{"built":"2026-06-23T13:02:40Z","desc":"tablespaces #11: cached archiveReader (LRU) + Tablespace Console dashboard (inspector/verify/console/cache) + enterprise matrix"}

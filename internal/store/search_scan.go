@@ -13,14 +13,11 @@ package store
 
 import (
 	"math"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
 
 	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/segment"
 )
 
 const (
@@ -148,32 +145,23 @@ func rankEventsBM25(events []*model.Event, query string, limit int) []SearchHit 
 	return hits
 }
 
-// ScanSearch streams the archive (current facts only) and returns the top-`limit`
-// BM25 hits — standalone, no resident index required.
-func ScanSearch(dir, query string, limit int) ([]SearchHit, error) {
-	mb, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		return nil, err
-	}
-	man, err := segment.ParseManifest(mb)
+// currentFactsR streams the archive via the cached reader and returns the
+// current (non-superseded) fact per (subject,facet).
+func currentFactsR(a *archiveReader) ([]*model.Event, error) {
+	man, err := a.manifest()
 	if err != nil {
 		return nil, err
 	}
 	live := map[string]map[string]*model.Event{}
 	idKey := map[string]string{}
 	for _, e := range man.Segments {
-		raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(e.Path)))
+		raw, err := a.segmentBytes(e)
 		if err != nil {
 			return nil, err
 		}
-		if e.Compressed {
-			if raw, err = segment.Decompress(raw); err != nil {
-				return nil, err
-			}
-		}
 		applyRecordsLazy(raw, live, idKey)
 	}
-	if tb, err := os.ReadFile(archiveTailPath(dir, man)); err == nil {
+	if tb, err := a.tailBytes(); err == nil {
 		applyRecordsLazy(tb, live, idKey)
 	}
 	var current []*model.Event
@@ -187,6 +175,16 @@ func ScanSearch(dir, query string, limit int) ([]SearchHit, error) {
 		if best != nil {
 			current = append(current, best)
 		}
+	}
+	return current, nil
+}
+
+// ScanSearch streams the archive (current facts only) and returns the top-`limit`
+// BM25 hits — standalone, no resident index required.
+func ScanSearch(dir, query string, limit int) ([]SearchHit, error) {
+	current, err := currentFactsR(newArchiveReader(dir, 0))
+	if err != nil {
+		return nil, err
 	}
 	return rankEventsBM25(current, query, limit), nil
 }

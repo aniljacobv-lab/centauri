@@ -229,3 +229,61 @@ func TestScanTrace(t *testing.T) {
 		t.Fatalf("effect trace of evA = %v, want [evB]", effects)
 	}
 }
+
+// The cached reader must serve repeat queries from RAM (hits grow), the segment
+// inspector must list the tablespace, and integrity verification must pass.
+func TestLazyCacheAndInspect(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for s := 0; s < 3; s++ {
+		for v := 0; v < 3; v++ {
+			now := int64(1000 + s*100 + v)
+			e := &model.Event{Subject: fmt.Sprintf("item:%d", s), Facet: "f", Type: model.Observed,
+				Value: map[string]any{"v": v}, EffectiveTime: now, Provenance: model.SystemFeed, Confidence: 1}
+			if err := st.Append(now, []*model.Event{e}, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	li, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Inspector: the archive has at least one segment.
+	man, err := li.Manifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(man.Segments) == 0 {
+		t.Fatal("manifest has no segments")
+	}
+
+	// Repeat queries should hit the cache.
+	before := li.CacheStats()
+	for i := 0; i < 3; i++ {
+		if _, err := li.History("item:0", "f"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	after := li.CacheStats()
+	if after.Hits <= before.Hits {
+		t.Fatalf("expected segment-cache hits to grow (before=%d after=%d)", before.Hits, after.Hits)
+	}
+
+	// Integrity verification passes on a faithful archive.
+	if _, _, err := li.Verify(); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+}
