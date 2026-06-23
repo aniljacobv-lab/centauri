@@ -23,7 +23,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Secondary index — equality over current state | ✓ | A resident field index makes `WHERE field = value` over current facts a sub-linear map lookup (high-cardinality fields fall back to scan, same as the in-RAM engine). |
 | Single zero-dependency binary | ✓ | Go stdlib only; no third-party runtime. |
 | Native TLS / HTTPS | ✓ | `-tls-cert`/`-tls-key` on `serve` and `serve -lazy-index` — no reverse proxy required (one is still fine). |
-| Auth on the read path | ✓ | `serve -lazy-index` data routes (`/v1/*`) require a read token; the dashboard, health probes, and `/metrics` stay open (no fact data). |
+| Token auth on data routes (both modes) | ✓ | Normal `serve` gates every `/v1/*` route behind `-token` (admin) / `-read-token` (read-only); `serve -lazy-index` now does the same on its read routes (closing an earlier bypass). The dashboard, `/v1/version`, health probes, and `/metrics` stay open by design (no fact data). |
 | Prometheus metrics + health probes | ✓ | `/metrics` (text exposition), `/livez`, `/readyz` on **both** the normal `serve` and `serve -lazy-index` paths — Prometheus/Grafana scraping and Kubernetes liveness/readiness in either deployment mode. The lazy `/metrics` adds segment-cache gauges; the normal one exposes store counters + build info. |
 
 ## What it does not do (yet)

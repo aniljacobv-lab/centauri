@@ -1,1 +1,1 @@
-{"built":"2026-06-23T15:32:10Z","desc":"enterprise rerun: /livez,/readyz,/metrics on normal serve; align /v1/version in lazy; deploy.md TLS/probes; honest matrix"}
+{"built":"2026-06-23T15:34:07Z","desc":"docs: clarify token-auth row (applies to both serve modes, not lazy-only)"}
