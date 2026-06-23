@@ -52,6 +52,10 @@
 <header>
   <h1>Centauri — Tablespace Console <span class="chip" id="mode">lazy disk-backed</span></h1>
   <div class="sub">Read-only over a sealed-segment archive. RAM scales with live subjects, not total events. Cold data is compressed &amp; tamper-evident.</div>
+  <div class="qrow" style="margin-top:10px">
+    <input id="token" placeholder="read token (only if the server requires one)" style="min-width:320px">
+    <button class="ghost" id="btn-token">Apply token</button>
+  </div>
 </header>
 
 <div class="wrap">
@@ -142,6 +146,9 @@
         <tr><td>Crypto-erasure (GDPR)</td><td><span class="y">✓</span></td><td>destroy a key to forget payloads while the audit chain stays intact</td></tr>
         <tr><td>Scales beyond RAM</td><td><span class="y">✓</span></td><td>lazy index: only current facts + zone maps resident</td></tr>
         <tr><td>Online integrity verification</td><td><span class="y">✓</span></td><td>verify segments + chain without downtime</td></tr>
+        <tr><td>Native TLS / HTTPS</td><td><span class="y">✓</span></td><td><code>-tls-cert</code>/<code>-tls-key</code> on serve &amp; lazy-index (no reverse proxy required)</td></tr>
+        <tr><td>Auth on the read path</td><td><span class="y">✓</span></td><td>lazy-index data routes require a read token; dashboard/health/metrics stay open</td></tr>
+        <tr><td>Prometheus metrics + health probes</td><td><span class="y">✓</span></td><td><code>/metrics</code>, <code>/livez</code>, <code>/readyz</code> for Prometheus &amp; Kubernetes</td></tr>
         <tr><td>SQL interface</td><td><span class="n">✗</span></td><td>CeQL only (no SQL/JDBC)</td></tr>
         <tr><td>Multi-statement ACID transactions</td><td><span class="n">✗</span></td><td>single fact / batch append; no interactive MVCC transactions</td></tr>
         <tr><td>Concurrent multi-writer</td><td><span class="n">✗</span></td><td>single-writer lock; multi-master is convergent, not concurrent OLTP</td></tr>
@@ -158,7 +165,13 @@
 
 <script>
 const $ = s => document.querySelector(s);
-async function getJSON(path){ const r = await fetch(path); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+let TOKEN = '';
+async function getJSON(path){
+  const opts = TOKEN ? {headers:{'Authorization':'Bearer '+TOKEN}} : {};
+  const r = await fetch(path, opts);
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
 const fmtN = n => (n==null?'–':Number(n).toLocaleString());
 const fmtBytes = b => { if(b==null) return '–'; const u=['B','KB','MB','GB','TB']; let i=0,v=b; while(v>=1024&&i<u.length-1){v/=1024;i++;} return v.toFixed(i?1:0)+' '+u[i]; };
 const fmtTime = us => { if(!us) return '—'; const d=new Date(us/1000); return isNaN(d)?'—':d.toISOString().replace('T',' ').slice(0,19); };
@@ -226,6 +239,10 @@ $('#btn-verify').onclick = async ()=>{
   }catch(e){ b.className='badge bad'; b.textContent='✗ error'; $('#verify-detail').innerHTML=`<div class="err">${e.message}</div>`; }
 };
 $('#btn-cache').onclick = loadCache;
+$('#btn-token').onclick = async ()=>{
+  TOKEN = $('#token').value.trim();
+  await loadOverview(); await loadSegments();
+};
 
 // Query console
 const FORMS = {

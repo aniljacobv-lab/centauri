@@ -22,6 +22,9 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Hot segment caching | ✓ | An LRU of decompressed segments keeps repeat queries in RAM; hit/miss/decompression counts are on the dashboard. |
 | Secondary index — equality over current state | ✓ | A resident field index makes `WHERE field = value` over current facts a sub-linear map lookup (high-cardinality fields fall back to scan, same as the in-RAM engine). |
 | Single zero-dependency binary | ✓ | Go stdlib only; no third-party runtime. |
+| Native TLS / HTTPS | ✓ | `-tls-cert`/`-tls-key` on `serve` and `serve -lazy-index` — no reverse proxy required (one is still fine). |
+| Auth on the read path | ✓ | `serve -lazy-index` data routes (`/v1/*`) require a read token; the dashboard, health probes, and `/metrics` stay open (no fact data). |
+| Prometheus metrics + health probes | ✓ | `/metrics` (text exposition), `/livez`, `/readyz` for Prometheus/Grafana and Kubernetes liveness/readiness. |
 
 ## What it does not do (yet)
 
@@ -32,7 +35,14 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Concurrent multi-writer OLTP | ✗ | A single-writer lock serialises writes. Multi-master ingestion converges deterministically; it is not concurrent OLTP. |
 | Index for arbitrary historical / range `WHERE` | partial | Equality over *current* state is indexed (above); cold *history* and *range* predicates use zone-map pruning + segment scans — there is no persisted B-tree/inverted index for arbitrary cold predicates yet. |
 | Replication / HA failover | partial | Log shipping and durable CDC slots exist; automatic leader election / failover does not. |
-| Role hierarchies / fine-grained RBAC | partial | Scoped read tokens (RLS) exist; there is no full role hierarchy or column masking. |
+| Role hierarchies / fine-grained RBAC | partial | Scoped read tokens (RLS) exist; there is no full role hierarchy, OIDC/JWT/LDAP integration, token expiry/rotation, or column masking. |
+| At-rest encryption of the hot tier | partial | Sealed segments support per-segment AES-256-GCM (crypto-erasure); the hot tail, manifest, and `lazy.ckpt` are not encrypted — use volume/disk encryption for those. |
+| External secrets / KMS integration | ✗ | Model credentials come from environment variables (`auth_env`); no Vault / cloud Secrets Manager / KMS envelope encryption. |
+| Rate limiting / quotas / admission control | ✗ | No per-endpoint or global concurrency limits or query timeouts; a heavy `SEARCH`/`ASK` or cold scan can contend for the process. |
+| Structured logging / OpenTelemetry traces | ✗ | Logs are line-oriented (`log`/`fmt`); `/metrics` is exposed, but there are no structured logs, trace spans, or correlation IDs. |
+| Object-store cold tier (S3/GCS) | ✗ | Segments are portable files; tiers are manual directories. No native object-store backend yet. |
+| Automated retention / legal hold | ✗ | Retention is manual (`RETIRE`); no scheduled purging or legal-hold policy engine. |
+| Automatic failover / leader election | ✗ | Log shipping (`follow`) + CDC slots (`sync`) exist; HA orchestration is external. |
 
 ## How to read this
 

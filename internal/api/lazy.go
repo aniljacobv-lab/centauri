@@ -8,10 +8,13 @@ package api
 // -lazy-index` mounts this instead. See docs/design-tablespaces.md.
 
 import (
+	"crypto/subtle"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/proxima360/centauri/internal/store"
@@ -24,8 +27,11 @@ import (
 //go:embed lazy.html
 var lazyDashboardHTML []byte
 
-// LazyRoutes returns the read-only mux backed by a LazyIndex.
-func LazyRoutes(li *store.LazyIndex) http.Handler {
+// LazyRoutes returns the read-only mux backed by a LazyIndex. When readToken is
+// non-empty, every data route (/v1/*) requires it (Bearer header or ?token=);
+// the dashboard, health probes, and /metrics stay open (they carry no fact
+// data). This closes the gap where the high-scale read path bypassed auth.
+func LazyRoutes(li *store.LazyIndex, readToken string) http.Handler {
 	mux := http.NewServeMux()
 
 	writeJSON := func(w http.ResponseWriter, v any) {
@@ -191,6 +197,47 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 		writeJSON(w, nodes)
 	})
 
+	// Liveness/readiness probes for Kubernetes & load balancers. livez is a bare
+	// "process up"; readyz confirms the manifest is readable (the archive is
+	// serveable).
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := li.Manifest(); err != nil {
+			http.Error(w, "not ready: "+err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte("ready"))
+	})
+
+	// Prometheus-compatible metrics (text exposition format, zero deps). Exposes
+	// the cache scorecard, resident-index size, and segment/record counts so the
+	// lazy read path plugs into Prometheus/Grafana.
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		c := li.CacheStats()
+		var segments, records int64
+		if man, err := li.Manifest(); err == nil {
+			segments = int64(len(man.Segments))
+			for _, e := range man.Segments {
+				records += e.Records
+			}
+		}
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		m := func(name, typ, help string, val int64) {
+			fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s %s\n%s %d\n", name, help, name, typ, name, val)
+		}
+		m("centauri_lazy_resident_keys", "gauge", "Current facts held resident (RAM scales with this).", int64(li.Keys()))
+		m("centauri_segments", "gauge", "Sealed segments in the archive.", segments)
+		m("centauri_segment_records", "gauge", "Total records across sealed segments.", records)
+		m("centauri_segment_cache_hits_total", "counter", "Segment-cache hits.", c.Hits)
+		m("centauri_segment_cache_misses_total", "counter", "Segment-cache misses.", c.Misses)
+		m("centauri_segment_decompressions_total", "counter", "Segment decompressions.", c.Decompressions)
+		m("centauri_segment_cache_resident", "gauge", "Segments currently in the LRU cache.", int64(c.CachedSegments))
+		m("centauri_segment_cache_capacity", "gauge", "Segment cache capacity.", int64(c.Capacity))
+		m("centauri_segment_cache_bytes", "gauge", "Bytes held in the segment cache.", c.BytesCached)
+	})
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -200,5 +247,27 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 		_, _ = w.Write(lazyDashboardHTML)
 	})
 
-	return mux
+	return lazyAuth(readToken, mux)
+}
+
+// lazyAuth gates the data routes (/v1/*) behind a read token when one is set.
+// The dashboard, health probes, and /metrics are intentionally open (no fact
+// data). Constant-time comparison avoids leaking the token via timing.
+func lazyAuth(token string, h http.Handler) http.Handler {
+	if token == "" {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/v1/") {
+			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if got == "" {
+				got = r.URL.Query().Get("token")
+			}
+			if subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
+				http.Error(w, "missing or invalid token", http.StatusUnauthorized)
+				return
+			}
+		}
+		h.ServeHTTP(w, r)
+	})
 }

@@ -82,6 +82,8 @@ func main() {
 	manageOllama := fs.Bool("ollama", true, "desktop: auto-start a local Ollama if one isn't running, and stop it on exit (only the one we start)")
 	segMax := fs.Int("seg-max", 100000, "records per segment (archive)")
 	lazyIndex := fs.Bool("lazy-index", false, "serve: open an archive with the disk-backed index — RAM scales with live subjects, not total events (read-only: current/history/asof)")
+	tlsCert := fs.String("tls-cert", "", "serve/desktop: PEM certificate file for native HTTPS (with -tls-key)")
+	tlsKey := fs.String("tls-key", "", "serve/desktop: PEM private-key file for native HTTPS (with -tls-cert)")
 	_ = fs.Parse(os.Args[2:])
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
 	if !archiveMode {
@@ -314,16 +316,21 @@ func main() {
 		}
 		fmt.Print(banner)
 		fmt.Println(api.BuildLine())
+		// A read token (if set) gates the data routes; the dashboard/health/metrics
+		// stay open. Prefer -read-token here since the lazy path is read-only.
+		lazyTok := *readToken
+		if lazyTok == "" {
+			lazyTok = *token
+		}
+		scheme := "http"
+		if *tlsCert != "" && *tlsKey != "" {
+			scheme = "https"
+		}
 		fmt.Printf("lazy disk-backed index: %d live keys resident (RAM scales with subjects, not events)\n", li.Keys())
-		fmt.Printf("data:      %s   (read-only)\n", *data)
-		fmt.Printf("dashboard: http://localhost%s   (storage inspector · verify · query console · cache metrics)\n", *addr)
-		fmt.Printf("listening on %s\n", *addr)
-		fmt.Println(`try:  curl 'localhost:7771/v1/lazy/stats'
-      curl 'localhost:7771/v1/segments'
-      curl 'localhost:7771/v1/verify'
-      curl 'localhost:7771/v1/lookup?field=status&value=active'
-      curl 'localhost:7771/v1/search?q=jacket&limit=10'`)
-		log.Fatal(http.ListenAndServe(*addr, api.LazyRoutes(li)))
+		fmt.Printf("data:      %s   (read-only%s)\n", *data, authNote(lazyTok))
+		fmt.Printf("dashboard: %s://localhost%s   (storage inspector · verify · query console · cache metrics)\n", scheme, *addr)
+		fmt.Printf("listening on %s   metrics: /metrics   health: /livez /readyz\n", *addr)
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.LazyRoutes(li, lazyTok)))
 	}
 
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
@@ -411,7 +418,7 @@ func main() {
 		}()
 		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data})
 		apiSrv = srv
-		log.Fatal(http.ListenAndServe(*addr, srv.Routes()))
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, srv.Routes()))
 	case "export":
 		if err := runExport(st, *query, *format, *to); err != nil {
 			log.Fatalf("export: %v", err)
@@ -451,7 +458,7 @@ func main() {
       curl -N 'localhost:7771/v1/watch?facet=pdt'`)
 		srv := api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data})
 		apiSrv = srv
-		log.Fatal(http.ListenAndServe(*addr, srv.Routes()))
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, srv.Routes()))
 	case "mcp":
 		// stdio is the protocol channel; keep it clean of banners.
 		if err := mcp.New(st, os.Stdin, os.Stdout).Run(); err != nil {
@@ -467,7 +474,7 @@ func main() {
 			srv := api.NewWithOptions(st, api.Options{Token: *token, ReadOnly: true})
 			go func() {
 				fmt.Printf("read-only API on %s\n", *addr)
-				log.Fatal(http.ListenAndServe(*addr, srv.Routes()))
+				log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, srv.Routes()))
 			}()
 		}
 		follow(st, *primary, *token, *interval)
@@ -1221,6 +1228,22 @@ func tsPrefix(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// listenMaybeTLS serves over HTTPS when both a cert and key are given (native
+// TLS, no reverse proxy required), otherwise plain HTTP.
+func listenMaybeTLS(addr, cert, key string, h http.Handler) error {
+	if cert != "" && key != "" {
+		return http.ListenAndServeTLS(addr, cert, key, h)
+	}
+	return http.ListenAndServe(addr, h)
+}
+
+func authNote(token string) string {
+	if token == "" {
+		return ", UNAUTHENTICATED — set -read-token to require a token"
+	}
+	return ", token required"
 }
 
 // ensureDataPath makes pointing -data at a folder (e.g. a OneDrive directory)
