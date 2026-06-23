@@ -38,7 +38,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Role hierarchies / fine-grained RBAC | partial | Scoped read tokens (RLS) exist; there is no full role hierarchy, OIDC/JWT/LDAP integration, token expiry/rotation, or column masking. |
 | At-rest encryption of the hot tier | partial | Sealed segments support per-segment AES-256-GCM (crypto-erasure); the hot tail, manifest, and `lazy.ckpt` are not encrypted — use volume/disk encryption for those. |
 | External secrets / KMS integration | ✗ | Model credentials come from environment variables (`auth_env`); no Vault / cloud Secrets Manager / KMS envelope encryption. |
-| Rate limiting / quotas / admission control | ✗ | No per-endpoint or global concurrency limits or query timeouts; a heavy `SEARCH`/`ASK` or cold scan can contend for the process. |
+| Rate limiting / quotas / admission control | partial | `serve -lazy-index` has a global concurrency cap (`-max-concurrency`, HTTP 429) and a per-request timeout (`-query-timeout`, HTTP 503) to protect against heavy cold scans / SEARCH. The write path and per-tenant quotas are not yet limited. |
 | Structured logging / OpenTelemetry traces | ✗ | Logs are line-oriented (`log`/`fmt`); `/metrics` is exposed, but there are no structured logs, trace spans, or correlation IDs. |
 | Object-store cold tier (S3/GCS) | ✗ | Segments are portable files; tiers are manual directories. No native object-store backend yet. |
 | Automated retention / legal hold | ✗ | Retention is manual (`RETIRE`); no scheduled purging or legal-hold policy engine. |

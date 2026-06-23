@@ -84,6 +84,8 @@ func main() {
 	lazyIndex := fs.Bool("lazy-index", false, "serve: open an archive with the disk-backed index — RAM scales with live subjects, not total events (read-only: current/history/asof)")
 	tlsCert := fs.String("tls-cert", "", "serve/desktop: PEM certificate file for native HTTPS (with -tls-key)")
 	tlsKey := fs.String("tls-key", "", "serve/desktop: PEM private-key file for native HTTPS (with -tls-cert)")
+	maxConc := fs.Int("max-concurrency", 0, "serve -lazy-index: cap in-flight requests (0=unlimited); excess gets HTTP 429")
+	queryTimeout := fs.Int("query-timeout", 0, "serve -lazy-index: per-request timeout in seconds (0=none); slow queries get HTTP 503")
 	_ = fs.Parse(os.Args[2:])
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
 	if !archiveMode {
@@ -330,7 +332,11 @@ func main() {
 		fmt.Printf("data:      %s   (read-only%s)\n", *data, authNote(lazyTok))
 		fmt.Printf("dashboard: %s://localhost%s   (storage inspector · verify · query console · cache metrics)\n", scheme, *addr)
 		fmt.Printf("listening on %s   metrics: /metrics   health: /livez /readyz\n", *addr)
-		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.LazyRoutes(li, lazyTok)))
+		if *maxConc > 0 || *queryTimeout > 0 {
+			fmt.Printf("limits:    max-concurrency=%d  query-timeout=%ds\n", *maxConc, *queryTimeout)
+		}
+		handler := api.WithLimits(api.LazyRoutes(li, lazyTok), *maxConc, time.Duration(*queryTimeout)*time.Second)
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, handler))
 	}
 
 	// seed is a redoable bulk load: skip per-commit fsync for speed.

@@ -1,1 +1,1 @@
-{"built":"2026-06-23T14:10:11Z","desc":"enterprise review: auth on lazy read path + native TLS flags + Prometheus /metrics + /livez/readyz; honest matrix update"}
+{"built":"2026-06-23T14:17:59Z","desc":"enterprise: admission control on lazy read path — -max-concurrency (429) + -query-timeout (503) + tests"}
