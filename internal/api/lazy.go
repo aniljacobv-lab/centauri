@@ -35,10 +35,11 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 
 	mux.HandleFunc("/v1/lazy/stats", func(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{
-			"mode":          "lazy-index",
-			"resident_keys": li.Keys(),
-			"cache":         li.CacheStats(),
-			"note":          "RAM scales with live subjects, not total events",
+			"mode":           "lazy-index",
+			"resident_keys":  li.Keys(),
+			"cache":          li.CacheStats(),
+			"indexed_fields": li.IndexedFields(),
+			"note":           "RAM scales with live subjects, not total events",
 		}
 		if man, err := li.Manifest(); err == nil {
 			out["segments"] = len(man.Segments)
@@ -151,6 +152,18 @@ func LazyRoutes(li *store.LazyIndex) http.Handler {
 			}
 		}
 		writeJSON(w, li.Search(query, limit))
+	})
+
+	// Secondary-index equality lookup over current facts (sub-linear).
+	mux.HandleFunc("/v1/lookup", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		field := q.Get("field")
+		if field == "" {
+			http.Error(w, "field required", http.StatusBadRequest)
+			return
+		}
+		events, indexed := li.Lookup(field, q.Get("value"))
+		writeJSON(w, map[string]any{"indexed": indexed, "count": len(events), "events": events})
 	})
 
 	mux.HandleFunc("/v1/trace", func(w http.ResponseWriter, r *http.Request) {

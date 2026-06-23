@@ -277,6 +277,24 @@ func main() {
 		return
 	}
 
+	// tablespace-demo runs the whole tablespaces lifecycle end-to-end on a fresh,
+	// comprehensive + bulk dataset: seed -> archive (compress + Merkle) -> lazy
+	// open -> retrieve every way (current/lookup/history/asof/search/trace/verify)
+	// -> insert (append a fact + a correction) -> re-archive -> show the updated
+	// state. It writes everything under a directory (default ./tablespace-demo).
+	if cmd == "tablespace-demo" {
+		dir := *data
+		if dir == "" || dir == "centauri.log" {
+			dir = "tablespace-demo"
+		}
+		segM := *segMax
+		if !flagWasSet(fs, "seg-max") {
+			segM = 2000 // smaller segments so the demo shows a multi-segment tablespace
+		}
+		runTablespaceDemo(dir, segM)
+		return
+	}
+
 	// serve -lazy-index runs the disk-backed read path: open an archive WITHOUT
 	// replaying it into RAM — only the current fact per (subject,facet) stays
 	// resident, so memory scales with live subjects rather than total events. It
@@ -303,6 +321,7 @@ func main() {
 		fmt.Println(`try:  curl 'localhost:7771/v1/lazy/stats'
       curl 'localhost:7771/v1/segments'
       curl 'localhost:7771/v1/verify'
+      curl 'localhost:7771/v1/lookup?field=status&value=active'
       curl 'localhost:7771/v1/search?q=jacket&limit=10'`)
 		log.Fatal(http.ListenAndServe(*addr, api.LazyRoutes(li)))
 	}
@@ -1044,6 +1063,7 @@ Common flags
 
 Examples
   centauri desktop                 # try it now — opens the dashboard
+  centauri tablespace-demo         # seed→archive→retrieve→insert, end to end
   centauri doctor                  # is my database healthy?
   centauri export -q "FACTS OF item:*" -format table   # query to the terminal
   centauri serve -lazy -token s3cr # API server, payloads on disk
@@ -1061,6 +1081,146 @@ func isArchiveDir(p string) bool {
 	}
 	_, err := os.Stat(filepath.Join(p, "manifest.json"))
 	return err == nil
+}
+
+// runTablespaceDemo walks the full tablespaces lifecycle on a fresh dataset so a
+// user can see — in one command — how comprehensive, bulk data is stored
+// (compressed + tamper-evident), retrieved every way the lazy path supports, and
+// inserted (with the new facts flowing straight back into the archive).
+func runTablespaceDemo(dir string, segMax int) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		log.Fatalf("tablespace-demo: %v", err)
+	}
+	logPath := filepath.Join(dir, "demo.log")
+	arch := filepath.Join(dir, "archive")
+	_ = os.Remove(logPath)
+	_ = os.RemoveAll(arch)
+
+	fmt.Print(banner)
+	fmt.Println("Tablespaces demo — seed → archive → retrieve → insert → re-archive")
+	fmt.Println(strings.Repeat("-", 66))
+
+	// 1) SEED: comprehensive capabilities (corrections, causal links, indexed
+	// string fields, text) + bulk volume.
+	st, err := store.OpenOptions(logPath, store.Options{NoSync: true})
+	if err != nil {
+		log.Fatalf("open: %v", err)
+	}
+	now := time.Now().UnixMicro()
+	if _, err := demo.Seed(st, now); err != nil {
+		log.Fatalf("demo seed: %v", err)
+	}
+	stats, err := synth.Seed(st, 800, 5, 3, rand.New(rand.NewSource(42)))
+	if err != nil {
+		log.Fatalf("bulk seed: %v", err)
+	}
+	st.Close()
+	fmt.Printf("1) seeded   comprehensive demo + bulk %v\n", stats)
+
+	// 2) ARCHIVE: compress + Merkle + zone maps.
+	man, err := store.WriteArchive(logPath, arch, segMax)
+	if err != nil {
+		log.Fatalf("archive: %v", err)
+	}
+	var comp int64
+	for _, s := range man.Segments {
+		comp += s.Bytes
+	}
+	if fi, e := os.Stat(logPath); e == nil && fi.Size() > 0 {
+		fmt.Printf("2) archived %d segment(s), %.0f%% of original size (compressed + tamper-evident)\n",
+			len(man.Segments), 100*float64(comp)/float64(fi.Size()))
+	}
+
+	// 3) OPEN lazily: only current facts + zone maps resident.
+	li, err := store.OpenLazyIndex(arch)
+	if err != nil {
+		log.Fatalf("open lazy: %v", err)
+	}
+	_ = li.SaveCheckpoint()
+	fmt.Printf("3) lazy     %d live keys resident; indexed fields %v\n", li.Keys(), li.IndexedFields())
+
+	// 4) RETRIEVE every way the lazy path supports.
+	fmt.Println("\n-- RETRIEVE --")
+	tsShow("current  sku:COFFEE-001/source", li.Current("sku:COFFEE-001", "source"))
+	ev, idx := li.Lookup("category", "beverage")
+	fmt.Printf("lookup   category=beverage (indexed=%v) -> %d fact(s)\n", idx, len(ev))
+	if h, err := li.History("sku:MILK-002", "source"); err == nil {
+		fmt.Printf("history  sku:MILK-002/source -> %d version(s) incl. correction\n", len(h))
+	}
+	if a, err := li.AsOf("sku:MILK-002", "source", now, 0); err == nil {
+		tsShow("asof     sku:MILK-002/source (now)", a)
+	}
+	if hits, err := store.ScanSearch(arch, "beverage", 5); err == nil {
+		fmt.Printf("search   'beverage' -> %d BM25 hit(s)\n", len(hits))
+	}
+	if cur := li.Current("sku:COFFEE-001", "source"); len(cur) > 0 {
+		if tr, err := li.Trace(cur[0].EventID, "cause", 8); err == nil {
+			fmt.Printf("trace    causes of current COFFEE price -> %d link(s)\n", len(tr))
+		}
+	}
+	head, recs, verr := li.Verify()
+	fmt.Printf("verify   %d records, chain head %s... -> %s\n", recs, tsPrefix(head, 12), tsOK(verr == nil))
+	cs := li.CacheStats()
+	fmt.Printf("cache    %d hit(s) / %d miss(es), %d segment(s) resident\n", cs.Hits, cs.Misses, cs.CachedSegments)
+
+	// 5) INSERT: append a new fact + a correction, then re-archive.
+	fmt.Println("\n-- INSERT --")
+	st2, err := store.OpenOptions(logPath, store.Options{NoSync: true})
+	if err != nil {
+		log.Fatalf("reopen: %v", err)
+	}
+	t := time.Now().UnixMicro()
+	newSku := &model.Event{Subject: "sku:TEA-NEW", Facet: "source", Type: model.Observed,
+		EffectiveTime: t, Provenance: model.HumanEntry, Confidence: 1,
+		Value: map[string]any{"price_cents": 899, "category": "beverage", "name": "loose leaf tea"}}
+	corr := &model.Event{Subject: "sku:COFFEE-001", Facet: "source", Type: model.Correction,
+		EffectiveTime: t, Provenance: model.ScanVerified, Confidence: 1,
+		Value: map[string]any{"price_cents": 1599, "category": "beverage", "note": "shelf re-price"}}
+	if err := st2.Append(t, []*model.Event{newSku, corr}, nil); err != nil {
+		log.Fatalf("append: %v", err)
+	}
+	st2.Close()
+	fmt.Println("inserted sku:TEA-NEW (new fact) + a COFFEE-001 price correction")
+
+	if _, err := store.WriteArchive(logPath, arch, segMax); err != nil {
+		log.Fatalf("re-archive: %v", err)
+	}
+	li2, err := store.OpenLazyIndex(arch) // stale checkpoint auto-invalidates (Merkle) and rebuilds
+	if err != nil {
+		log.Fatalf("reopen lazy: %v", err)
+	}
+	tsShow("current  sku:TEA-NEW/source (just inserted)", li2.Current("sku:TEA-NEW", "source"))
+	tsShow("current  sku:COFFEE-001/source (after correction)", li2.Current("sku:COFFEE-001", "source"))
+	if h, err := li2.History("sku:COFFEE-001", "source"); err == nil {
+		fmt.Printf("history  sku:COFFEE-001/source -> now %d version(s)\n", len(h))
+	}
+
+	fmt.Println(strings.Repeat("-", 66))
+	fmt.Printf("Explore it live:\n  centauri serve -lazy-index -data %s\nthen open http://localhost:7771  (Tablespace Console)\n", arch)
+}
+
+func tsShow(label string, evs []*model.Event) {
+	if len(evs) == 0 {
+		fmt.Printf("%s -> (none)\n", label)
+		return
+	}
+	for _, e := range evs {
+		fmt.Printf("%s -> %v\n", label, e.Value)
+	}
+}
+
+func tsOK(ok bool) string {
+	if ok {
+		return "verified OK"
+	}
+	return "FAILED"
+}
+
+func tsPrefix(s string, n int) string {
+	if len(s) < n {
+		return s
+	}
+	return s[:n]
 }
 
 // ensureDataPath makes pointing -data at a folder (e.g. a OneDrive directory)

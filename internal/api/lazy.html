@@ -118,6 +118,7 @@
     <h2>Query console</h2>
     <div class="tabs" id="tabs">
       <div class="tab active" data-q="current">current</div>
+      <div class="tab" data-q="lookup">lookup (indexed)</div>
       <div class="tab" data-q="history">history</div>
       <div class="tab" data-q="asof">asof</div>
       <div class="tab" data-q="search">search</div>
@@ -144,7 +145,8 @@
         <tr><td>SQL interface</td><td><span class="n">✗</span></td><td>CeQL only (no SQL/JDBC)</td></tr>
         <tr><td>Multi-statement ACID transactions</td><td><span class="n">✗</span></td><td>single fact / batch append; no interactive MVCC transactions</td></tr>
         <tr><td>Concurrent multi-writer</td><td><span class="n">✗</span></td><td>single-writer lock; multi-master is convergent, not concurrent OLTP</td></tr>
-        <tr><td>Disk secondary index for arbitrary WHERE</td><td><span class="p">partial</span></td><td>zone-map pruning + scans; no persisted B-tree index yet</td></tr>
+        <tr><td>Secondary index — equality (current state)</td><td><span class="y">✓</span></td><td>resident field index: <code>WHERE field=value</code> on current facts is a sub-linear lookup</td></tr>
+        <tr><td>Index for arbitrary historical / range WHERE</td><td><span class="p">partial</span></td><td>zone-map pruning + scans for cold history/ranges; no persisted B-tree index yet</td></tr>
         <tr><td>Replication / HA failover</td><td><span class="p">partial</span></td><td>log shipping + CDC slots; no automatic failover</td></tr>
       </tbody>
     </table>
@@ -228,6 +230,7 @@ $('#btn-cache').onclick = loadCache;
 // Query console
 const FORMS = {
   current: [['subject','item:1'],['facet','']],
+  lookup:  [['field','status'],['value','active']],
   history: [['subject','item:1'],['facet','']],
   asof:    [['subject','item:1'],['facet',''],['at (micros)','',{q:'at'}],['known (micros)','',{q:'known'}]],
   search:  [['q','jacket'],['limit','10']],
@@ -241,14 +244,14 @@ function renderForm(){
 function buildQuery(){
   const fields = FORMS[activeQ];
   const params = new URLSearchParams();
-  const map = { 'subject':'subject','facet':'facet','q':'q','limit':'limit','event':'event','direction':'direction','depth':'depth' };
+  const map = { 'subject':'subject','facet':'facet','q':'q','limit':'limit','event':'event','direction':'direction','depth':'depth','field':'field','value':'value' };
   fields.forEach((f,i)=>{
     const v = $('#qf'+i).value.trim();
     if(v==='') return;
     let key = f[2]&&f[2].q ? f[2].q : (map[f[0]]||f[0]);
     params.set(key, v);
   });
-  const path = { current:'/v1/current', history:'/v1/history', asof:'/v1/asof', search:'/v1/search', trace:'/v1/trace' }[activeQ];
+  const path = { current:'/v1/current', lookup:'/v1/lookup', history:'/v1/history', asof:'/v1/asof', search:'/v1/search', trace:'/v1/trace' }[activeQ];
   return path + '?' + params.toString();
 }
 $('#tabs').addEventListener('click', e=>{

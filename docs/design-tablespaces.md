@@ -17,8 +17,10 @@ the full read surface (current, history, asof, search, trace). Reads go through 
 cached **archiveReader** (LRU of decompressed segments, so repeat queries hit
 RAM), and `serve -lazy-index` ships a **Tablespace Console** dashboard (storage
 inspector, one-click integrity verify, query console, cache metrics) plus an
-honest [enterprise-readiness matrix](enterprise-readiness.md). ·
-**Builds on:** [design-segmentation.md](design-segmentation.md),
+honest [enterprise-readiness matrix](enterprise-readiness.md). A reproducible
+[benchmark suite](performance.md) measures the cold-vs-cached read paths, and
+`centauri tablespace-demo` walks the whole lifecycle end to end
+([demo](demo-tablespaces.md)). · **Builds on:** [design-segmentation.md](design-segmentation.md),
 [design-own-your-data.md](design-own-your-data.md)
 
 The goal: make Centauri a full-fledged database that **scales with disk, not
@@ -133,6 +135,16 @@ and materializes only the events that are link endpoints (a second pass), stayin
 well under a full replay; the walk mirrors `Store.Trace` (same edges, depth,
 first-seen dedupe). The lazy read path now covers current, history, asof, search,
 and trace — the full read surface a database-larger-than-RAM needs.
+
+**Secondary index (equality over current state).** A resident field index (string
+field → value → keys), rebuilt instantly on open from the checkpoint-restored
+state, makes `WHERE field = value` over current facts a sub-linear map lookup
+(`LazyIndex.Lookup`, `/v1/lookup`) instead of a scan — high-cardinality fields
+fall back to a scan, exactly as the in-RAM engine's `CurrentByField` does. Cold
+*historical* and *range* predicates still use zone-map-pruned scans; a persisted
+on-disk B-tree/inverted index for arbitrary cold predicates remains the open item
+(compression means intra-segment random access isn't free — see the `partial` row
+in the enterprise matrix).
 
 The three approaches considered, by RAM/latency/complexity:
 

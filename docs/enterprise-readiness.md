@@ -20,6 +20,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Online integrity verification | ✓ | `centauri seal` verifies after sealing; the dashboard `Verify` button / `/v1/verify` checks segments + chain with no downtime. |
 | Fast restart on large archives | ✓ | A Merkle-validated pointer-checkpoint (`lazy.ckpt`) lets restart replay only the tail + newly-sealed segments. |
 | Hot segment caching | ✓ | An LRU of decompressed segments keeps repeat queries in RAM; hit/miss/decompression counts are on the dashboard. |
+| Secondary index — equality over current state | ✓ | A resident field index makes `WHERE field = value` over current facts a sub-linear map lookup (high-cardinality fields fall back to scan, same as the in-RAM engine). |
 | Single zero-dependency binary | ✓ | Go stdlib only; no third-party runtime. |
 
 ## What it does not do (yet)
@@ -29,7 +30,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | SQL / JDBC / ODBC | ✗ | Query language is CeQL (text, JSON AST, and REST). No SQL wire protocol. |
 | Multi-statement ACID transactions | ✗ | Writes are single-fact or batch appends; there is no interactive `BEGIN…COMMIT` MVCC transaction model. |
 | Concurrent multi-writer OLTP | ✗ | A single-writer lock serialises writes. Multi-master ingestion converges deterministically; it is not concurrent OLTP. |
-| Disk secondary index for arbitrary `WHERE` | partial | Zone-map pruning + segment scans cover current/`AS OF`/range/keyword cheaply; there is no persisted B-tree/inverted index for arbitrary cold predicates yet. |
+| Index for arbitrary historical / range `WHERE` | partial | Equality over *current* state is indexed (above); cold *history* and *range* predicates use zone-map pruning + segment scans — there is no persisted B-tree/inverted index for arbitrary cold predicates yet. |
 | Replication / HA failover | partial | Log shipping and durable CDC slots exist; automatic leader election / failover does not. |
 | Role hierarchies / fine-grained RBAC | partial | Scoped read tokens (RLS) exist; there is no full role hierarchy or column masking. |
 

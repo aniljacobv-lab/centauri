@@ -287,3 +287,140 @@ func TestLazyCacheAndInspect(t *testing.T) {
 		t.Fatalf("verify: %v", err)
 	}
 }
+
+// The secondary field index must answer equality over current facts from the
+// index (sub-linear), and fall back to a scan for unknown fields.
+func TestLazyFieldIndex(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	put := func(subject, status string) {
+		now := time.Now().UnixMicro()
+		e := &model.Event{Subject: subject, Facet: "pdt", Type: model.Observed,
+			Value: map[string]any{"status": status}, EffectiveTime: now,
+			Provenance: model.SystemFeed, Confidence: 1}
+		if err := st.Append(now, []*model.Event{e}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put("item:1", "active")
+	put("item:2", "active")
+	put("item:3", "retired")
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 2); err != nil {
+		t.Fatal(err)
+	}
+	li, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, indexed := li.Lookup("status", "active")
+	if !indexed {
+		t.Fatal("status should be served by the secondary index")
+	}
+	if len(got) != 2 {
+		t.Fatalf("status=active returned %d, want 2", len(got))
+	}
+	// Unknown field: not indexed, falls back to scan (no matches).
+	if ev, idx := li.Lookup("nosuchfield", "x"); idx || len(ev) != 0 {
+		t.Fatalf("unknown field: indexed=%v count=%d, want false/0", idx, len(ev))
+	}
+}
+
+// End-to-end: seed (with a correction, an indexed field, text, a causal link) ->
+// archive -> retrieve every way -> insert (new fact + correction) -> re-archive
+// -> see the updated state. This is the deterministic proof behind the
+// `centauri tablespace-demo` command.
+func TestTablespaceLifecycle(t *testing.T) {
+	dir := t.TempDir()
+	logp := filepath.Join(dir, "src.log")
+	st, err := OpenOptions(logp, Options{NoSync: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mk := func(id, subj, status, name string, price int, typ model.EventType, eff int64) *model.Event {
+		return &model.Event{EventID: id, Subject: subj, Facet: "f", Type: typ, EffectiveTime: eff,
+			Provenance: model.SystemFeed, Confidence: 1,
+			Value: map[string]any{"status": status, "name": name, "price_cents": price}}
+	}
+	must := func(now int64, e *model.Event, links []model.CausalLink) {
+		if err := st.Append(now, []*model.Event{e}, links); err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(1000, mk("e1", "item:1", "active", "winter jacket", 100, model.Observed, 1000), nil)
+	must(2000, mk("e2", "item:1", "active", "winter jacket", 90, model.Correction, 2000), nil) // supersedes e1
+	must(1000, mk("e3", "item:2", "retired", "summer hat", 50, model.Observed, 1000), nil)
+	must(1500, &model.Event{EventID: "ord", Subject: "order:1", Facet: "f", Type: model.Observed,
+		EffectiveTime: 1500, Provenance: model.SystemFeed, Confidence: 1, Value: map[string]any{"status": "placed"}}, nil)
+	must(1600, &model.Event{EventID: "shp", Subject: "shipment:1", Facet: "f", Type: model.Observed,
+		EffectiveTime: 1600, Provenance: model.SystemFeed, Confidence: 1, Value: map[string]any{"status": "shipped"}},
+		[]model.CausalLink{{From: "ord", To: "shp", Type: model.Triggered}})
+	st.Close()
+
+	arch := filepath.Join(dir, "arch")
+	if _, err := WriteArchive(logp, arch, 2); err != nil {
+		t.Fatal(err)
+	}
+	li, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if c := li.Current("item:1", "f"); len(c) != 1 || fmt.Sprint(c[0].Value["price_cents"]) != "90" {
+		t.Fatalf("current item:1 = %v, want corrected 90", c)
+	}
+	if act, indexed := li.Lookup("status", "active"); !indexed || len(act) != 1 || act[0].Subject != "item:1" {
+		t.Fatalf("lookup status=active = %v (indexed=%v), want item:1", act, indexed)
+	}
+	if h, _ := li.History("item:1", "f"); len(h) != 2 {
+		t.Fatalf("history item:1 = %d, want 2", len(h))
+	}
+	if a, _ := li.AsOf("item:1", "f", 1500, 0); len(a) != 1 || fmt.Sprint(a[0].Value["price_cents"]) != "100" {
+		t.Fatalf("asof item:1 @1500 = %v, want pre-correction 100", a)
+	}
+	if hits := li.Search("jacket", 5); len(hits) != 1 || hits[0].Event.Subject != "item:1" {
+		t.Fatalf("search 'jacket' = %v, want item:1", hits)
+	}
+	if tr, _ := li.Trace("shp", "cause", 8); len(tr) != 1 || tr[0].Event.EventID != "ord" {
+		t.Fatalf("trace cause of shp = %v, want [ord]", tr)
+	}
+	if _, _, err := li.Verify(); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
+	// INSERT: a brand-new fact + a correction, then re-archive and reopen.
+	st2, err := OpenOptions(logp, Options{NoSync: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st2.Append(3000, []*model.Event{mk("e4", "item:9", "active", "new boots", 200, model.Observed, 3000)}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := st2.Append(3000, []*model.Event{mk("e5", "item:1", "clearance", "winter jacket", 70, model.Correction, 3000)}, nil); err != nil {
+		t.Fatal(err)
+	}
+	st2.Close()
+	if _, err := WriteArchive(logp, arch, 2); err != nil {
+		t.Fatal(err)
+	}
+	li2, err := OpenLazyIndex(arch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := li2.Current("item:9", "f"); len(c) != 1 {
+		t.Fatalf("inserted item:9 not retrievable after re-archive")
+	}
+	if c := li2.Current("item:1", "f"); len(c) != 1 || fmt.Sprint(c[0].Value["price_cents"]) != "70" {
+		t.Fatalf("item:1 after correction = %v, want 70", c)
+	}
+	if h, _ := li2.History("item:1", "f"); len(h) != 3 {
+		t.Fatalf("history item:1 after insert = %d, want 3", len(h))
+	}
+}

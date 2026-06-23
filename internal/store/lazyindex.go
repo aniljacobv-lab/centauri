@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/segment"
@@ -39,6 +40,12 @@ type LazyIndex struct {
 	live    map[string]map[string]*model.Event // key -> id -> non-superseded event (for checkpoint + tail merge)
 	idKey   map[string]string                  // event id -> key (to drop on supersession)
 	covered map[string]string                  // segment path -> merkle root already folded into live
+
+	// Secondary index over current facts: string field -> value -> []key into
+	// open. Rebuilt on open (instant, from checkpoint-restored state), so
+	// equality WHERE field=value over current state is a map lookup, not a scan.
+	fieldIdx map[string]map[string][]string
+	capped   map[string]bool // fields too high-cardinality to index (scan instead)
 }
 
 // lazySegmentCacheCap is how many decompressed segments the lazy reader keeps
@@ -168,11 +175,13 @@ func OpenLazyIndex(dir string) (*LazyIndex, error) {
 	return li, nil
 }
 
-// resolve recomputes the current fact per key (deterministic beats-max) and the
-// per-subject facet set from the live sets.
+// resolve recomputes the current fact per key (deterministic beats-max), the
+// per-subject facet set, and the secondary field index from the live sets.
 func (li *LazyIndex) resolve() {
 	li.open = map[string]*model.Event{}
 	li.facets = map[string]map[string]bool{}
+	li.fieldIdx = map[string]map[string][]string{}
+	li.capped = map[string]bool{}
 	for k, m := range li.live {
 		var best *model.Event
 		for _, e := range m {
@@ -186,6 +195,7 @@ func (li *LazyIndex) resolve() {
 				li.facets[best.Subject] = map[string]bool{}
 			}
 			li.facets[best.Subject][best.Facet] = true
+			li.indexFields(k, best)
 		}
 	}
 }
@@ -262,6 +272,65 @@ func (li *LazyIndex) Search(query string, limit int) []SearchHit {
 		events = append(events, e)
 	}
 	return rankEventsBM25(events, query, limit)
+}
+
+// indexFields adds one current fact's string fields to the secondary index,
+// capping high-cardinality fields exactly as the in-RAM engine does.
+func (li *LazyIndex) indexFields(k string, e *model.Event) {
+	for fk, fv := range e.Value {
+		sv, ok := fv.(string)
+		if !ok || li.capped[fk] {
+			continue
+		}
+		m := li.fieldIdx[fk]
+		if m == nil {
+			m = map[string][]string{}
+			li.fieldIdx[fk] = m
+		}
+		if _, seen := m[sv]; !seen && len(m) >= maxIndexDistinct {
+			li.capped[fk] = true
+			delete(li.fieldIdx, fk) // too high-cardinality to index; scan instead
+			continue
+		}
+		m[sv] = append(m[sv], k)
+	}
+}
+
+// Lookup returns the current facts whose string field equals value. indexed
+// reports whether the answer came from the secondary index (sub-linear) or a
+// fallback linear scan of the current facts (field unknown or capped).
+func (li *LazyIndex) Lookup(field, value string) (events []*model.Event, indexed bool) {
+	if !li.capped[field] {
+		if m, ok := li.fieldIdx[field]; ok {
+			for _, k := range m[value] {
+				if e := li.open[k]; e != nil {
+					events = append(events, e)
+				}
+			}
+			return events, true
+		}
+	}
+	return li.lookupScan(field, value), false
+}
+
+func (li *LazyIndex) lookupScan(field, value string) []*model.Event {
+	var out []*model.Event
+	for _, e := range li.open {
+		if sv, ok := e.Value[field].(string); ok && sv == value {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// IndexedFields lists the fields currently served by the secondary index.
+func (li *LazyIndex) IndexedFields() []string {
+	out := make([]string, 0, len(li.fieldIdx))
+	for f := range li.fieldIdx {
+		out = append(out, f)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Trace walks the causal lineage of an event ("cause" or "effect") by scanning

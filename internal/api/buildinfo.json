@@ -1,1 +1,1 @@
-{"built":"2026-06-23T13:02:40Z","desc":"tablespaces #11: cached archiveReader (LRU) + Tablespace Console dashboard (inspector/verify/console/cache) + enterprise matrix"}
+{"built":"2026-06-23T13:54:29Z","desc":"tablespaces #14: centauri tablespace-demo (bulk seed→archive→retrieve→insert→re-archive) + lifecycle test + demo doc"}
