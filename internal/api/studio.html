@@ -225,7 +225,7 @@
       </div>
       <div class="ttbanner" id="ttbanner"></div>
       <div class="editor-wrap">
-        <textarea id="editor" spellcheck="false" placeholder="FACTS OF item:*&#10;-- ⌘⏎ run · ; separates statements · click a subject on the left"></textarea>
+        <textarea id="editor" spellcheck="false" placeholder="FACTS OF item:*   (or SQL: SELECT * FROM item WHERE category='beverage' LIMIT 10)&#10;-- ⌘⏎ run · ; separates statements · click a subject on the left"></textarea>
         <div class="hint">CeQL · ⌘⏎ run · ; = multi</div>
       </div>
       <div class="results">
@@ -239,6 +239,7 @@
           <span class="pill" onclick="runInto('FACTS OF *')">FACTS OF *</span>
           <span class="pill" onclick="runInto('STATS')">STATS</span>
           <span class="pill" onclick="runInto('SUBJECTS')">SUBJECTS</span>
+          <span class="pill" onclick="runInto('SELECT * FROM facts LIMIT 20')" title="lean SQL — transpiles to CeQL">SQL: SELECT *</span>
           <div class="muted small" style="margin-top:14px">Connecting from code? <a href="#" onclick="openConnect();return false">🔌 Connect &amp; SDKs →</a> (Python · Go · JS · HTTP · MCP)</div></div></div>
         <div class="tabpane" id="pane-graph">
           <div class="gtoolbar">
@@ -385,7 +386,10 @@ async function handle(resp){
 }
 async function apiGet(path, params){ return handle(await fetch(path + qs(params))); }
 async function query(text){
-  return handle(await fetch("/v1/query"+qs(), {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:text})}));
+  // A lean SQL SELECT is transpiled to CeQL server-side; route it to /v1/sql.
+  // Both endpoints take {q} and return the same result shape, so rendering is identical.
+  const path = /^\s*select\b/i.test(text) ? "/v1/sql" : "/v1/query";
+  return handle(await fetch(path+qs(), {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:text})}));
 }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function jsAttr(s){ return "'"+String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")+"'"; }

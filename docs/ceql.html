@@ -444,6 +444,17 @@ data describes has changed shape. All bi-temporal — add <span class="kw">AS OF
 
 <h2 id="rosetta">13. The Rosetta Stone — every language you know, in CeQL</h2>
 <h3>From SQL</h3>
+<p style="border-left:3px solid var(--accent);padding:8px 12px;background:rgba(91,157,255,.07)">
+<b>You don't have to translate by hand.</b> A <b>lean read-only SQL <code>SELECT</code></b> runs directly —
+paste it into Studio (anything starting with <code>SELECT</code> is auto-routed) or POST it to
+<code>/v1/sql</code>. It transpiles to CeQL and supports <code>WHERE</code> / <code>GROUP BY</code> /
+<code>HAVING</code> / <code>ORDER BY</code> / <code>LIMIT</code>, plus <code>AS OF</code> and SQL:2011
+<code>FOR SYSTEM_TIME AS OF</code>. It is a familiar door, not a SQL wire protocol (no JDBC/ODBC),
+and writes still use CeQL. <code>FROM name</code> means the <code>name:*</code> namespace;
+<code>FROM facts</code> means all subjects.<br>
+<code style="color:var(--dim)">SELECT category, AVG(price_cents) FROM sku GROUP BY category HAVING COUNT(*) &gt; 3</code>
+</p>
+<p>The conceptual mapping (what each SQL idea becomes in native CeQL):</p>
 <table>
 <tr><th>SQL</th><th>CeQL</th><th>Notes</th></tr>
 <tr><td><code>SELECT * FROM t WHERE …</code></td><td><code>FACTS OF subj WHERE …</code></td><td>subjects+facets replace tables</td></tr>

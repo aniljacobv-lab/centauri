@@ -1166,7 +1166,10 @@ async function assistQuery(){
 }
 async function execText(text){
   const qs = qsFor({});
-  return handle(await fetch("/v1/query" + (qs ? "?" + qs : ""), {
+  // A lean SQL SELECT is transpiled to CeQL server-side; route it to /v1/sql.
+  // Both endpoints take {q} and return the same result shape.
+  const base = /^\s*select\b/i.test(text) ? "/v1/sql" : "/v1/query";
+  return handle(await fetch(base + (qs ? "?" + qs : ""), {
     method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({q: text})}));
 }
