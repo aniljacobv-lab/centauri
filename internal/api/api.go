@@ -63,6 +63,9 @@ func (s *Server) readOnly(r *http.Request) bool {
 // ctxScope carries a scoped token's policy (row-level security).
 const ctxScope ctxKey = 2
 
+// ctxRequestID carries the per-request correlation ID set by WithLogging.
+const ctxRequestID ctxKey = 3
+
 // aclPolicy restricts a token to CeQL over subjects within Prefixes; it may
 // write only if Write is set. Policies are stored as acl:<sha256(token)>
 // facts — the token itself is never persisted.
@@ -232,6 +235,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/acl", s.write(s.handleACL))
 	mux.HandleFunc("POST /v1/query", s.handleQuery)
 	mux.HandleFunc("GET /v1/query", s.handleQuery)
+	mux.HandleFunc("POST /v1/sql", s.handleSQL) // lean read-only SQL SELECT → CeQL
+	mux.HandleFunc("GET /v1/sql", s.handleSQL)
 	mux.HandleFunc("POST /v1/assist", s.handleAssist)
 	mux.HandleFunc("POST /v1/proc", s.write(s.handleDefineProc))
 	mux.HandleFunc("POST /v1/proc/run", s.write(s.handleRunProc))
@@ -1093,6 +1098,51 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"kind": "proc", "procedure": res.Procedure,
 			"return": res.Return, "trace": res.Trace})
 		return
+	}
+	result, err := ceql.Execute(st, q, now)
+	if err != nil {
+		httpErr(w, 422, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}
+
+// handleSQL is the lean read-only SQL front door: a SELECT subset transpiled to
+// the CeQL AST and run through the same executor. Read-only by construction
+// (ParseSQL accepts only SELECT), and still subject to row-level scoped tokens.
+func (s *Server) handleSQL(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r)
+	if st == nil {
+		return
+	}
+	now := time.Now().UnixMicro()
+	var sqlText string
+	if r.Method == http.MethodGet {
+		sqlText = r.URL.Query().Get("q")
+	} else {
+		var body struct {
+			Q string `json:"q"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			httpErr(w, 400, err.Error())
+			return
+		}
+		sqlText = body.Q
+	}
+	if strings.TrimSpace(sqlText) == "" {
+		httpErr(w, 400, "give me a SQL SELECT, e.g. ?q=SELECT * FROM sku WHERE category='beverage' LIMIT 10")
+		return
+	}
+	q, err := ceql.ParseSQL(sqlText, now)
+	if err != nil {
+		httpErr(w, 400, err.Error())
+		return
+	}
+	if pol, ok := r.Context().Value(ctxScope).(aclPolicy); ok {
+		if allowed, reason := scopeAllows(pol, q); !allowed {
+			httpErr(w, 403, "scoped token: "+reason)
+			return
+		}
 	}
 	result, err := ceql.Execute(st, q, now)
 	if err != nil {

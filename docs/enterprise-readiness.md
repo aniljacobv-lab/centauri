@@ -25,12 +25,13 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Native TLS / HTTPS | ✓ | `-tls-cert`/`-tls-key` on `serve` and `serve -lazy-index` — no reverse proxy required (one is still fine). |
 | Token auth on data routes (both modes) | ✓ | Normal `serve` gates every `/v1/*` route behind `-token` (admin) / `-read-token` (read-only); `serve -lazy-index` now does the same on its read routes (closing an earlier bypass). The dashboard, `/v1/version`, health probes, and `/metrics` stay open by design (no fact data). |
 | Prometheus metrics + health probes | ✓ | `/metrics` (text exposition), `/livez`, `/readyz` on **both** the normal `serve` and `serve -lazy-index` paths — Prometheus/Grafana scraping and Kubernetes liveness/readiness in either deployment mode. The lazy `/metrics` adds segment-cache gauges; the normal one exposes store counters + build info. |
+| Structured request logging + correlation IDs | ✓ | stdlib `log/slog` request logs (`-log-format text\|json`, `-log-level`) — one line per request with method, path, status, bytes, duration, and an `X-Request-ID` correlation id (honoured inbound, echoed in the response), on both serve modes. Zero third-party deps. |
 
 ## What it does not do (yet)
 
 | Capability | Status | Notes |
 |---|---|---|
-| SQL / JDBC / ODBC | ✗ | Query language is CeQL (text, JSON AST, and REST). No SQL wire protocol. |
+| SQL (read-only SELECT subset) | partial | A lean SQL `SELECT` (WHERE / GROUP BY / HAVING / ORDER BY / LIMIT, plus `AS OF` and SQL:2011 `FOR SYSTEM_TIME AS OF`) transpiles to CeQL at `POST/GET /v1/sql` — a familiar front door for SQL-speaking humans and LLMs. It is **not** a SQL **wire protocol**: there is no JDBC/ODBC/pgwire, so BI tools (Tableau/Power BI/DBeaver) cannot connect directly, and writes still use CeQL. |
 | Multi-statement ACID transactions | ✗ | Writes are single-fact or batch appends; there is no interactive `BEGIN…COMMIT` MVCC transaction model. |
 | Concurrent multi-writer OLTP | ✗ | A single-writer lock serialises writes. Multi-master ingestion converges deterministically; it is not concurrent OLTP. |
 | Index for arbitrary historical / range `WHERE` | partial | Equality over *current* state is indexed (above); cold *history* and *range* predicates use zone-map pruning + segment scans — there is no persisted B-tree/inverted index for arbitrary cold predicates yet. |
@@ -39,7 +40,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | At-rest encryption of the hot tier | partial | Sealed segments support per-segment AES-256-GCM (crypto-erasure); the hot tail, manifest, and `lazy.ckpt` are not encrypted — use volume/disk encryption for those. |
 | External secrets / KMS integration | ✗ | Model credentials come from environment variables (`auth_env`); no Vault / cloud Secrets Manager / KMS envelope encryption. |
 | Rate limiting / quotas / admission control | partial | `serve -lazy-index` has a global concurrency cap (`-max-concurrency`, HTTP 429) and a per-request timeout (`-query-timeout`, HTTP 503) to protect against heavy cold scans / SEARCH. The write path and per-tenant quotas are not yet limited. |
-| Structured logging / OpenTelemetry traces | ✗ | Logs are line-oriented (`log`/`fmt`); `/metrics` is exposed, but there are no structured logs, trace spans, or correlation IDs. |
+| OpenTelemetry traces | ✗ | Request logs are structured with correlation IDs (above) and `/metrics` is exposed, but there are no OTel trace spans yet, and internal startup/error logs are still line-oriented (`log`/`fmt`). |
 | Object-store cold tier (S3/GCS) | ✗ | Segments are portable files; tiers are manual directories. No native object-store backend yet. |
 | Automated retention / legal hold | ✗ | Retention is manual (`RETIRE`); no scheduled purging or legal-hold policy engine. |
 | Automatic failover / leader election | ✗ | Log shipping (`follow`) + CDC slots (`sync`) exist; HA orchestration is external. |

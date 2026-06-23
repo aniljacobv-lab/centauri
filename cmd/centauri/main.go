@@ -86,7 +86,10 @@ func main() {
 	tlsKey := fs.String("tls-key", "", "serve/desktop: PEM private-key file for native HTTPS (with -tls-cert)")
 	maxConc := fs.Int("max-concurrency", 0, "serve -lazy-index: cap in-flight requests (0=unlimited); excess gets HTTP 429")
 	queryTimeout := fs.Int("query-timeout", 0, "serve -lazy-index: per-request timeout in seconds (0=none); slow queries get HTTP 503")
+	logFormat := fs.String("log-format", "text", "serve/desktop: structured request log format: text | json")
+	logLevel := fs.String("log-level", "info", "serve/desktop: log level: debug | info | warn | error")
 	_ = fs.Parse(os.Args[2:])
+	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
 	if !archiveMode {
 		*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
@@ -336,6 +339,7 @@ func main() {
 			fmt.Printf("limits:    max-concurrency=%d  query-timeout=%ds\n", *maxConc, *queryTimeout)
 		}
 		handler := api.WithLimits(api.LazyRoutes(li, lazyTok), *maxConc, time.Duration(*queryTimeout)*time.Second)
+		handler = api.WithLogging(handler, logger) // outermost: log every request incl. 429/503
 		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, handler))
 	}
 
@@ -424,7 +428,7 @@ func main() {
 		}()
 		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data})
 		apiSrv = srv
-		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, srv.Routes()))
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 	case "export":
 		if err := runExport(st, *query, *format, *to); err != nil {
 			log.Fatalf("export: %v", err)
@@ -464,7 +468,7 @@ func main() {
       curl -N 'localhost:7771/v1/watch?facet=pdt'`)
 		srv := api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data})
 		apiSrv = srv
-		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, srv.Routes()))
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 	case "mcp":
 		// stdio is the protocol channel; keep it clean of banners.
 		if err := mcp.New(st, os.Stdin, os.Stdout).Run(); err != nil {
@@ -480,7 +484,7 @@ func main() {
 			srv := api.NewWithOptions(st, api.Options{Token: *token, ReadOnly: true})
 			go func() {
 				fmt.Printf("read-only API on %s\n", *addr)
-				log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, srv.Routes()))
+				log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 			}()
 		}
 		follow(st, *primary, *token, *interval)
