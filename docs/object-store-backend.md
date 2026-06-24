@@ -1,6 +1,14 @@
 # Object Store Backend for Centauri Tablespaces
 
-**Status:** Planned (described in design docs; not yet implemented in code). Current implementation is strictly local-filesystem based.
+**Status:** Partially implemented. `internal/objstore` now provides the
+`SegmentStore` interface with a `LocalStore` (filesystem) and an S3-compatible
+`S3Store` (AWS S3 / MinIO / R2 / B2) using stdlib `net/http` + a hand-rolled
+AWS Signature V4 signer (zero third-party deps). `centauri archive-push`
+uploads a sealed archive to (and `-pull` restores it from) your own bucket.
+**Still to do:** wire the lazy reader (`archiveReader.segmentBytes`) to read
+segments *directly* from a `SegmentStore` so you can `serve` against object
+storage without pulling local first; and smoke-test SigV4 interop against MinIO /
+real S3 (the client is unit-tested against a mock S3, not yet a live one).
 
 **Goal:** Allow sealed, immutable segments to live in user-owned object storage (S3, GCS, Azure Blob, Cloudflare R2, MinIO, etc.) while keeping the hot appendable tail local. This enables cheap, durable, scalable cold storage without requiring local disk for historical data.
 

@@ -1,1 +1,1 @@
-{"built":"2026-06-24T19:13:49Z","desc":"cross-shard fan-out: parallel per-shard FACTS/HISTORY/SEARCH + merge (/v1/query in -shards mode) + test"}
+{"built":"2026-06-24T19:38:36Z","desc":"object-store cold tier (slice 1): internal/objstore SegmentStore (Local + S3/SigV4, stdlib) + centauri archive-push + tests"}

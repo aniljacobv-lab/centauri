@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -37,7 +38,9 @@ import (
 	"github.com/proxima360/centauri/internal/demo"
 	"github.com/proxima360/centauri/internal/mcp"
 	"github.com/proxima360/centauri/internal/model"
+	"github.com/proxima360/centauri/internal/objstore"
 	"github.com/proxima360/centauri/internal/retention"
+	"github.com/proxima360/centauri/internal/segment"
 	"github.com/proxima360/centauri/internal/shard"
 	"github.com/proxima360/centauri/internal/store"
 	"github.com/proxima360/centauri/internal/synth"
@@ -100,6 +103,11 @@ func main() {
 	autoSealMB := fs.Int("auto-seal-mb", 0, "serve on an archive dir: auto-seal the tail into a segment once it exceeds N MB (0=manual); bounds the hot log")
 	fastVerify := fs.Bool("fast", false, "verify (archive dir): parallel per-segment Merkle scrub across cores; omit for the full sequential chain check")
 	compactGroup := fs.Int("group", 8, "compact: merge this many consecutive segments into one")
+	s3Endpoint := fs.String("s3-endpoint", "", "archive-push: S3-compatible endpoint (e.g. https://s3.us-east-1.amazonaws.com or http://localhost:9000)")
+	s3Bucket := fs.String("s3-bucket", "", "archive-push: bucket name")
+	s3Region := fs.String("s3-region", "us-east-1", "archive-push: region for SigV4 signing")
+	s3Prefix := fs.String("s3-prefix", "centauri", "archive-push: key prefix within the bucket")
+	s3Pull := fs.Bool("pull", false, "archive-push: download the archive from the bucket instead of uploading")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -425,6 +433,32 @@ func main() {
 		fmt.Print(banner)
 		fmt.Printf("compacted: %s\nsegments:  %d -> %d (merged in groups of %d, in parallel)\n", *data, before, after, *compactGroup)
 		fmt.Println("verified:  chain head unchanged — nothing erased, lines preserved in order ✓")
+		return
+	}
+
+	// archive-push offloads a sealed archive to (or restores it from) your own
+	// S3-compatible bucket — cheap, durable cold storage. Reads local files only,
+	// so it's safe alongside a running server (immutable segments + atomic
+	// manifest). Credentials from $AWS_ACCESS_KEY_ID / $AWS_SECRET_ACCESS_KEY.
+	if cmd == "archive-push" {
+		if *s3Endpoint == "" || *s3Bucket == "" {
+			log.Fatal("archive-push: -s3-endpoint and -s3-bucket are required")
+		}
+		ak, sk := os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY")
+		if ak == "" || sk == "" {
+			log.Fatal("archive-push: set $AWS_ACCESS_KEY_ID and $AWS_SECRET_ACCESS_KEY")
+		}
+		s3 := objstore.NewS3Store(*s3Endpoint, *s3Bucket, objstore.Creds{AccessKey: ak, SecretKey: sk, Region: *s3Region})
+		n, err := runArchiveSync(*data, !*s3Pull, s3, *s3Prefix)
+		if err != nil {
+			log.Fatalf("archive-push: %v", err)
+		}
+		fmt.Print(banner)
+		if *s3Pull {
+			fmt.Printf("downloaded %d object(s) from s3://%s/%s -> %s\n", n, *s3Bucket, *s3Prefix, *data)
+		} else {
+			fmt.Printf("uploaded %d object(s) from %s -> s3://%s/%s\n", n, *data, *s3Bucket, *s3Prefix)
+		}
 		return
 	}
 
@@ -1355,6 +1389,79 @@ func tsPrefix(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// runArchiveSync uploads (push) every file in an archive dir to the object store
+// under prefix, or downloads (pull) the manifest + its segments + tail back into
+// the dir. Returns the number of objects transferred.
+func runArchiveSync(dir string, push bool, s3 objstore.SegmentStore, prefix string) (int, error) {
+	if push {
+		n := 0
+		err := filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return err
+			}
+			rel, rerr := filepath.Rel(dir, p)
+			if rerr != nil {
+				return rerr
+			}
+			data, rerr := os.ReadFile(p)
+			if rerr != nil {
+				return rerr
+			}
+			if err := s3.Put(path.Join(prefix, filepath.ToSlash(rel)), data); err != nil {
+				return err
+			}
+			n++
+			return nil
+		})
+		return n, err
+	}
+
+	// Pull: manifest is the catalog of what to fetch.
+	mb, err := s3.Get(path.Join(prefix, "manifest.json"))
+	if err != nil {
+		return 0, fmt.Errorf("get manifest: %w", err)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, err
+	}
+	writeLocal := func(rel string, data []byte) error {
+		target := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	}
+	if err := writeLocal("manifest.json", mb); err != nil {
+		return 0, err
+	}
+	man, err := segment.ParseManifest(mb)
+	if err != nil {
+		return 0, err
+	}
+	n := 1
+	for _, e := range man.Segments {
+		data, err := s3.Get(path.Join(prefix, e.Path))
+		if err != nil {
+			return n, fmt.Errorf("get %s: %w", e.Path, err)
+		}
+		if err := writeLocal(e.Path, data); err != nil {
+			return n, err
+		}
+		n++
+	}
+	tail := man.Tail
+	if tail == "" {
+		tail = "current.log"
+	}
+	if data, err := s3.Get(path.Join(prefix, tail)); err == nil {
+		if err := writeLocal(tail, data); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
 }
 
 // listenMaybeTLS serves over HTTPS when both a cert and key are given (native
