@@ -88,6 +88,16 @@ type Options struct {
 	// concurrency). The chain, ordering, and durability are unchanged. Opt-in;
 	// OFF keeps the original inline append path exactly.
 	GroupCommit bool
+	// CheckpointEvery, if > 0, writes the recovery checkpoint on this cadence
+	// while serving (not only on Close), so crash recovery replays only the log
+	// since the last checkpoint — bounded recovery time regardless of uptime.
+	// Applies to a plain log store (see AutoSealBytes for archive mode).
+	CheckpointEvery time.Duration
+	// AutoSealBytes, if > 0, seals the appendable tail into a new compressed
+	// segment once it grows past this many bytes (archive-backed stores only).
+	// Keeps the hot log — and therefore open/recovery time — bounded no matter
+	// how much total history accumulates.
+	AutoSealBytes int64
 }
 
 // Store is Centauri's storage engine.
@@ -147,6 +157,11 @@ type Store struct {
 	committerDone chan struct{}
 	qmu           sync.RWMutex // guards qClosed and the send-vs-close race on writeQ
 	qClosed       bool
+
+	// Background maintenance: periodic checkpointing and/or auto-sealing.
+	maintStop     chan struct{}
+	maintDone     chan struct{}
+	maintStopOnce sync.Once
 }
 
 // commitReq is one queued append awaiting the group committer.
@@ -294,6 +309,7 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		s.committerDone = make(chan struct{})
 		go s.commitLoop()
 	}
+	s.startMaintenance() // periodic checkpoint (plain log)
 	return s, nil
 }
 
@@ -391,6 +407,8 @@ func (s *Store) Close() error {
 			<-s.committerDone
 		}
 	}
+	// Stop background maintenance before taking s.mu (it acquires s.mu itself).
+	s.stopMaintenance()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {

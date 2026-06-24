@@ -102,6 +102,7 @@ func OpenArchive(dir string, opts Options) (*Store, error) {
 		}
 		s.lockPath = lp
 	}
+	s.startMaintenance() // auto-seal the tail when it grows past the threshold
 	return s, nil
 }
 

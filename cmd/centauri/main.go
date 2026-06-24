@@ -96,6 +96,8 @@ func main() {
 	applyRet := fs.Bool("apply", false, "retention: actually RETIRE (default is a dry-run plan)")
 	groupCommit := fs.Bool("group-commit", false, "serve/desktop: coalesce concurrent appends into one fsync (higher write throughput under load; experimental)")
 	shards := fs.Int("shards", 0, "serve: sharded write-scaling mode with N shard logs under -data (a directory); writes to different subjects run in parallel")
+	checkpointEvery := fs.Int("checkpoint-every", 0, "serve/desktop: write the recovery checkpoint every N seconds (0=only on clean shutdown); bounds crash-recovery replay")
+	autoSealMB := fs.Int("auto-seal-mb", 0, "serve on an archive dir: auto-seal the tail into a segment once it exceeds N MB (0=manual); bounds the hot log")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -319,7 +321,8 @@ func main() {
 		if dir == "" || dir == "centauri.log" {
 			dir = "centauri-shards"
 		}
-		set, err := shard.Open(dir, *shards, store.Options{Lock: true, GroupCommit: *groupCommit, LazyPayloads: *lazy})
+		set, err := shard.Open(dir, *shards, store.Options{Lock: true, GroupCommit: *groupCommit, LazyPayloads: *lazy,
+			CheckpointEvery: time.Duration(*checkpointEvery) * time.Second})
 		if err != nil {
 			log.Fatalf("open shards: %v", err)
 		}
@@ -394,10 +397,12 @@ func main() {
 	var err error
 	if archiveMode {
 		// Run directly on a sealed-segment archive (compressed + tamper-verified).
-		st, err = store.OpenArchive(*data, store.Options{Lock: wantsLock, LazyPayloads: *lazy})
+		st, err = store.OpenArchive(*data, store.Options{Lock: wantsLock, LazyPayloads: *lazy,
+			AutoSealBytes: int64(*autoSealMB) << 20, CheckpointEvery: time.Duration(*checkpointEvery) * time.Second})
 	} else {
 		st, err = store.OpenOptions(*data, store.Options{NoSync: cmd == "seed", Lock: wantsLock, LazyPayloads: *lazy,
-			GroupCommit: *groupCommit && (cmd == "serve" || cmd == "desktop")})
+			GroupCommit:     *groupCommit && (cmd == "serve" || cmd == "desktop"),
+			CheckpointEvery: time.Duration(*checkpointEvery) * time.Second})
 	}
 	if err != nil {
 		log.Fatalf("open store: %v", err)
