@@ -1,1 +1,1 @@
-{"built":"2026-06-24T18:52:11Z","desc":"efficiency: Oracle-style bounded open/recovery — auto-seal (-auto-seal-mb) + periodic checkpoint (-checkpoint-every) + tests"}
+{"built":"2026-06-24T18:57:44Z","desc":"parallelism: VerifyArchiveParallel — per-segment Merkle scrub across cores + verify -fast + test"}

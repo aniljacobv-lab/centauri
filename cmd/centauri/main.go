@@ -98,6 +98,7 @@ func main() {
 	shards := fs.Int("shards", 0, "serve: sharded write-scaling mode with N shard logs under -data (a directory); writes to different subjects run in parallel")
 	checkpointEvery := fs.Int("checkpoint-every", 0, "serve/desktop: write the recovery checkpoint every N seconds (0=only on clean shutdown); bounds crash-recovery replay")
 	autoSealMB := fs.Int("auto-seal-mb", 0, "serve on an archive dir: auto-seal the tail into a segment once it exceeds N MB (0=manual); bounds the hot log")
+	fastVerify := fs.Bool("fast", false, "verify (archive dir): parallel per-segment Merkle scrub across cores; omit for the full sequential chain check")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -143,6 +144,26 @@ func main() {
 
 	// verify never opens the store for writing — it only reads bytes.
 	if cmd == "verify" {
+		// An archive directory verifies its segments; -fast scrubs per-segment
+		// Merkle roots in parallel (across cores), the default adds the full
+		// sequential cross-segment chain check.
+		if isArchiveDir(*data) {
+			if *fastVerify {
+				records, err := store.VerifyArchiveParallel(*data)
+				if err != nil {
+					log.Fatalf("verify: %v", err)
+				}
+				fmt.Printf("archive:    %s\nrecords:    %d\nverified:   per-segment Merkle roots, in parallel ✓\n", *data, records)
+				fmt.Println("(per-segment integrity only — run 'verify' without -fast for the cross-segment chain.)")
+				return
+			}
+			head, records, err := store.VerifyArchive(*data)
+			if err != nil {
+				log.Fatalf("verify: %v", err)
+			}
+			fmt.Printf("archive:    %s\nrecords:    %d\nchain head: %s\nverified:   per-segment Merkle + continuous hash chain ✓\n", *data, records, head)
+			return
+		}
 		head, size, records, err := store.VerifyChain(*data)
 		if err != nil {
 			log.Fatalf("verify: %v", err)
