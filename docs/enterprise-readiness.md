@@ -42,7 +42,7 @@ not inflate a ✗ to a ✓. The same matrix is shown live in the Tablespace Cons
 | Admission control (concurrency + timeouts) | ✓ | `-max-concurrency` (HTTP 429) and `-query-timeout` (HTTP 503) apply to the normal `serve`/`desktop` hot path **and** `serve -lazy-index` — bounding heavy writes, queries, SEARCH, and synchronous LLM calls. Streaming endpoints (`/v1/watch`, `/v1/changes`, `/v1/log`) are exempt (never cut off, never hold a slot). Per-database/per-tenant quotas are still not enforced. |
 | OpenTelemetry traces | ✗ | Request logs are structured with correlation IDs (above) and `/metrics` is exposed, but there are no OTel trace spans yet, and internal startup/error logs are still line-oriented (`log`/`fmt`). |
 | Object-store cold tier (S3/GCS) | ✗ | Segments are portable files; tiers are manual directories. No native object-store backend yet. |
-| Automated retention / legal hold | ✗ | Retention is manual (`RETIRE`); no scheduled purging or legal-hold policy engine. |
+| Retention &amp; legal hold | partial | `centauri retention -pattern '…' -older-than N [-apply]` RETIREs stale subjects (history is kept — never erased; dry-run by default, schedule `-apply` for a recurring policy). A `hold:<name>` fact carrying a subject `pattern` puts matching subjects under a **legal hold** that retention skips. Not yet: a stored-policy scheduler inside the binary, a crypto-erase retention action, or engine-level hold enforcement against *manual* writes. |
 | Automatic failover / leader election | ✗ | Log shipping (`follow`) + CDC slots (`sync`) exist; HA orchestration is external. |
 
 ## How to read this

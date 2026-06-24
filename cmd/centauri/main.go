@@ -37,6 +37,7 @@ import (
 	"github.com/proxima360/centauri/internal/demo"
 	"github.com/proxima360/centauri/internal/mcp"
 	"github.com/proxima360/centauri/internal/model"
+	"github.com/proxima360/centauri/internal/retention"
 	"github.com/proxima360/centauri/internal/store"
 	"github.com/proxima360/centauri/internal/synth"
 )
@@ -88,6 +89,9 @@ func main() {
 	queryTimeout := fs.Int("query-timeout", 0, "serve/desktop/lazy-index: per-request timeout in seconds (0=none); slow requests get HTTP 503 (streaming endpoints exempt)")
 	logFormat := fs.String("log-format", "text", "serve/desktop: structured request log format: text | json")
 	logLevel := fs.String("log-level", "info", "serve/desktop: log level: debug | info | warn | error")
+	retPattern := fs.String("pattern", "", "retention: subject glob to retire, e.g. 'log:*'")
+	olderThan := fs.Int("older-than", 0, "retention: retire subjects whose newest fact is older than N days")
+	applyRet := fs.Bool("apply", false, "retention: actually RETIRE (default is a dry-run plan)")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -346,7 +350,7 @@ func main() {
 	// seed is a redoable bulk load: skip per-commit fsync for speed.
 	// Everything else syncs every commit so acknowledged writes survive
 	// a crash.
-	wantsLock := cmd == "serve" || cmd == "desktop" || cmd == "shell" || cmd == "sync"
+	wantsLock := cmd == "serve" || cmd == "desktop" || cmd == "shell" || cmd == "sync" || cmd == "retention"
 	var st *store.Store
 	var err error
 	if archiveMode {
@@ -436,6 +440,31 @@ func main() {
 		}
 	case "shell":
 		runShell(st)
+	case "retention":
+		rep, err := retention.Run(st, *retPattern, *olderThan, *applyRet, time.Now().UnixMicro())
+		if err != nil {
+			log.Fatalf("retention: %v", err)
+		}
+		fmt.Print(banner)
+		verb := "would retire (dry run)"
+		if rep.Applied {
+			verb = "retired"
+		}
+		fmt.Printf("retention  pattern=%q  older-than=%dd\n", rep.Pattern, rep.OlderThanDays)
+		fmt.Printf("scanned: %d   held: %d   due: %d   %s: %d\n",
+			rep.Scanned, len(rep.Held), len(rep.Due), verb, len(rep.Retired))
+		if len(rep.Held) > 0 {
+			fmt.Printf("skipped under legal hold: %v\n", rep.Held)
+		}
+		if !rep.Applied && len(rep.Due) > 0 {
+			fmt.Println("due (dry run — re-run with -apply to RETIRE; history is always kept):")
+			for _, s := range rep.Due {
+				fmt.Println("  " + s)
+			}
+		}
+		for _, e := range rep.Errors {
+			fmt.Println("  error: " + e)
+		}
 	case "seed":
 		stats, err := synth.Seed(st, *skus, *stores, *changes, rand.New(rand.NewSource(*seedVal)))
 		if err != nil {
