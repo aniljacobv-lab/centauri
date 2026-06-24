@@ -70,12 +70,28 @@ func TestShardRoutes(t *testing.T) {
 	}
 	r5.Body.Close()
 
-	// Wildcard / global CeQL is rejected in sharded mode.
+	// Wildcard FACTS fans out across shards and returns BOTH subjects (which hash
+	// to different shards), merged.
 	r6, _ := http.Get(srv.URL + "/v1/query?q=" + url.QueryEscape("FACTS OF item:*"))
-	if r6.StatusCode != 400 {
-		t.Fatalf("wildcard query = %d, want 400", r6.StatusCode)
+	if r6.StatusCode != 200 {
+		t.Fatalf("wildcard fan-out query = %d, want 200", r6.StatusCode)
 	}
+	var facts struct {
+		Kind   string           `json:"kind"`
+		Events []map[string]any `json:"events"`
+	}
+	_ = json.NewDecoder(r6.Body).Decode(&facts)
 	r6.Body.Close()
+	if facts.Kind != "events" || len(facts.Events) != 2 {
+		t.Fatalf("fan-out FACTS OF item:* = kind %q, %d events, want events/2", facts.Kind, len(facts.Events))
+	}
+
+	// A cross-shard aggregate is still rejected (can't merge correctly).
+	r7, _ := http.Get(srv.URL + "/v1/query?q=" + url.QueryEscape("FACTS COUNT(*) OF item:*"))
+	if r7.StatusCode != 400 {
+		t.Fatalf("cross-shard aggregate = %d, want 400", r7.StatusCode)
+	}
+	r7.Body.Close()
 }
 
 func TestShardRoutesAuth(t *testing.T) {

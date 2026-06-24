@@ -61,6 +61,10 @@ func Open(dir string, n int, opts store.Options) (*Set, error) {
 // N is the shard count.
 func (s *Set) N() int { return s.n }
 
+// Shards returns the underlying shard stores (for cross-shard fan-out: run a
+// query on each in parallel, then merge). Read-only use.
+func (s *Set) Shards() []*store.Store { return s.shards }
+
 // ShardIndex is the deterministic shard for a subject (FNV-1a hash mod N).
 func ShardIndex(subject string, n int) int {
 	h := fnv.New32a()

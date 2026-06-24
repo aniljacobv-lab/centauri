@@ -16,11 +16,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/proxima360/centauri/internal/ceql"
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/shard"
+	"github.com/proxima360/centauri/internal/store"
 )
 
 // ShardRoutes returns the mux for a shard.Set. readToken (if set) gates /v1/*.
@@ -132,16 +134,45 @@ func ShardRoutes(set *shard.Set, readToken string) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if q.Subject == "" || strings.Contains(q.Subject, "*") {
-			http.Error(w, "sharded mode: /v1/query needs a concrete subject (no wildcards); wildcard/global queries belong on single-store serve", http.StatusBadRequest)
+		// Concrete subject → the whole query lives on one shard.
+		if q.Subject != "" && !strings.Contains(q.Subject, "*") {
+			res, err := ceql.Execute(set.Shard(q.Subject), q, now)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+			writeJSONlocal(w, res)
 			return
 		}
-		res, err := ceql.Execute(set.Shard(q.Subject), q, now)
+		// Wildcard / global → fan out to every shard in parallel and merge.
+		if !ceql.FanOutSupported(q) {
+			http.Error(w, "sharded mode: this query can't fan out across shards (cross-shard aggregates/trace aren't supported) — query a concrete subject or use single-store serve", http.StatusBadRequest)
+			return
+		}
+		shards := set.Shards()
+		results := make([]map[string]any, len(shards))
+		errs := make([]error, len(shards))
+		var wg sync.WaitGroup
+		for i, sh := range shards {
+			wg.Add(1)
+			go func(i int, sh *store.Store) {
+				defer wg.Done()
+				results[i], errs[i] = ceql.Execute(sh, q, now)
+			}(i, sh)
+		}
+		wg.Wait()
+		for _, e := range errs {
+			if e != nil {
+				http.Error(w, e.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+		}
+		merged, err := ceql.MergeShardResults(q, results)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSONlocal(w, res)
+		writeJSONlocal(w, merged)
 	}
 	mux.HandleFunc("GET /v1/query", queryHandler)
 	mux.HandleFunc("POST /v1/query", queryHandler)
@@ -172,7 +203,7 @@ func ShardRoutes(set *shard.Set, readToken string) http.Handler {
 			"GET  /v1/current?subject=&facet=\n" +
 			"GET  /v1/history?subject=&facet=\n" +
 			"GET  /v1/asof?subject=&facet=&at=<micros>\n" +
-			"GET  /v1/query?q=<CeQL on a concrete subject>\n" +
+			"GET  /v1/query?q=<CeQL>   (concrete subject → one shard; FACTS/HISTORY/SEARCH wildcards fan out across shards)\n" +
 			"GET  /v1/subjects   ·   GET /v1/shards   ·   /metrics /livez /readyz\n"))
 	})
 
