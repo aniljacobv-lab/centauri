@@ -92,6 +92,7 @@ func main() {
 	retPattern := fs.String("pattern", "", "retention: subject glob to retire, e.g. 'log:*'")
 	olderThan := fs.Int("older-than", 0, "retention: retire subjects whose newest fact is older than N days")
 	applyRet := fs.Bool("apply", false, "retention: actually RETIRE (default is a dry-run plan)")
+	groupCommit := fs.Bool("group-commit", false, "serve/desktop: coalesce concurrent appends into one fsync (higher write throughput under load; experimental)")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -357,7 +358,8 @@ func main() {
 		// Run directly on a sealed-segment archive (compressed + tamper-verified).
 		st, err = store.OpenArchive(*data, store.Options{Lock: wantsLock, LazyPayloads: *lazy})
 	} else {
-		st, err = store.OpenOptions(*data, store.Options{NoSync: cmd == "seed", Lock: wantsLock, LazyPayloads: *lazy})
+		st, err = store.OpenOptions(*data, store.Options{NoSync: cmd == "seed", Lock: wantsLock, LazyPayloads: *lazy,
+			GroupCommit: *groupCommit && (cmd == "serve" || cmd == "desktop")})
 	}
 	if err != nil {
 		log.Fatalf("open store: %v", err)

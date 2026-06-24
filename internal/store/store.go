@@ -83,6 +83,11 @@ type Options struct {
 	// at the cost of a disk read + decode per cold value. Opt-in; OFF keeps
 	// the original all-in-memory behavior exactly.
 	LazyPayloads bool
+	// GroupCommit funnels concurrent Append calls through one committer that
+	// coalesces a burst into a single fsync (higher write throughput under
+	// concurrency). The chain, ordering, and durability are unchanged. Opt-in;
+	// OFF keeps the original inline append path exactly.
+	GroupCommit bool
 }
 
 // Store is Centauri's storage engine.
@@ -130,7 +135,30 @@ type Store struct {
 
 	// chainHash is the tamper-evidence hash chain head (integrity.go).
 	chainHash [32]byte
+
+	// Group commit (opt-in via Options.GroupCommit). When enabled, concurrent
+	// Append calls are funnelled through writeQ to a single committer goroutine
+	// that coalesces a burst of appends into ONE fsync + one commit() — so write
+	// throughput under concurrency is bounded by batch size, not by one fsync per
+	// caller. The single chain, ordering, and write-then-apply are unchanged
+	// (commit/writeApplyNotify are reused verbatim). writeQ == nil means the
+	// feature is off and Append runs inline exactly as before.
+	writeQ        chan *commitReq
+	committerDone chan struct{}
+	qmu           sync.RWMutex // guards qClosed and the send-vs-close race on writeQ
+	qClosed       bool
 }
+
+// commitReq is one queued append awaiting the group committer.
+type commitReq struct {
+	now    int64
+	events []*model.Event
+	links  []model.CausalLink
+	done   chan error // buffered (cap 1)
+}
+
+// maxGroupCommit bounds how many queued appends one fsync coalesces.
+const maxGroupCommit = 256
 
 func key(subject, facet string) string { return subject + "|" + facet }
 
@@ -260,6 +288,12 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		}
 		s.lockPath = lp
 	}
+	// Start the group committer only after replay has reconstructed state.
+	if opts.GroupCommit {
+		s.writeQ = make(chan *commitReq, 4096)
+		s.committerDone = make(chan struct{})
+		go s.commitLoop()
+	}
 	return s, nil
 }
 
@@ -342,6 +376,21 @@ func hasCompleteRecordAfter(rd *bufio.Reader) (bool, error) {
 // Close syncs and closes the log, writing a checkpoint so the next Open
 // can skip full replay. Safe to call more than once.
 func (s *Store) Close() error {
+	// Stop the group committer first, WITHOUT holding s.mu — it needs s.mu to
+	// flush its in-flight group. Closing writeQ (under qmu, so no send races the
+	// close) makes commitLoop drain the remaining queued appends and exit.
+	if s.writeQ != nil {
+		s.qmu.Lock()
+		stop := !s.qClosed
+		if stop {
+			s.qClosed = true
+			close(s.writeQ)
+		}
+		s.qmu.Unlock()
+		if stop {
+			<-s.committerDone
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -578,35 +627,62 @@ func validType(t model.EventType) bool {
 // "as known at" honest. SupersededBy/EffectiveEnd are likewise
 // server-managed and reset on ingest.
 func (s *Store) Append(now int64, events []*model.Event, links []model.CausalLink) error {
+	// Group-commit path: hand off to the committer, which coalesces a burst of
+	// concurrent appends into one fsync. writeQ is set once at Open and never
+	// changes, so reading it without the lock is safe.
+	if s.writeQ != nil {
+		req := &commitReq{now: now, events: events, links: links, done: make(chan error, 1)}
+		s.qmu.RLock()
+		if s.qClosed {
+			s.qmu.RUnlock()
+			return ErrClosed
+		}
+		s.writeQ <- req // RLock held so Close can't close the channel mid-send
+		s.qmu.RUnlock()
+		return <-req.done
+	}
+	// Inline path (group commit off): identical to the original behaviour.
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.writable(); err != nil {
+	recs, err := s.prepareBatch(now, events, links, map[string]string{}, map[string]bool{})
+	if err != nil {
 		return err
 	}
+	return s.commit(recs)
+}
+
+// prepareBatch validates one append and builds its record batch, threading
+// `overlay` (open-pointer changes accumulated within this commit group) and
+// `seen` (event ids already taken in this group) so several appends committed
+// together still chain and de-duplicate correctly. It mutates server-managed
+// event fields (RecordedTime etc.). Caller holds s.mu; it does NOT write.
+func (s *Store) prepareBatch(now int64, events []*model.Event, links []model.CausalLink, overlay map[string]string, seen map[string]bool) ([]*record, error) {
+	if err := s.writable(); err != nil {
+		return nil, err
+	}
 	if now <= 0 {
-		return errors.New("append: now must be a positive UnixMicro timestamp")
+		return nil, errors.New("append: now must be a positive UnixMicro timestamp")
 	}
 
 	// Validate everything before writing anything: a batch is all-or-nothing.
-	seen := map[string]bool{}
 	for i, e := range events {
 		if e == nil {
-			return fmt.Errorf("append: event %d is nil", i)
+			return nil, fmt.Errorf("append: event %d is nil", i)
 		}
 		if e.Subject == "" || e.Facet == "" {
-			return errors.New("append: event requires subject and facet")
+			return nil, errors.New("append: event requires subject and facet")
 		}
 		if !validType(e.Type) {
-			return fmt.Errorf("append: event %d has unknown type %q", i, e.Type)
+			return nil, fmt.Errorf("append: event %d has unknown type %q", i, e.Type)
 		}
 		if !(e.Confidence >= 0 && e.Confidence <= 1) { // NaN-safe
-			return fmt.Errorf("append: event %d confidence %v outside [0,1]", i, e.Confidence)
+			return nil, fmt.Errorf("append: event %d confidence %v outside [0,1]", i, e.Confidence)
 		}
 		if e.EventID == "" {
 			e.EventID = model.NewID()
 		}
 		if _, dup := s.events[e.EventID]; dup || seen[e.EventID] {
-			return fmt.Errorf("append: duplicate event id %s (events are immutable)", e.EventID)
+			return nil, fmt.Errorf("append: duplicate event id %s (events are immutable)", e.EventID)
 		}
 		seen[e.EventID] = true
 		if e.EffectiveTime <= 0 {
@@ -621,20 +697,20 @@ func (s *Store) Append(now int64, events []*model.Event, links []model.CausalLin
 		}
 		if e.SchemaID != "" {
 			if err := s.validateAgainstSchema(e); err != nil {
-				return fmt.Errorf("append: event %d: %w", i, err)
+				return nil, fmt.Errorf("append: event %d: %w", i, err)
 			}
 		}
 	}
 	for i, l := range links {
 		if l.From == "" || l.To == "" || l.Type == "" {
-			return fmt.Errorf("append: link %d requires from, to, and type", i)
+			return nil, fmt.Errorf("append: link %d requires from, to, and type", i)
 		}
 	}
 
 	var batch []*record
-	// openNow overlays this batch's supersessions onto s.open so that two
-	// events on the same (subject, facet) within one batch chain correctly.
-	overlay := map[string]string{}
+	// openNow overlays this batch's supersessions onto s.open (plus any earlier
+	// appends in the same commit group) so events on the same (subject, facet)
+	// chain correctly.
 	openNow := func(k string) (string, bool) {
 		if id, ok := overlay[k]; ok {
 			return id, true
@@ -670,7 +746,60 @@ func (s *Store) Append(now int64, events []*model.Event, links []model.CausalLin
 	for i := range links {
 		batch = append(batch, &record{Link: &links[i]})
 	}
-	return s.commit(batch)
+	return batch, nil
+}
+
+// commitLoop is the group committer: it drains a burst of queued appends,
+// prepares them in order (threading one overlay + seen set so they chain), then
+// commits the merged records with a SINGLE fsync. Reuses commit() verbatim, so
+// durability, the hash chain, and write-then-apply are unchanged.
+func (s *Store) commitLoop() {
+	for req := range s.writeQ {
+		group := []*commitReq{req}
+		// Opportunistically coalesce whatever is already queued (no waiting:
+		// low load → groups of one; high load → big groups, fewer fsyncs).
+		for len(group) < maxGroupCommit {
+			select {
+			case r := <-s.writeQ:
+				group = append(group, r)
+			default:
+				goto run
+			}
+		}
+	run:
+		s.commitGroup(group)
+	}
+	close(s.committerDone)
+}
+
+func (s *Store) commitGroup(group []*commitReq) {
+	s.mu.Lock()
+	overlay := map[string]string{}
+	seen := map[string]bool{}
+	var merged []*record
+	errs := make([]error, len(group))
+	committed := false
+	for i, r := range group {
+		recs, err := s.prepareBatch(r.now, r.events, r.links, overlay, seen)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+		merged = append(merged, recs...)
+		committed = true
+	}
+	var cerr error
+	if committed {
+		cerr = s.commit(merged) // one write + one fsync + apply-all, in order
+	}
+	s.mu.Unlock()
+	for i, r := range group {
+		if errs[i] != nil {
+			r.done <- errs[i] // per-request validation error
+		} else {
+			r.done <- cerr // shared commit result (nil, or a write/fsync error)
+		}
+	}
 }
 
 // Activate marks a distributed event as activated by its facet at time t.

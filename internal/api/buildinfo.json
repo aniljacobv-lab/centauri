@@ -1,1 +1,1 @@
-{"built":"2026-06-24T17:26:38Z","desc":"enterprise: retention + legal hold (RETIRE-based, never erases) — centauri retention -pattern -older-than [-apply] + test"}
+{"built":"2026-06-24T17:55:26Z","desc":"write scaling #1: opt-in group commit (-group-commit) — coalesce concurrent appends into one fsync, chain/ordering/durability unchanged + concurrency tests"}
