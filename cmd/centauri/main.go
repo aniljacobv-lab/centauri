@@ -99,6 +99,7 @@ func main() {
 	checkpointEvery := fs.Int("checkpoint-every", 0, "serve/desktop: write the recovery checkpoint every N seconds (0=only on clean shutdown); bounds crash-recovery replay")
 	autoSealMB := fs.Int("auto-seal-mb", 0, "serve on an archive dir: auto-seal the tail into a segment once it exceeds N MB (0=manual); bounds the hot log")
 	fastVerify := fs.Bool("fast", false, "verify (archive dir): parallel per-segment Merkle scrub across cores; omit for the full sequential chain check")
+	compactGroup := fs.Int("group", 8, "compact: merge this many consecutive segments into one")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -408,6 +409,23 @@ func main() {
 		handler := api.WithLimits(api.LazyRoutes(li, lazyTok), *maxConc, time.Duration(*queryTimeout)*time.Second)
 		handler = api.WithLogging(handler, logger) // outermost: log every request incl. 429/503
 		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, handler))
+	}
+
+	// compact merges consecutive sealed segments into fewer, larger ones (fewer
+	// files, smaller manifest) — never erasing, chain preserved. Offline: it
+	// takes the single-writer lock, so don't run it against a live server.
+	if cmd == "compact" {
+		if !isArchiveDir(*data) {
+			log.Fatalf("compact: %s is not an archive directory (run 'centauri archive' first)", *data)
+		}
+		before, after, err := store.CompactArchive(*data, *compactGroup)
+		if err != nil {
+			log.Fatalf("compact: %v", err)
+		}
+		fmt.Print(banner)
+		fmt.Printf("compacted: %s\nsegments:  %d -> %d (merged in groups of %d, in parallel)\n", *data, before, after, *compactGroup)
+		fmt.Println("verified:  chain head unchanged — nothing erased, lines preserved in order ✓")
+		return
 	}
 
 	// seed is a redoable bulk load: skip per-commit fsync for speed.

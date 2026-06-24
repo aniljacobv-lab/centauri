@@ -87,8 +87,16 @@ the manifest**, so pruning and `verify` work without decompressing a thing.
 - **Portable, self-verifying segments:** each sealed segment is a content-
   addressed, compressed, Merkle-rooted file you can move between disks; `verify`
   walks them in manifest order.
-- **`compact`** merges/tiers old segments, gated by `MinSlotCursor` so no
-  un-consumed CDC is dropped.
+- **`compact`** (`centauri compact -data <archive> -group N`) merges runs of
+  consecutive segments into fewer, larger ones — in parallel, since each group is
+  independent. It never erases: a merged segment's lines are the byte-identical,
+  in-order concatenation of its inputs, so the cross-segment hash chain is
+  unchanged (the merged segment inherits its last input's chain head, and a full
+  `VerifyArchive` afterwards reproduces the same head). Offline (takes the
+  single-writer lock). Pairs with `-auto-seal-mb`, which otherwise proliferates
+  small segments.
+- **`verify -fast`** scrubs every segment's Merkle root in parallel across cores
+  (per-segment integrity); plain `verify` adds the sequential cross-segment chain.
 
 ## Disk-backed index — the RAM-scaling slice (in progress)
 

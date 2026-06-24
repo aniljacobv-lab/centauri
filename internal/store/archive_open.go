@@ -198,7 +198,7 @@ func (s *Store) Seal() error {
 	if err != nil {
 		return err
 	}
-	id := len(man.Segments) + 1
+	id := maxSegID(man) + 1 // monotonic: never reuse an id, even after compaction shrinks the count
 	segRel := fmt.Sprintf("segments/%08d.seg", id)
 	segDir := filepath.Join(s.archiveDir, "segments")
 	if err := os.MkdirAll(segDir, 0o755); err != nil {
