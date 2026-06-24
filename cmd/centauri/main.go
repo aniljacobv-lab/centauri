@@ -84,8 +84,8 @@ func main() {
 	lazyIndex := fs.Bool("lazy-index", false, "serve: open an archive with the disk-backed index — RAM scales with live subjects, not total events (read-only: current/history/asof)")
 	tlsCert := fs.String("tls-cert", "", "serve/desktop: PEM certificate file for native HTTPS (with -tls-key)")
 	tlsKey := fs.String("tls-key", "", "serve/desktop: PEM private-key file for native HTTPS (with -tls-cert)")
-	maxConc := fs.Int("max-concurrency", 0, "serve -lazy-index: cap in-flight requests (0=unlimited); excess gets HTTP 429")
-	queryTimeout := fs.Int("query-timeout", 0, "serve -lazy-index: per-request timeout in seconds (0=none); slow queries get HTTP 503")
+	maxConc := fs.Int("max-concurrency", 0, "serve/desktop/lazy-index: cap in-flight non-streaming requests (0=unlimited); excess gets HTTP 429")
+	queryTimeout := fs.Int("query-timeout", 0, "serve/desktop/lazy-index: per-request timeout in seconds (0=none); slow requests get HTTP 503 (streaming endpoints exempt)")
 	logFormat := fs.String("log-format", "text", "serve/desktop: structured request log format: text | json")
 	logLevel := fs.String("log-level", "info", "serve/desktop: log level: debug | info | warn | error")
 	_ = fs.Parse(os.Args[2:])
@@ -426,7 +426,8 @@ func main() {
 			time.Sleep(1200 * time.Millisecond)
 			openBrowser("http://localhost" + *addr)
 		}()
-		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data})
+		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data,
+			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second})
 		apiSrv = srv
 		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 	case "export":
@@ -466,7 +467,8 @@ func main() {
       curl 'localhost:7771/v1/pending?facet=pdt&older_than_days=21'
       curl 'localhost:7771/v1/disagreements?field=price_cents'
       curl -N 'localhost:7771/v1/watch?facet=pdt'`)
-		srv := api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data})
+		srv := api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data,
+			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second})
 		apiSrv = srv
 		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 	case "mcp":

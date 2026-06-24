@@ -48,6 +48,25 @@ type Options struct {
 	// DataPath is the default database's log file. Named databases are
 	// created as sibling <name>.log files. Empty disables multi-db.
 	DataPath string
+	// MaxConcurrent caps simultaneous non-streaming requests (0 = unlimited);
+	// excess gets HTTP 429. RequestTimeout bounds a non-streaming request
+	// (0 = none); slow ones get HTTP 503. Streaming endpoints (watch/changes/
+	// log) are exempt from both. Admission control for the hot path.
+	MaxConcurrent  int
+	RequestTimeout time.Duration
+}
+
+// limitExempt reports endpoints that must bypass admission control: long-lived
+// streams (SSE / tailing reads) must never be timed out or hold a slot, and
+// health/metrics/version probes must always answer even under load (a liveness
+// probe returning 429 would get the pod killed).
+func limitExempt(p string) bool {
+	switch p {
+	case "/v1/watch", "/v1/changes", "/v1/log",
+		"/livez", "/readyz", "/metrics", "/v1/version":
+		return true
+	}
+	return false
 }
 
 // ctxReadOnly marks requests authenticated with the read-only token.
@@ -252,7 +271,9 @@ func (s *Server) Routes() http.Handler {
 	root.HandleFunc("GET /{$}", s.handleUI)             // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
-	return root
+	// Admission control on the hot path: cap concurrency + bound request time,
+	// but never touch streaming endpoints.
+	return WithLimitsExcept(root, s.opts.MaxConcurrent, s.opts.RequestTimeout, limitExempt)
 }
 
 // auth enforces the bearer tokens on every route when configured: the

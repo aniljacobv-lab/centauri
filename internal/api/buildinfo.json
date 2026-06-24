@@ -1,1 +1,1 @@
-{"built":"2026-06-23T19:27:46Z","desc":"surface lean SQL: auto-route SELECT in Studio + dashboard, CeQL textbook callout"}
+{"built":"2026-06-24T15:42:05Z","desc":"enterprise: hot-path admission control (concurrency 429 + timeout 503) on normal serve, SSE + health exempt + test"}

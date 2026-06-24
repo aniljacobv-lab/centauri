@@ -51,3 +51,32 @@ func TestWithLimitsConcurrency(t *testing.T) {
 	}
 	close(release)
 }
+
+// Streaming paths must bypass the timeout entirely; everything else is bounded.
+func TestWithLimitsExemptsStreaming(t *testing.T) {
+	slow := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(120 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	})
+	exempt := func(p string) bool { return p == "/v1/watch" }
+	srv := httptest.NewServer(WithLimitsExcept(slow, 0, 20*time.Millisecond, exempt))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/v1/watch") // exempt: not cut off
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("exempt streaming path = %d, want 200 (no timeout)", resp.StatusCode)
+	}
+
+	resp2, err := http.Get(srv.URL + "/v1/query") // non-exempt: timed out
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("non-exempt slow request = %d, want 503", resp2.StatusCode)
+	}
+}
