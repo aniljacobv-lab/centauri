@@ -8,8 +8,47 @@ package api
 
 import (
 	"net/http"
+	"sync"
 	"time"
 )
+
+// perDBLimiter caps in-flight requests PER database (the multi-tenant boundary,
+// selected by ?db=), so a burst against one tenant can't starve the others.
+// Each db gets its own semaphore, created on first use.
+type perDBLimiter struct {
+	cap  int
+	mu   sync.Mutex
+	sems map[string]chan struct{}
+}
+
+func newPerDBLimiter(cap int) *perDBLimiter {
+	return &perDBLimiter{cap: cap, sems: map[string]chan struct{}{}}
+}
+
+func (l *perDBLimiter) acquire(db string) bool {
+	l.mu.Lock()
+	sem := l.sems[db]
+	if sem == nil {
+		sem = make(chan struct{}, l.cap)
+		l.sems[db] = sem
+	}
+	l.mu.Unlock()
+	select {
+	case sem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (l *perDBLimiter) release(db string) {
+	l.mu.Lock()
+	sem := l.sems[db]
+	l.mu.Unlock()
+	if sem != nil {
+		<-sem
+	}
+}
 
 // WithLimits wraps h with an optional per-request timeout and a global
 // concurrency cap (429 when full). A non-positive value disables that layer.

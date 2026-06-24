@@ -54,6 +54,9 @@ type Options struct {
 	// log) are exempt from both. Admission control for the hot path.
 	MaxConcurrent  int
 	RequestTimeout time.Duration
+	// MaxConcurrentPerDB caps simultaneous non-streaming requests PER database
+	// (?db=), so one tenant's burst can't starve others (0 = no per-tenant cap).
+	MaxConcurrentPerDB int
 }
 
 // limitExempt reports endpoints that must bypass admission control: long-lived
@@ -271,9 +274,32 @@ func (s *Server) Routes() http.Handler {
 	root.HandleFunc("GET /{$}", s.handleUI)             // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
-	// Admission control on the hot path: cap concurrency + bound request time,
-	// but never touch streaming endpoints.
-	return WithLimitsExcept(root, s.opts.MaxConcurrent, s.opts.RequestTimeout, limitExempt)
+	// Admission control on the hot path: per-tenant fairness (inner) + a global
+	// concurrency/timeout ceiling (outer), both skipping streaming/health.
+	return WithLimitsExcept(s.perDBLimit(root), s.opts.MaxConcurrent, s.opts.RequestTimeout, limitExempt)
+}
+
+// perDBLimit caps concurrent requests per database (?db=) so one tenant can't
+// monopolise the process. Streaming/health are exempt. No-op when unset.
+func (s *Server) perDBLimit(next http.Handler) http.Handler {
+	if s.opts.MaxConcurrentPerDB <= 0 {
+		return next
+	}
+	lim := newPerDBLimiter(s.opts.MaxConcurrentPerDB)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if limitExempt(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		db := r.URL.Query().Get("db") // "" = default database
+		if !lim.acquire(db) {
+			w.Header().Set("Retry-After", "1")
+			httpErr(w, http.StatusTooManyRequests, "per-tenant concurrency limit reached for db="+db)
+			return
+		}
+		defer lim.release(db)
+		next.ServeHTTP(w, r)
+	})
 }
 
 // auth enforces the bearer tokens on every route when configured: the

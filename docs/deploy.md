@@ -15,13 +15,33 @@ recipes, lightest first.
   auth or hot cert reload yet.
 - Take periodic `centauri backup` snapshots off the box, and record the
   chain head somewhere separate (tamper evidence needs an external anchor).
-- **Admission control:** `serve -lazy-index` accepts `-max-concurrency` (HTTP 429
-  over the cap) and `-query-timeout` seconds (HTTP 503) to protect the cold-read
-  path. The normal write/serve path has no rate limiting yet — treat it like an
-  internal tool with a password, not a hardened public API.
+- **Admission control:** `-max-concurrency` (HTTP 429 over the cap) and
+  `-query-timeout` seconds (HTTP 503) apply to the normal `serve`/`desktop` hot
+  path and `serve -lazy-index`; `-max-concurrency-per-db` adds a per-tenant
+  (per `?db=`) cap. Streaming endpoints (`/v1/watch`, `/v1/changes`, `/v1/log`)
+  and health/metrics are exempt.
 - **Probes & metrics:** both `serve` and `serve -lazy-index` expose `/livez`,
   `/readyz`, and a Prometheus `/metrics` endpoint (unauthenticated — no fact data),
   so Kubernetes probes and Prometheus scraping work in either mode.
+- **Structured logs:** `-log-format json -log-level info` emits one slog line per
+  request with an `X-Request-ID` correlation id (honoured inbound, echoed back).
+
+## Modes &amp; flags cheat-sheet
+
+- **Write scaling.** `-group-commit` coalesces concurrent appends into one fsync
+  (single node, higher throughput under load). `serve -shards N` (with `-data` a
+  directory) partitions subjects across N independent shard logs and writes them
+  in parallel (~N× throughput): `POST /v1/append`, routed `current`/`history`/
+  `asof`, `/v1/subjects`, `/v1/shards`, and `/v1/query` for a *concrete* subject.
+  Wildcard/global CeQL, cross-shard SEARCH, and cross-shard atomic writes are not
+  supported in sharded mode — use single-store `serve` for those.
+- **SQL front door.** `POST/GET /v1/sql` accepts a read-only `SELECT` subset
+  (WHERE/GROUP BY/HAVING/ORDER BY/LIMIT, plus `AS OF` and `FOR SYSTEM_TIME AS OF`)
+  and transpiles to CeQL. Not a wire protocol — BI tools still need an adapter.
+- **Retention &amp; legal hold.** `centauri retention -pattern '<glob>' -older-than N`
+  previews; add `-apply` to RETIRE stale subjects (history kept, never erased).
+  A `hold:<name>` fact carrying a subject `pattern` puts matching subjects under a
+  legal hold that retention skips. Schedule the `-apply` form for a recurring policy.
 
 ## Read-only cold tier — `serve -lazy-index`
 

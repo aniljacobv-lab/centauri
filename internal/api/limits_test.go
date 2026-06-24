@@ -52,6 +52,25 @@ func TestWithLimitsConcurrency(t *testing.T) {
 	close(release)
 }
 
+// Per-tenant limiter: a db's slots are independent, so one tenant filling up
+// doesn't block another.
+func TestPerDBLimiter(t *testing.T) {
+	l := newPerDBLimiter(1)
+	if !l.acquire("a") {
+		t.Fatal("first acquire on db a should succeed")
+	}
+	if l.acquire("a") {
+		t.Fatal("second acquire on db a should be rejected (cap 1)")
+	}
+	if !l.acquire("b") {
+		t.Fatal("acquire on a different db b should succeed (independent quota)")
+	}
+	l.release("a")
+	if !l.acquire("a") {
+		t.Fatal("acquire on db a should succeed after release")
+	}
+}
+
 // Streaming paths must bypass the timeout entirely; everything else is bounded.
 func TestWithLimitsExemptsStreaming(t *testing.T) {
 	slow := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

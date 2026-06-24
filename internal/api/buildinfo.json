@@ -1,1 +1,1 @@
-{"built":"2026-06-24T18:12:58Z","desc":"write scaling #3: serve -shards N — sharded HTTP write-scaling node (parallel append + routed reads + concrete-subject CeQL) + tests"}
+{"built":"2026-06-24T18:24:17Z","desc":"audit: per-tenant admission quota (-max-concurrency-per-db) + deploy.md modes cheat-sheet + matrix"}
