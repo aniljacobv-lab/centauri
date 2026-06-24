@@ -38,6 +38,7 @@ import (
 	"github.com/proxima360/centauri/internal/mcp"
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/retention"
+	"github.com/proxima360/centauri/internal/shard"
 	"github.com/proxima360/centauri/internal/store"
 	"github.com/proxima360/centauri/internal/synth"
 )
@@ -93,6 +94,7 @@ func main() {
 	olderThan := fs.Int("older-than", 0, "retention: retire subjects whose newest fact is older than N days")
 	applyRet := fs.Bool("apply", false, "retention: actually RETIRE (default is a dry-run plan)")
 	groupCommit := fs.Bool("group-commit", false, "serve/desktop: coalesce concurrent appends into one fsync (higher write throughput under load; experimental)")
+	shards := fs.Int("shards", 0, "serve: sharded write-scaling mode with N shard logs under -data (a directory); writes to different subjects run in parallel")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
@@ -305,6 +307,41 @@ func main() {
 		}
 		runTablespaceDemo(dir, segM)
 		return
+	}
+
+	// serve -shards N runs sharded write-scaling mode: subjects are partitioned
+	// across N independent shard logs under -data (a directory) and written in
+	// parallel. Routed reads + single-subject CeQL; wildcard/global queries use
+	// the single-store serve path.
+	if cmd == "serve" && *shards > 1 {
+		dir := *data
+		if dir == "" || dir == "centauri.log" {
+			dir = "centauri-shards"
+		}
+		set, err := shard.Open(dir, *shards, store.Options{Lock: true, GroupCommit: *groupCommit, LazyPayloads: *lazy})
+		if err != nil {
+			log.Fatalf("open shards: %v", err)
+		}
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+		go func() { <-sig; _ = set.Close(); os.Exit(0) }()
+
+		tok := *readToken
+		if tok == "" {
+			tok = *token
+		}
+		scheme := "http"
+		if *tlsCert != "" && *tlsKey != "" {
+			scheme = "https"
+		}
+		fmt.Print(banner)
+		fmt.Println(api.BuildLine())
+		fmt.Printf("sharded write-scaling: %d shards under %s%s\n", *shards, dir, authNote(tok))
+		fmt.Printf("info/health: %s://localhost%s   (parallel writes · /v1/shards · /metrics)\n", scheme, *addr)
+		fmt.Printf("listening on %s\n", *addr)
+		h := api.WithLimits(api.ShardRoutes(set, tok), *maxConc, time.Duration(*queryTimeout)*time.Second)
+		h = api.WithLogging(h, logger)
+		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, h))
 	}
 
 	// serve -lazy-index runs the disk-backed read path: open an archive WITHOUT

@@ -163,6 +163,21 @@ func (s *Set) Subjects() []string {
 	return all
 }
 
+// ShardStat is one shard's footprint, for observability.
+type ShardStat struct {
+	Index    int `json:"index"`
+	Subjects int `json:"subjects"`
+}
+
+// ShardStats reports per-shard subject counts (the load distribution).
+func (s *Set) ShardStats() []ShardStat {
+	out := make([]ShardStat, s.n)
+	for i, st := range s.shards {
+		out[i] = ShardStat{Index: i, Subjects: len(st.Subjects())}
+	}
+	return out
+}
+
 // Close closes every shard, returning the first error.
 func (s *Set) Close() error {
 	var firstErr error
