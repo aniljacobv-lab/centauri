@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -29,6 +30,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -37,6 +39,7 @@ import (
 	"github.com/proxima360/centauri/internal/catalog"
 	"github.com/proxima360/centauri/internal/ceql"
 	"github.com/proxima360/centauri/internal/demo"
+	"github.com/proxima360/centauri/internal/ha"
 	"github.com/proxima360/centauri/internal/mcp"
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/objstore"
@@ -116,6 +119,10 @@ func main() {
 	oidcJWKS := fs.String("oidc-jwks", "", "serve: SSO — JWKS URL (optional; discovered from -oidc-issuer when omitted)")
 	oidcWriteScope := fs.String("oidc-write-scope", "", "serve: SSO — tokens carrying this scope/role/group get write; otherwise SSO tokens are read-only")
 	pgAddr := fs.String("pg-addr", "", "serve: also listen on this address for the PostgreSQL wire protocol (e.g. :5432), so psql/JDBC/BI tools can run read-only SELECTs")
+	haLease := fs.String("ha-lease", "", "serve: enable HA leader election using this shared lease directory (NFS/shared volume); the elected node is the writable primary, others auto-follow it")
+	haID := fs.String("ha-id", "", "serve: this node's HA id (default: hostname)")
+	haAddr := fs.String("ha-addr", "", "serve: this node's advertised base URL for replicas to follow when it leads (default: http://127.0.0.1<addr>)")
+	haTTL := fs.Int("ha-ttl", 10, "serve: HA lease TTL in seconds; a primary that can't renew within this window is failed over")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	// Enterprise SSO: a JWT verifier is built only when an issuer or a JWKS URL
@@ -651,10 +658,26 @@ func main() {
       curl 'localhost:7771/v1/pending?facet=pdt&older_than_days=21'
       curl 'localhost:7771/v1/disagreements?field=price_cents'
       curl -N 'localhost:7771/v1/watch?facet=pdt'`)
-		srv := api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data,
+		var elector *ha.Elector
+		opts := api.Options{Token: *token, ReadToken: *readToken, DataPath: *data,
 			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second,
-			MaxConcurrentPerDB: *maxConcPerDB, OIDC: oidcVerifier})
+			MaxConcurrentPerDB: *maxConcPerDB, OIDC: oidcVerifier}
+		if *haLease != "" {
+			opts.HAStatus = func() map[string]any {
+				if elector != nil {
+					return elector.Status()
+				}
+				return map[string]any{"role": "starting"}
+			}
+		}
+		srv := api.NewWithOptions(st, opts)
 		apiSrv = srv
+		// HA leader election: the node holding the shared lease is the writable
+		// primary; the rest go read-only and replicate from it, with automatic
+		// failover when the primary's lease expires.
+		if *haLease != "" {
+			elector = startHA(srv, st, *haLease, *haID, *haAddr, *addr, *token, *haTTL, *interval)
+		}
 		// PostgreSQL wire protocol (read-only SELECTs) for psql/JDBC/BI tools.
 		if *pgAddr != "" {
 			ln, err := net.Listen("tcp", *pgAddr)
@@ -762,6 +785,111 @@ func syncPeer(st *store.Store, peer, token string, interval time.Duration) {
 }
 
 // follow polls the primary's log endpoint and ingests new bytes forever.
+// startHA wires lease-based leader election into a running server: the elected
+// primary is writable and replicas auto-follow it, failing over automatically
+// when the primary's lease lapses. Returns the elector (for /v1/ha status).
+func startHA(srv *api.Server, st *store.Store, leaseDir, id, advAddr, listenAddr, token string, ttlSec int, interval time.Duration) *ha.Elector {
+	leaseStore, err := ha.NewFileLeaseStore(leaseDir)
+	if err != nil {
+		log.Fatalf("ha-lease: %v", err)
+	}
+	nodeID := id
+	if nodeID == "" {
+		nodeID, _ = os.Hostname()
+	}
+	addr := advAddr
+	if addr == "" {
+		addr = "http://127.0.0.1" + listenAddr // single-host default; set -ha-addr for multi-node
+	}
+	srv.SetReadOnly(true) // read-only until we win an election
+	fc := &followerCtl{st: st, token: token, interval: interval}
+
+	var elector *ha.Elector
+	elector = ha.New(ha.Config{
+		NodeID: nodeID, Addr: addr, TTL: time.Duration(ttlSec) * time.Second, Store: leaseStore,
+		Logf: log.Printf,
+		OnPromote: func(epoch uint64) {
+			fc.stop() // we are the source of truth now; stop replicating
+			srv.SetReadOnly(false)
+			log.Printf("ha: this node is PRIMARY (epoch %d) — writes enabled", epoch)
+		},
+		OnDemote: func() {
+			srv.SetReadOnly(true)
+			log.Printf("ha: this node is a read-only replica")
+		},
+		OnLeader: func(leaderAddr string) {
+			if elector != nil && !elector.IsLeader() {
+				fc.followLeader(leaderAddr) // replicate from the current primary
+			}
+		},
+	})
+	go elector.Run(context.Background())
+	fmt.Printf("ha: lease=%s id=%s advertise=%s ttl=%ds\n", leaseDir, nodeID, addr, ttlSec)
+	return elector
+}
+
+// followerCtl runs a cancellable replication loop that can be retargeted at the
+// current leader and stopped when this node is itself promoted.
+type followerCtl struct {
+	mu       sync.Mutex
+	cancel   context.CancelFunc
+	st       *store.Store
+	token    string
+	interval time.Duration
+}
+
+func (fc *followerCtl) followLeader(addr string) {
+	fc.stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	fc.mu.Lock()
+	fc.cancel = cancel
+	fc.mu.Unlock()
+	go followUntil(ctx, fc.st, addr, fc.token, fc.interval)
+}
+
+func (fc *followerCtl) stop() {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	if fc.cancel != nil {
+		fc.cancel()
+		fc.cancel = nil
+	}
+}
+
+// followUntil ships the leader's log into st until ctx is cancelled (e.g. the
+// leader changed or this node was promoted).
+func followUntil(ctx context.Context, st *store.Store, primary, token string, interval time.Duration) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		from := st.LogSize()
+		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/v1/log?from=%d", primary, from), nil)
+		if err != nil {
+			return
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK && len(b) > 0 {
+				if err := st.IngestRaw(b); err == nil {
+					continue // catch up immediately
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
+	}
+}
+
 func follow(st *store.Store, primary, token string, interval time.Duration) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	for {

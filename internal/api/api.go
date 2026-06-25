@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/proxima360/centauri/internal/architect"
@@ -63,6 +64,9 @@ type Options struct {
 	// A validated token grants read access; write requires the verifier's
 	// configured WriteScope. Zero third-party deps — see internal/oidc.
 	OIDC *oidc.Verifier
+	// HAStatus, if non-nil, returns the HA failover snapshot for GET /v1/ha
+	// (role, epoch, leader address). Set by serve when leader election is on.
+	HAStatus func() map[string]any
 }
 
 // limitExempt reports endpoints that must bypass admission control: long-lived
@@ -72,7 +76,7 @@ type Options struct {
 func limitExempt(p string) bool {
 	switch p {
 	case "/v1/watch", "/v1/changes", "/v1/log",
-		"/livez", "/readyz", "/metrics", "/v1/version":
+		"/livez", "/readyz", "/metrics", "/v1/version", "/v1/ha":
 		return true
 	}
 	return false
@@ -85,7 +89,7 @@ const ctxReadOnly ctxKey = 1
 
 // readOnly reports whether this request may not write.
 func (s *Server) readOnly(r *http.Request) bool {
-	return s.opts.ReadOnly || r.Context().Value(ctxReadOnly) != nil
+	return s.opts.ReadOnly || s.dynRO.Load() || r.Context().Value(ctxReadOnly) != nil
 }
 
 // ctxScope carries a scoped token's policy (row-level security).
@@ -263,6 +267,22 @@ type Server struct {
 
 	mu  sync.Mutex
 	dbs map[string]*store.Store // named environments, lazily opened
+
+	// dynRO is a runtime read-only flag flipped by HA failover: a node goes
+	// read-only the instant it is not the elected leader, independent of the
+	// static Options.ReadOnly. atomic so the election goroutine and request
+	// handlers can touch it without a lock.
+	dynRO atomic.Bool
+}
+
+// SetReadOnly toggles runtime read-only mode (used by HA: read-only unless this
+// node currently holds leadership). It does not affect the static follower flag.
+func (s *Server) SetReadOnly(ro bool) { s.dynRO.Store(ro) }
+
+// handleHA reports the failover snapshot (role, epoch, leader address). No fact
+// data, so it is unauthenticated like the other operational endpoints.
+func (s *Server) handleHA(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, s.opts.HAStatus())
 }
 
 var dbName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,39}$`)
@@ -355,7 +375,10 @@ func (s *Server) Routes() http.Handler {
 	root.HandleFunc("GET /livez", s.handleLivez)        // k8s liveness, no data
 	root.HandleFunc("GET /readyz", s.handleReadyz)      // k8s readiness, no data
 	root.HandleFunc("GET /metrics", s.handleMetrics)    // prometheus, no fact data
-	root.HandleFunc("GET /{$}", s.handleUI)             // the dashboard
+	if s.opts.HAStatus != nil {
+		root.HandleFunc("GET /v1/ha", s.handleHA) // failover role/epoch/leader, no fact data
+	}
+	root.HandleFunc("GET /{$}", s.handleUI) // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
 	// Admission control on the hot path: per-tenant fairness (inner) + a global
