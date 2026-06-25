@@ -11,7 +11,6 @@ package store
 import (
 	"bytes"
 	"encoding/json"
-	"path/filepath"
 	"sort"
 
 	"github.com/proxima360/centauri/internal/model"
@@ -25,14 +24,6 @@ func nsOf(s string) string {
 		}
 	}
 	return s
-}
-
-func archiveTailPath(dir string, man *segment.Manifest) string {
-	t := man.Tail
-	if t == "" {
-		t = "current.log"
-	}
-	return filepath.Join(dir, t)
 }
 
 // scanSubjectEventsR collects every event for subject (optionally one facet) from

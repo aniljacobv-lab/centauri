@@ -384,10 +384,23 @@ func main() {
 	// answers current/history/asof (history/asof stream pruned segments from
 	// disk). Read-only by design; for writes, serve the archive normally.
 	if cmd == "serve" && *lazyIndex {
-		if !archiveMode {
-			log.Fatalf("-lazy-index needs -data to be a sealed-segment archive directory (run 'centauri archive' first)")
+		useS3 := *s3Endpoint != "" && *s3Bucket != ""
+		var li *store.LazyIndex
+		var err error
+		if useS3 {
+			ak, sk := os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY")
+			if ak == "" || sk == "" {
+				log.Fatal("serve -lazy-index over S3: set $AWS_ACCESS_KEY_ID and $AWS_SECRET_ACCESS_KEY")
+			}
+			bk := objstore.Prefixed(objstore.NewS3Store(*s3Endpoint, *s3Bucket,
+				objstore.Creds{AccessKey: ak, SecretKey: sk, Region: *s3Region}), *s3Prefix)
+			li, err = store.OpenLazyIndexBackend(bk) // segments fetched + Merkle-verified from the bucket
+		} else {
+			if !archiveMode {
+				log.Fatalf("-lazy-index needs -data to be a sealed-segment archive directory (run 'centauri archive'), or pass -s3-endpoint/-s3-bucket to serve from object storage")
+			}
+			li, err = store.OpenLazyIndex(*data)
 		}
-		li, err := store.OpenLazyIndex(*data)
 		if err != nil {
 			log.Fatalf("open lazy index: %v", err)
 		}
@@ -408,7 +421,11 @@ func main() {
 			scheme = "https"
 		}
 		fmt.Printf("lazy disk-backed index: %d live keys resident (RAM scales with subjects, not events)\n", li.Keys())
-		fmt.Printf("data:      %s   (read-only%s)\n", *data, authNote(lazyTok))
+		source := *data
+		if useS3 {
+			source = fmt.Sprintf("s3://%s/%s (Merkle-verified on fetch)", *s3Bucket, *s3Prefix)
+		}
+		fmt.Printf("data:      %s   (read-only%s)\n", source, authNote(lazyTok))
 		fmt.Printf("dashboard: %s://localhost%s   (storage inspector · verify · query console · cache metrics)\n", scheme, *addr)
 		fmt.Printf("listening on %s   metrics: /metrics   health: /livez /readyz\n", *addr)
 		if *maxConc > 0 || *queryTimeout > 0 {

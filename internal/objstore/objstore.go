@@ -13,6 +13,7 @@ package objstore
 import (
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -26,6 +27,26 @@ type SegmentStore interface {
 	Put(key string, data []byte) error
 	Exists(key string) (bool, error)
 }
+
+// Prefixed wraps a store so every key is placed under prefix (e.g. an archive
+// living at "centauri/" inside a shared bucket). prefix == "" returns inner.
+func Prefixed(inner SegmentStore, prefix string) SegmentStore {
+	if prefix == "" {
+		return inner
+	}
+	return &prefixStore{inner: inner, prefix: prefix}
+}
+
+type prefixStore struct {
+	inner  SegmentStore
+	prefix string
+}
+
+func (p *prefixStore) Get(key string) ([]byte, error) { return p.inner.Get(path.Join(p.prefix, key)) }
+func (p *prefixStore) Put(key string, data []byte) error {
+	return p.inner.Put(path.Join(p.prefix, key), data)
+}
+func (p *prefixStore) Exists(key string) (bool, error) { return p.inner.Exists(path.Join(p.prefix, key)) }
 
 // LocalStore is a filesystem-backed SegmentStore rooted at Dir — the current,
 // default behaviour, extracted behind the interface.

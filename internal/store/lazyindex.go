@@ -21,11 +21,13 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/proxima360/centauri/internal/model"
+	"github.com/proxima360/centauri/internal/objstore"
 	"github.com/proxima360/centauri/internal/segment"
 )
 
@@ -102,18 +104,30 @@ func applyRecordsLazy(data []byte, live map[string]map[string]*model.Event, idKe
 	}
 }
 
-// OpenLazyIndex builds (or restores) the current-pointer index. It seeds from a
-// pointer-checkpoint when present and still consistent with the manifest, then
-// replays only the segments not yet folded in plus the tail.
+// OpenLazyIndex builds (or restores) the current-pointer index over a local
+// archive directory, seeding from the pointer-checkpoint when present.
 func OpenLazyIndex(dir string) (*LazyIndex, error) {
-	reader := newArchiveReader(dir, lazySegmentCacheCap)
+	return openLazyIndex(newArchiveReader(dir, lazySegmentCacheCap), dir)
+}
+
+// OpenLazyIndexBackend serves an archive that lives in a SegmentStore (e.g. an
+// S3-compatible object store) read-only. Segments are Merkle-verified on fetch
+// (untrusted storage). No local pointer-checkpoint is used (rebuild from the
+// manifest each open); writes/checkpoint/verify aren't available remotely.
+func OpenLazyIndexBackend(bk objstore.SegmentStore) (*LazyIndex, error) {
+	return openLazyIndex(newArchiveReaderBackend(bk, lazySegmentCacheCap, true), "")
+}
+
+// openLazyIndex is the shared builder. ckptDir != "" enables the local
+// pointer-checkpoint (fast restart); "" means rebuild from the manifest.
+func openLazyIndex(reader *archiveReader, ckptDir string) (*LazyIndex, error) {
 	man, err := reader.manifest()
 	if err != nil {
 		return nil, err
 	}
 
 	li := &LazyIndex{
-		dir:     dir,
+		dir:     ckptDir,
 		reader:  reader,
 		live:    map[string]map[string]*model.Event{},
 		idKey:   map[string]string{},
@@ -130,7 +144,7 @@ func OpenLazyIndex(dir string) (*LazyIndex, error) {
 	// the manifest with the SAME content (matching Merkle root). Otherwise (a
 	// segment was compacted away or a path was rewritten) fall back to a full
 	// rebuild.
-	if ck, _ := loadLazyCheckpoint(dir); ck != nil {
+	if ck, _ := loadLazyCheckpoint(ckptDir); ckptDir != "" && ck != nil {
 		stale := false
 		for p, root := range ck.Covered {
 			if segRoot[p] != root {
@@ -204,6 +218,9 @@ func (li *LazyIndex) resolve() {
 // replays only the tail (+ any segments sealed since). Tail records are not
 // covered, so they are always replayed — re-applying them is idempotent.
 func (li *LazyIndex) SaveCheckpoint() error {
+	if li.dir == "" {
+		return nil // remote/object-store mode: no local checkpoint
+	}
 	ck := lazyCheckpoint{Covered: map[string]string{}, Live: map[string][]*model.Event{}}
 	for p, root := range li.covered {
 		ck.Covered[p] = root
@@ -351,6 +368,9 @@ func (li *LazyIndex) Manifest() (*segment.Manifest, error) { return li.reader.ma
 // across segments, returning the chain head and record count — the integrity /
 // tamper-evidence check. (Reads segments directly; independent of the cache.)
 func (li *LazyIndex) Verify() (head string, records int64, err error) {
+	if li.dir == "" {
+		return "", 0, fmt.Errorf("verify over object storage isn't supported yet; pull the archive local and verify")
+	}
 	return VerifyArchive(li.dir)
 }
 

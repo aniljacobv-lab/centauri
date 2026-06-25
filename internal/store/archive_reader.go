@@ -10,10 +10,11 @@ package store
 // miss/decompression counts for the dashboard's performance panel.
 
 import (
-	"os"
-	"path/filepath"
+	"bytes"
+	"fmt"
 	"sync"
 
+	"github.com/proxima360/centauri/internal/objstore"
 	"github.com/proxima360/centauri/internal/segment"
 )
 
@@ -28,8 +29,9 @@ type CacheStats struct {
 }
 
 type archiveReader struct {
-	dir string
-	cap int
+	bk     objstore.SegmentStore // local dir or S3-compatible
+	verify bool                  // recompute Merkle on each fetch (untrusted/remote backend)
+	cap    int
 
 	mu          sync.Mutex
 	man         *segment.Manifest
@@ -41,11 +43,18 @@ type archiveReader struct {
 	bytesCached int64
 }
 
+// newArchiveReader reads a local archive directory (trusted, no per-read Merkle).
 func newArchiveReader(dir string, capSegs int) *archiveReader {
+	return newArchiveReaderBackend(objstore.NewLocalStore(dir), capSegs, false)
+}
+
+// newArchiveReaderBackend reads through any SegmentStore. verify recomputes each
+// segment's Merkle root on fetch — essential for untrusted (object-store) bytes.
+func newArchiveReaderBackend(bk objstore.SegmentStore, capSegs int, verify bool) *archiveReader {
 	if capSegs <= 0 {
 		capSegs = 32
 	}
-	return &archiveReader{dir: dir, cap: capSegs, cache: map[string][]byte{}}
+	return &archiveReader{bk: bk, verify: verify, cap: capSegs, cache: map[string][]byte{}}
 }
 
 // manifest returns the cached manifest, reading it once.
@@ -55,7 +64,7 @@ func (a *archiveReader) manifest() (*segment.Manifest, error) {
 	if a.man != nil {
 		return a.man, nil
 	}
-	mb, err := os.ReadFile(filepath.Join(a.dir, "manifest.json"))
+	mb, err := a.bk.Get("manifest.json")
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +96,7 @@ func (a *archiveReader) segmentBytes(e segment.Entry) ([]byte, error) {
 	a.misses++
 	a.mu.Unlock()
 
-	raw, err := os.ReadFile(filepath.Join(a.dir, filepath.FromSlash(e.Path)))
+	raw, err := a.bk.Get(e.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +107,11 @@ func (a *archiveReader) segmentBytes(e segment.Entry) ([]byte, error) {
 		a.mu.Lock()
 		a.decomp++
 		a.mu.Unlock()
+	}
+	if a.verify {
+		if err := verifyMerkle(raw, e); err != nil {
+			return nil, err
+		}
 	}
 	a.mu.Lock()
 	a.cache[ck] = raw
@@ -129,13 +143,39 @@ func (a *archiveReader) evictLocked() {
 	}
 }
 
-// tailBytes reads the mutable tail (never cached).
+// tailBytes reads the appendable tail (never cached). For a local archive this
+// is the live tail file; for a remote (read-only) archive it's the tail object.
 func (a *archiveReader) tailBytes() ([]byte, error) {
 	man, err := a.manifest()
 	if err != nil {
 		return nil, err
 	}
-	return os.ReadFile(archiveTailPath(a.dir, man))
+	tail := man.Tail
+	if tail == "" {
+		tail = "current.log"
+	}
+	return a.bk.Get(tail)
+}
+
+// verifyMerkle recomputes a segment's Merkle root over its (decompressed) lines
+// and checks it against the manifest entry — detecting any tampered/corrupt byte
+// from untrusted storage.
+func verifyMerkle(data []byte, e segment.Entry) error {
+	var lines [][]byte
+	for len(data) > 0 {
+		i := bytes.IndexByte(data, '\n')
+		if i < 0 {
+			lines = append(lines, data)
+			data = nil
+		} else {
+			lines = append(lines, data[:i+1])
+			data = data[i+1:]
+		}
+	}
+	if segment.MerkleRootHex(lines) != e.MerkleRoot {
+		return fmt.Errorf("segment %d: Merkle root mismatch on fetch (tampering or corruption?)", e.ID)
+	}
+	return nil
 }
 
 // Stats snapshots the cache counters.
