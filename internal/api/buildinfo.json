@@ -1,1 +1,1 @@
-{"built":"2026-06-25T08:47:22Z","desc":"object-store slice 2: serve -lazy-index directly from S3 — backend-agnostic archiveReader + Merkle-verified fetch + OpenLazyIndexBackend + test"}
+{"built":"2026-06-25T08:51:31Z","desc":"retention: engine-level legal-hold enforcement — RETIRE blocked on held subjects across all originating writes (replication exempt) + test"}

@@ -26,7 +26,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -636,6 +638,59 @@ func validType(t model.EventType) bool {
 	return false
 }
 
+// isRetiring reports whether an event RETIREs its subject (sets retired:true).
+func isRetiring(e *model.Event) bool {
+	if e.Value == nil {
+		return false
+	}
+	r, _ := e.Value["retired"].(bool)
+	return r
+}
+
+// heldLocked reports whether subject matches an active legal hold — a current
+// `hold:*` fact carrying a string `pattern` that isn't itself retired or
+// active=false. Caller holds s.mu. Holds are few, so the scan is cheap.
+func (s *Store) heldLocked(subject string) bool {
+	for k, id := range s.open {
+		if !strings.HasPrefix(k, "hold:") {
+			continue
+		}
+		e := s.events[id]
+		if e == nil || e.Value == nil {
+			continue
+		}
+		if r, _ := e.Value["retired"].(bool); r {
+			continue
+		}
+		if active, ok := e.Value["active"].(bool); ok && !active {
+			continue
+		}
+		if pat, _ := e.Value["pattern"].(string); pat != "" && globMatch(pat, subject) {
+			return true
+		}
+	}
+	return false
+}
+
+// globMatch matches a '*'-glob against s (anchored).
+func globMatch(pattern, s string) bool {
+	var b strings.Builder
+	b.WriteString("^")
+	for _, r := range pattern {
+		if r == '*' {
+			b.WriteString(".*")
+		} else {
+			b.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	b.WriteString("$")
+	re, err := regexp.Compile(b.String())
+	if err != nil {
+		return false
+	}
+	return re.MatchString(s)
+}
+
 // Append atomically appends events and links. For each appended event,
 // the previously-open event on the same (subject, facet) — including one
 // appended earlier in this same batch — is superseded: its SupersededBy
@@ -717,6 +772,13 @@ func (s *Store) prepareBatch(now int64, events []*model.Event, links []model.Cau
 			if err := s.validateAgainstSchema(e); err != nil {
 				return nil, fmt.Errorf("append: event %d: %w", i, err)
 			}
+		}
+		// Legal hold: a RETIRE (retired:true) on a subject under an active hold is
+		// blocked. Originating writes only — replication (IngestRaw) is exempt so
+		// replicas mirror the primary. Non-retiring appends stay allowed (history
+		// may still grow under hold).
+		if isRetiring(e) && s.heldLocked(e.Subject) {
+			return nil, fmt.Errorf("append: subject %s is under an active legal hold — RETIRE is blocked until the hold is lifted", e.Subject)
 		}
 	}
 	for i, l := range links {
