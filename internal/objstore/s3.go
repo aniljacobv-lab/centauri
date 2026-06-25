@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,6 +38,17 @@ type S3Store struct {
 	Creds    Creds
 	Client   *http.Client
 	nowFn    func() time.Time // overridable in tests
+
+	gets, puts, heads   atomic.Int64
+	getBytes, putBytes  atomic.Int64
+}
+
+// ObjStats reports access counts for cost visibility.
+func (s *S3Store) ObjStats() ObjStats {
+	return ObjStats{
+		Gets: s.gets.Load(), Puts: s.puts.Load(), Heads: s.heads.Load(),
+		GetBytes: s.getBytes.Load(), PutBytes: s.putBytes.Load(),
+	}
 }
 
 func NewS3Store(endpoint, bucket string, c Creds) *S3Store {
@@ -71,6 +83,8 @@ func (s *S3Store) Put(key string, data []byte) error {
 	}
 	req.ContentLength = int64(len(data))
 	signV4(req, data, s.Creds, s.now())
+	s.puts.Add(1)
+	s.putBytes.Add(int64(len(data)))
 	resp, err := s.client().Do(req)
 	if err != nil {
 		return err
@@ -89,6 +103,7 @@ func (s *S3Store) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 	signV4(req, nil, s.Creds, s.now())
+	s.gets.Add(1)
 	resp, err := s.client().Do(req)
 	if err != nil {
 		return nil, err
@@ -101,7 +116,9 @@ func (s *S3Store) Get(key string) ([]byte, error) {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 		return nil, fmt.Errorf("s3 get %s: %s: %s", key, resp.Status, strings.TrimSpace(string(b)))
 	}
-	return io.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
+	s.getBytes.Add(int64(len(b)))
+	return b, err
 }
 
 func (s *S3Store) Exists(key string) (bool, error) {
@@ -110,6 +127,7 @@ func (s *S3Store) Exists(key string) (bool, error) {
 		return false, err
 	}
 	signV4(req, nil, s.Creds, s.now())
+	s.heads.Add(1)
 	resp, err := s.client().Do(req)
 	if err != nil {
 		return false, err

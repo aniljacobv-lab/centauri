@@ -236,6 +236,13 @@ func LazyRoutes(li *store.LazyIndex, readToken string) http.Handler {
 		m("centauri_segment_cache_resident", "gauge", "Segments currently in the LRU cache.", int64(c.CachedSegments))
 		m("centauri_segment_cache_capacity", "gauge", "Segment cache capacity.", int64(c.Capacity))
 		m("centauri_segment_cache_bytes", "gauge", "Bytes held in the segment cache.", c.BytesCached)
+		if o, ok := li.ObjStats(); ok { // object-store cost visibility (S3 backend)
+			m("centauri_objstore_gets_total", "counter", "Object-store GET requests.", o.Gets)
+			m("centauri_objstore_puts_total", "counter", "Object-store PUT requests.", o.Puts)
+			m("centauri_objstore_heads_total", "counter", "Object-store HEAD requests.", o.Heads)
+			m("centauri_objstore_get_bytes_total", "counter", "Bytes downloaded from the object store.", o.GetBytes)
+			m("centauri_objstore_put_bytes_total", "counter", "Bytes uploaded to the object store.", o.PutBytes)
+		}
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

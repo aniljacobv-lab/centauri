@@ -20,6 +20,19 @@ import (
 // ErrNotFound is returned by Get/Exists when the key has no object.
 var ErrNotFound = errors.New("objstore: object not found")
 
+// ObjStats is a backend's access scorecard — useful for object-store cost
+// visibility (GET/PUT requests dominate cloud billing).
+type ObjStats struct {
+	Gets     int64 `json:"gets"`
+	Puts     int64 `json:"puts"`
+	Heads    int64 `json:"heads"`
+	GetBytes int64 `json:"get_bytes"`
+	PutBytes int64 `json:"put_bytes"`
+}
+
+// StatsReporter is optionally implemented by backends that track access counts.
+type StatsReporter interface{ ObjStats() ObjStats }
+
 // SegmentStore reads and writes immutable objects by key (e.g.
 // "manifest.json", "segments/00000001.seg").
 type SegmentStore interface {
@@ -47,6 +60,14 @@ func (p *prefixStore) Put(key string, data []byte) error {
 	return p.inner.Put(path.Join(p.prefix, key), data)
 }
 func (p *prefixStore) Exists(key string) (bool, error) { return p.inner.Exists(path.Join(p.prefix, key)) }
+
+// ObjStats forwards the wrapped backend's stats (so metrics survive prefixing).
+func (p *prefixStore) ObjStats() ObjStats {
+	if r, ok := p.inner.(StatsReporter); ok {
+		return r.ObjStats()
+	}
+	return ObjStats{}
+}
 
 // LocalStore is a filesystem-backed SegmentStore rooted at Dir — the current,
 // default behaviour, extracted behind the interface.

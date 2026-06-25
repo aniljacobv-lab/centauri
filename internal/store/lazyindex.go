@@ -360,6 +360,15 @@ func (li *LazyIndex) Trace(eventID, direction string, maxDepth int) ([]TraceNode
 // performance panel.
 func (li *LazyIndex) CacheStats() CacheStats { return li.reader.Stats() }
 
+// ObjStats reports object-store access counts (GET/PUT/bytes) when the backend
+// is a remote store that tracks them; ok=false for a plain local archive.
+func (li *LazyIndex) ObjStats() (objstore.ObjStats, bool) {
+	if r, ok := li.reader.bk.(objstore.StatsReporter); ok {
+		return r.ObjStats(), true
+	}
+	return objstore.ObjStats{}, false
+}
+
 // Manifest returns the archive's segment catalog (the "tablespace" listing) for
 // the storage inspector.
 func (li *LazyIndex) Manifest() (*segment.Manifest, error) { return li.reader.manifest() }

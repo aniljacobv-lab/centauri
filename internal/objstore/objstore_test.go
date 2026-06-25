@@ -95,6 +95,18 @@ func TestS3StoreAgainstMock(t *testing.T) {
 	if !m.sawAuth || !m.sawDate {
 		t.Fatalf("requests missing SigV4 Authorization (%v) / X-Amz-Date (%v)", m.sawAuth, m.sawDate)
 	}
+
+	// Access counters track requests for cost visibility.
+	st := s.ObjStats()
+	if st.Puts != 1 {
+		t.Fatalf("puts = %d, want 1", st.Puts)
+	}
+	if st.Gets < 1 || st.Heads < 1 {
+		t.Fatalf("gets=%d heads=%d, want >=1 each", st.Gets, st.Heads)
+	}
+	if st.PutBytes != int64(len("segment-bytes")) {
+		t.Fatalf("put bytes = %d, want %d", st.PutBytes, len("segment-bytes"))
+	}
 }
 
 func TestSignV4FormatAndDeterminism(t *testing.T) {
