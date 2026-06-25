@@ -18,6 +18,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -40,6 +41,7 @@ import (
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/objstore"
 	"github.com/proxima360/centauri/internal/oidc"
+	"github.com/proxima360/centauri/internal/pgwire"
 	"github.com/proxima360/centauri/internal/retention"
 	"github.com/proxima360/centauri/internal/segment"
 	"github.com/proxima360/centauri/internal/shard"
@@ -113,6 +115,7 @@ func main() {
 	oidcAudience := fs.String("oidc-audience", "", "serve: SSO — required token audience (aud)")
 	oidcJWKS := fs.String("oidc-jwks", "", "serve: SSO — JWKS URL (optional; discovered from -oidc-issuer when omitted)")
 	oidcWriteScope := fs.String("oidc-write-scope", "", "serve: SSO — tokens carrying this scope/role/group get write; otherwise SSO tokens are read-only")
+	pgAddr := fs.String("pg-addr", "", "serve: also listen on this address for the PostgreSQL wire protocol (e.g. :5432), so psql/JDBC/BI tools can run read-only SELECTs")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	// Enterprise SSO: a JWT verifier is built only when an issuer or a JWKS URL
@@ -652,6 +655,24 @@ func main() {
 			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second,
 			MaxConcurrentPerDB: *maxConcPerDB, OIDC: oidcVerifier})
 		apiSrv = srv
+		// PostgreSQL wire protocol (read-only SELECTs) for psql/JDBC/BI tools.
+		if *pgAddr != "" {
+			ln, err := net.Listen("tcp", *pgAddr)
+			if err != nil {
+				log.Fatalf("pg-addr: %v", err)
+			}
+			auth := pgwire.VerifyAny(*token, *readToken)
+			pgStore := st
+			go func() {
+				fmt.Printf("postgres wire: %s   (psql 'host=… port=%s user=any sslmode=disable')\n",
+					*pgAddr, portOf(*pgAddr))
+				if err := pgwire.Serve(ln, auth, func(sql string) (pgwire.Result, error) {
+					return pgQuery(pgStore, sql)
+				}); err != nil {
+					log.Printf("pgwire: %v", err)
+				}
+			}()
+		}
 		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 	case "mcp":
 		// stdio is the protocol channel; keep it clean of banners.
@@ -1495,6 +1516,78 @@ func runArchiveSync(dir string, push bool, s3 objstore.SegmentStore, prefix stri
 		n++
 	}
 	return n, nil
+}
+
+// portOf returns the port part of a listen address (":5432" -> "5432").
+func portOf(addr string) string {
+	if _, port, err := net.SplitHostPort(addr); err == nil && port != "" {
+		return port
+	}
+	return strings.TrimPrefix(addr, ":")
+}
+
+// pgQuery answers one statement from a PostgreSQL-wire client. It handles the
+// benign session statements interactive clients send on connect (SET/BEGIN/
+// COMMIT/SHOW/version()), then transpiles the SELECT to CeQL and executes it
+// read-only against the store. Writes are rejected (ParseSQL accepts only
+// SELECT). The result is rendered as text columns for the wire layer.
+func pgQuery(st *store.Store, sql string) (pgwire.Result, error) {
+	trimmed := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(sql), ";"))
+	up := strings.ToUpper(trimmed)
+	switch {
+	case trimmed == "":
+		return pgwire.Result{}, nil
+	case strings.HasPrefix(up, "SET "):
+		return pgwire.Result{Tag: "SET"}, nil
+	case up == "BEGIN" || strings.HasPrefix(up, "BEGIN ") || strings.HasPrefix(up, "START TRANSACTION"):
+		return pgwire.Result{Tag: "BEGIN"}, nil
+	case up == "COMMIT" || up == "END":
+		return pgwire.Result{Tag: "COMMIT"}, nil
+	case up == "ROLLBACK" || up == "ABORT":
+		return pgwire.Result{Tag: "ROLLBACK"}, nil
+	case strings.HasPrefix(up, "SELECT VERSION()"):
+		return pgwire.Result{Columns: []string{"version"},
+			Rows: [][]any{{"Centauri (PostgreSQL 14.0 compatible read-only SELECT)"}}, Tag: "SELECT 1"}, nil
+	case strings.HasPrefix(up, "SHOW "):
+		name := strings.ToLower(strings.TrimSpace(trimmed[5:]))
+		return pgwire.Result{Columns: []string{name}, Rows: [][]any{{""}}, Tag: "SHOW"}, nil
+	}
+	now := time.Now().UnixMicro()
+	q, err := ceql.ParseSQL(sql, now)
+	if err != nil {
+		return pgwire.Result{}, err
+	}
+	res, err := ceql.Execute(st, q, now)
+	if err != nil {
+		return pgwire.Result{}, err
+	}
+	return resultToPg(res), nil
+}
+
+// resultToPg flattens a CeQL execution result into tabular columns + rows.
+// Projected/aggregated reads ("rows") map directly; SELECT * ("events") becomes
+// the event envelope plus a JSON `value` column — query explicit columns for a
+// flat table. Any other kind is returned as a single JSON `result` column.
+func resultToPg(res map[string]any) pgwire.Result {
+	switch res["kind"] {
+	case "rows":
+		cols, _ := res["columns"].([]string)
+		rows, _ := res["rows"].([][]any)
+		return pgwire.Result{Columns: cols, Rows: rows}
+	case "events":
+		evs, _ := res["events"].([]*model.Event)
+		cols := []string{"subject", "facet", "type", "effective_time", "recorded_time", "provenance", "confidence", "value"}
+		rows := make([][]any, len(evs))
+		for i, e := range evs {
+			valJSON, _ := json.Marshal(e.Value)
+			rows[i] = []any{e.Subject, e.Facet, string(e.Type), e.EffectiveTime,
+				e.RecordedTime, string(e.Provenance), e.Confidence, string(valJSON)}
+		}
+		return pgwire.Result{Columns: cols, Rows: rows}
+	default:
+		b, _ := json.Marshal(res)
+		return pgwire.Result{Columns: []string{"result"}, Rows: [][]any{{string(b)}}}
+	}
 }
 
 // listenMaybeTLS serves over HTTPS when both a cert and key are given (native
