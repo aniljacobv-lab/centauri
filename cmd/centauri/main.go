@@ -39,6 +39,7 @@ import (
 	"github.com/proxima360/centauri/internal/mcp"
 	"github.com/proxima360/centauri/internal/model"
 	"github.com/proxima360/centauri/internal/objstore"
+	"github.com/proxima360/centauri/internal/oidc"
 	"github.com/proxima360/centauri/internal/retention"
 	"github.com/proxima360/centauri/internal/segment"
 	"github.com/proxima360/centauri/internal/shard"
@@ -108,8 +109,23 @@ func main() {
 	s3Region := fs.String("s3-region", "us-east-1", "archive-push: region for SigV4 signing")
 	s3Prefix := fs.String("s3-prefix", "centauri", "archive-push: key prefix within the bucket")
 	s3Pull := fs.Bool("pull", false, "archive-push: download the archive from the bucket instead of uploading")
+	oidcIssuer := fs.String("oidc-issuer", "", "serve: enterprise SSO — expected token issuer (also used to auto-discover JWKS); enables OIDC/JWT bearer auth")
+	oidcAudience := fs.String("oidc-audience", "", "serve: SSO — required token audience (aud)")
+	oidcJWKS := fs.String("oidc-jwks", "", "serve: SSO — JWKS URL (optional; discovered from -oidc-issuer when omitted)")
+	oidcWriteScope := fs.String("oidc-write-scope", "", "serve: SSO — tokens carrying this scope/role/group get write; otherwise SSO tokens are read-only")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
+	// Enterprise SSO: a JWT verifier is built only when an issuer or a JWKS URL
+	// is configured. nil leaves auth on the static -token/-read-token path.
+	var oidcVerifier *oidc.Verifier
+	if *oidcIssuer != "" || *oidcJWKS != "" {
+		oidcVerifier = oidc.New(oidc.Config{
+			Issuer:     *oidcIssuer,
+			Audience:   *oidcAudience,
+			JWKSURL:    *oidcJWKS,
+			WriteScope: *oidcWriteScope,
+		})
+	}
 	archiveMode := isArchiveDir(*data) // a dir with manifest.json = a sealed-segment archive
 	if !archiveMode {
 		*data = ensureDataPath(*data) // a folder path (e.g. OneDrive dir) just works
@@ -634,7 +650,7 @@ func main() {
       curl -N 'localhost:7771/v1/watch?facet=pdt'`)
 		srv := api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data,
 			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second,
-			MaxConcurrentPerDB: *maxConcPerDB})
+			MaxConcurrentPerDB: *maxConcPerDB, OIDC: oidcVerifier})
 		apiSrv = srv
 		log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, api.WithLogging(srv.Routes(), logger)))
 	case "mcp":

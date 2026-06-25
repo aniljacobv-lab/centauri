@@ -30,6 +30,7 @@ import (
 	"github.com/proxima360/centauri/internal/ceql"
 	"github.com/proxima360/centauri/internal/demo"
 	"github.com/proxima360/centauri/internal/model"
+	"github.com/proxima360/centauri/internal/oidc"
 	"github.com/proxima360/centauri/internal/proc"
 	"github.com/proxima360/centauri/internal/store"
 )
@@ -57,6 +58,11 @@ type Options struct {
 	// MaxConcurrentPerDB caps simultaneous non-streaming requests PER database
 	// (?db=), so one tenant's burst can't starve others (0 = no per-tenant cap).
 	MaxConcurrentPerDB int
+	// OIDC, if non-nil, accepts enterprise SSO bearer tokens (JWTs issued by
+	// Okta/Azure AD/Auth0/Keycloak/…) in addition to the static tokens above.
+	// A validated token grants read access; write requires the verifier's
+	// configured WriteScope. Zero third-party deps — see internal/oidc.
+	OIDC *oidc.Verifier
 }
 
 // limitExempt reports endpoints that must bypass admission control: long-lived
@@ -84,6 +90,9 @@ func (s *Server) readOnly(r *http.Request) bool {
 
 // ctxScope carries a scoped token's policy (row-level security).
 const ctxScope ctxKey = 2
+
+// ctxOIDCSubject carries the validated SSO subject (the JWT "sub" claim).
+const ctxOIDCSubject ctxKey = 3
 
 // ctxRequestID carries the per-request correlation ID set by WithLogging.
 const ctxRequestID ctxKey = 3
@@ -381,7 +390,7 @@ func (s *Server) perDBLimit(next http.Handler) http.Handler {
 // admin token grants everything, the read token grants reads only.
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.opts.Token != "" || s.opts.ReadToken != "" {
+		if s.opts.Token != "" || s.opts.ReadToken != "" || s.opts.OIDC != nil {
 			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 			if got == "" {
 				got = r.URL.Query().Get("token") // SSE clients can't set headers
@@ -393,6 +402,10 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			case s.opts.ReadToken != "" &&
 				subtle.ConstantTimeCompare([]byte(got), []byte(s.opts.ReadToken)) == 1:
 				r = r.WithContext(context.WithValue(r.Context(), ctxReadOnly, true))
+			case s.opts.OIDC != nil && s.verifyOIDC(&r, got):
+				// Authenticated via enterprise SSO; verifyOIDC set read/write
+				// in the request context. A false return means "not a (valid)
+				// JWT" — fall through to the static-token error below.
 			default:
 				// A scoped token (row-level security) is recognized by the
 				// hash of its policy fact. Scoped principals may only use the
@@ -423,6 +436,28 @@ func (s *Server) auth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// verifyOIDC validates got as an enterprise SSO JWT (issued by the configured
+// OIDC provider). On success it updates the request context — read-only unless
+// the token carries the verifier's write scope — and returns true. It returns
+// false when got is not a valid JWT for this verifier, so the caller falls
+// through to the other auth schemes (e.g. a scoped ACL token).
+func (s *Server) verifyOIDC(rp **http.Request, got string) bool {
+	if got == "" {
+		return false
+	}
+	claims, err := s.opts.OIDC.Verify(got)
+	if err != nil {
+		return false
+	}
+	r := *rp
+	ctx := context.WithValue(r.Context(), ctxOIDCSubject, claims.Subject)
+	if !s.opts.OIDC.AllowsWrite(claims) {
+		ctx = context.WithValue(ctx, ctxReadOnly, true)
+	}
+	*rp = r.WithContext(ctx)
+	return true
 }
 
 // write gates a handler behind read-only mode (follower or read token).
