@@ -94,6 +94,10 @@ const ctxRequestID ctxKey = 3
 type aclPolicy struct {
 	Prefixes []string
 	Write    bool
+	// Mask lists value fields redacted in query results for this token
+	// (field-level / "column" masking, VPD-style). Reads still return the rows,
+	// just with those fields replaced by "***".
+	Mask []string
 }
 
 func tokenHash(tok string) string {
@@ -128,10 +132,81 @@ func (s *Server) lookupACL(st *store.Store, tok string) (aclPolicy, bool) {
 			}
 		}
 	}
+	switch arr := v["mask"].(type) {
+	case []string:
+		pol.Mask = append(pol.Mask, arr...)
+	case []any:
+		for _, x := range arr {
+			if str, ok := x.(string); ok {
+				pol.Mask = append(pol.Mask, str)
+			}
+		}
+	}
 	if len(pol.Prefixes) == 0 {
 		return aclPolicy{}, false
 	}
 	return pol, true
+}
+
+// maskEvent returns a copy of e with the masked value fields redacted, leaving
+// the store's in-memory event untouched (events are shared pointers).
+func maskEvent(e *model.Event, mask map[string]bool) *model.Event {
+	cp := *e
+	if e.Value != nil {
+		nv := make(map[string]any, len(e.Value))
+		for k, val := range e.Value {
+			if mask[k] {
+				nv[k] = "***"
+			} else {
+				nv[k] = val
+			}
+		}
+		cp.Value = nv
+	}
+	return &cp
+}
+
+// maskResult redacts masked fields from a query result in place. Events are
+// cloned (shared pointers); rows/hits are query-local so edited directly.
+func maskResult(res map[string]any, mask []string) {
+	if res == nil || len(mask) == 0 {
+		return
+	}
+	m := make(map[string]bool, len(mask))
+	for _, f := range mask {
+		m[f] = true
+	}
+	switch res["kind"] {
+	case "events":
+		if evs, ok := res["events"].([]*model.Event); ok {
+			out := make([]*model.Event, len(evs))
+			for i, e := range evs {
+				out[i] = maskEvent(e, m)
+			}
+			res["events"] = out
+		}
+	case "rows":
+		cols, _ := res["columns"].([]string)
+		rows, _ := res["rows"].([][]any)
+		for ci, c := range cols {
+			if !m[c] {
+				continue
+			}
+			for _, row := range rows {
+				if ci < len(row) {
+					row[ci] = "***"
+				}
+			}
+		}
+	case "search":
+		if hits, ok := res["hits"].([]map[string]any); ok {
+			for _, h := range hits {
+				if e, ok := h["event"].(*model.Event); ok {
+					h["event"] = maskEvent(e, m)
+				}
+			}
+		}
+	}
 }
 
 // withinScope reports whether a subject pattern is confined to an allowed
@@ -1185,17 +1260,20 @@ func (s *Server) handleSQL(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, 400, err.Error())
 		return
 	}
+	var scopeMask []string
 	if pol, ok := r.Context().Value(ctxScope).(aclPolicy); ok {
 		if allowed, reason := scopeAllows(pol, q); !allowed {
 			httpErr(w, 403, "scoped token: "+reason)
 			return
 		}
+		scopeMask = pol.Mask
 	}
 	result, err := ceql.Execute(st, q, now)
 	if err != nil {
 		httpErr(w, 422, err.Error())
 		return
 	}
+	maskResult(result, scopeMask) // field-level masking for scoped tokens (no-op if none)
 	writeJSON(w, result)
 }
 
@@ -1486,6 +1564,7 @@ func (s *Server) handleACL(w http.ResponseWriter, r *http.Request) {
 		Token    string   `json:"token"`
 		Prefixes []string `json:"prefixes"`
 		Write    bool     `json:"write"`
+		Mask     []string `json:"mask"` // value fields to redact in this token's query results
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpErr(w, 400, err.Error())
@@ -1499,16 +1578,24 @@ func (s *Server) handleACL(w http.ResponseWriter, r *http.Request) {
 	for i, p := range body.Prefixes {
 		pre[i] = p
 	}
+	val := map[string]any{"prefixes": pre, "write": body.Write}
+	if len(body.Mask) > 0 {
+		mask := make([]any, len(body.Mask))
+		for i, m := range body.Mask {
+			mask[i] = m
+		}
+		val["mask"] = mask
+	}
 	e := &model.Event{
 		Subject: "acl:" + tokenHash(body.Token), Facet: "policy", Type: model.Observed,
-		Value:      map[string]any{"prefixes": pre, "write": body.Write},
+		Value:      val,
 		Provenance: model.SystemFeed, Confidence: 1.0, SourceSystem: "ACL",
 	}
 	if err := st.Append(time.Now().UnixMicro(), []*model.Event{e}, nil); err != nil {
 		httpErr(w, 422, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"acl": e.Subject, "prefixes": body.Prefixes, "write": body.Write})
+	writeJSON(w, map[string]any{"acl": e.Subject, "prefixes": body.Prefixes, "write": body.Write, "mask": body.Mask})
 }
 
 func (s *Server) handleLog(w http.ResponseWriter, r *http.Request) {

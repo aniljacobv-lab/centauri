@@ -1,1 +1,1 @@
-{"built":"2026-06-25T08:51:31Z","desc":"retention: engine-level legal-hold enforcement — RETIRE blocked on held subjects across all originating writes (replication exempt) + test"}
+{"built":"2026-06-25T08:57:27Z","desc":"governance: field-level masking for scoped tokens (VPD-style) — redact value fields in query results without mutating the store + tests"}
