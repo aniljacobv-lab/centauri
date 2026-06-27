@@ -1,7 +1,10 @@
 # Centauri
 
-**A bi-temporal, causal, AI-first event database — in one file.**
-Every fact knows its time, cause, source, and trustworthiness. Nothing is ever erased.
+**Your own AI. It knows your business — and it never forgets.**
+
+Centauri is your own private AI that runs on *your* computer, not in the cloud. Put in everything your business runs on — invoices, contracts, customer notes, spreadsheets, PDFs — and ask questions in plain English, like you'd ask a smart employee. It reads your stuff, answers, and shows you exactly where it found it. Your data never leaves your machine, there's no monthly AI bill, and nothing you put in is ever lost or changed.
+
+*Under the hood* it's a bi-temporal, causal, tamper-evident event database in one file: every fact knows its time, cause, source, and trustworthiness, and nothing is ever erased.
 
 Free and open source under a [PostgreSQL-style license](LICENSE). If you've spent years trapped in expensive database licensing — welcome home.
 

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri — what it does, for everyone who runs the business</title>
+<meta name="description" content="Every Centauri capability, shown three ways: for founders, for the C-suite, and for developers. Your own private AI plus an immutable, tamper-evident system of record — one binary, no cloud.">
+<style>
+  :root{
+    --ink:#0e1116; --ink2:#3a4254; --muted:#697086; --line:#e6e8ee;
+    --bg:#ffffff; --bg2:#f7f8fb; --card:#ffffff;
+    --accent:#4f46e5; --accent2:#7c3aed; --ok:#0a7f5b; --warn:#b4690e;
+    --found:#0a7f5b; --csuite:#1d4ed8; --dev:#7c3aed;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3{line-height:1.2;letter-spacing:-.01em}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+
+  /* hero */
+  .hero{background:linear-gradient(180deg,#fff, var(--bg2));border-bottom:1px solid var(--line)}
+  .hero .wrap{padding:64px 22px 48px}
+  .hero h1{font-size:clamp(34px,5vw,52px);margin:.2em 0 .25em}
+  .hero h1 .accent{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{font-size:clamp(17px,2.2vw,20px);color:var(--ink2);max-width:760px;margin:0 0 22px}
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .pill{font-size:13px;font-weight:600;background:#eef0f6;color:#3a4254;border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+
+  /* sticky audience nav */
+  nav.tracks{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.9);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+  nav.tracks .wrap{display:flex;gap:8px;flex-wrap:wrap;padding:10px 22px}
+  nav.tracks a{font-weight:700;font-size:14px;color:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:#fff}
+  nav.tracks a:hover{text-decoration:none;border-color:var(--accent);color:var(--accent)}
+
+  section{padding:54px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .badge{font-size:13px;font-weight:800;color:#fff;border-radius:8px;padding:5px 10px}
+  .b-found{background:var(--found)} .b-csuite{background:var(--csuite)} .b-dev{background:var(--dev)}
+  section h2{font-size:clamp(26px,3.4vw,34px);margin:6px 0 4px}
+  .lead{color:var(--ink2);font-size:18px;max-width:780px;margin:0 0 26px}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+  .card .ic{font-size:22px}
+  .card h3{font-size:16px;margin:8px 0 4px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+
+  /* full capability matrix */
+  .pillar{margin-bottom:22px}
+  .pillar h3{font-size:18px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .pillar .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block}
+  .caps{display:flex;flex-wrap:wrap;gap:8px}
+  .cap{font-size:13.5px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;color:#2b3142}
+  .cap b{color:var(--ink)}
+
+  .fit{background:var(--bg2)}
+  .fit .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:880px){.fit .cols{grid-template-columns:1fr}}
+  .fit .box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}
+  .fit h3{margin:0 0 8px}
+  .fit ul{margin:0;padding-left:18px;color:var(--ink2)}
+
+  .cta{text-align:center;background:linear-gradient(180deg,#fff,var(--bg2))}
+  .cta h2{font-size:clamp(24px,3vw,32px)}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .btn{font-weight:700;border-radius:10px;padding:12px 20px;border:1px solid var(--accent)}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.outline{color:var(--accent);background:#fff}
+  footer{padding:28px 0;color:var(--muted);font-size:13.5px;text-align:center}
+  .tagline{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Centauri</div>
+    <h1>Your own <span class="accent">AI</span>.<br>Plus a memory that never forgets — or lies.</h1>
+    <p>One program you run yourself. It learns your business from your own files and answers in plain English — and underneath, it's an immutable, tamper-evident system of record. No cloud, no per-token bill, no license. Here's what that means for <b>founders</b>, the <b>C-suite</b>, and <b>developers</b>.</p>
+    <div class="pill-row">
+      <span class="pill">🔒 Runs on your hardware</span>
+      <span class="pill">🧠 Local LLM — nothing leaves your machine</span>
+      <span class="pill">📜 Nothing is ever erased</span>
+      <span class="pill">📦 One binary · zero dependencies</span>
+      <span class="pill">🆓 Open source · no license</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tracks"><div class="wrap">
+  <a href="#founder">🚀 For founders</a>
+  <a href="#csuite">🏛 For the C-suite</a>
+  <a href="#developer">⌨ For developers</a>
+  <a href="#everything">🗂 Everything it does</a>
+  <a href="how-it-works.html">🔧 How it works →</a>
+</div></nav>
+
+<!-- ENTREPRENEUR -->
+<section id="founder">
+  <div class="wrap">
+    <div class="sec-head"><span class="badge b-found">FOR FOUNDERS &amp; SMALL BUSINESS</span></div>
+    <h2>Do the work of a team — without sending your business to the cloud.</h2>
+    <p class="lead">Drop in everything your business runs on and just ask. Centauri is the AI employee that already knows your stuff, costs nothing per question, and keeps every secret in the building.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">💬</div><h3>Ask in plain English</h3><p>"Which invoices from Acme are overdue?" "What did we promise this client?" It answers and shows you exactly where it found it.</p></div>
+      <div class="card"><div class="ic">📄</div><h3>It reads your documents</h3><p>PDFs, invoices, contracts, scanned images — a local vision model pulls out the facts so they're searchable, no manual data entry.</p></div>
+      <div class="card"><div class="ic">🔎</div><h3>Instant search over everything</h3><p>New data embeds itself the moment you add it, so search and answers are ready immediately — no setup, no separate tool.</p></div>
+      <div class="card"><div class="ic">👍</div><h3>Gets smarter on your data</h3><p>Thumbs-up or down on an answer's sources and it re-ranks next time. It learns your business — without ever changing the underlying model.</p></div>
+      <div class="card"><div class="ic">💸</div><h3>No cloud, no AI bill</h3><p>The AI runs on your own computer. No subscription, no per-question charge, no vendor watching your data.</p></div>
+      <div class="card"><div class="ic">🗄️</div><h3>Never lose anything</h3><p>Everything you put in is kept forever, exactly as it was. You can always see what was true last month — and trust it.</p></div>
+      <div class="card"><div class="ic">💻</div><h3>One file, runs anywhere</h3><p>Download a single program. It runs on a laptop or a small server — no install marathon, no database admin.</p></div>
+      <div class="card"><div class="ic">🆓</div><h3>Free and yours</h3><p>Open source, no license to renew. Your data, your AI, your machine — nobody else's.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- C-SUITE -->
+<section id="csuite">
+  <div class="wrap">
+    <div class="sec-head"><span class="badge b-csuite">FOR THE C-SUITE — CIO · CISO · CFO · CEO</span></div>
+    <h2>Compliance-grade memory and private AI — without the license or the cloud risk.</h2>
+    <p class="lead">A system of record you can defend in an audit, AI that never sends data outside your perimeter, and a cost line that doesn't grow with usage. Drops into your stack through standard protocols.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">🛡️</div><h3>Tamper-evident by design</h3><p>Every fact is chained with SHA-256 and per-segment Merkle roots. You can prove your records were never altered — without a blockchain.</p></div>
+      <div class="card"><div class="ic">🕰️</div><h3>Prove what you knew, and when</h3><p>Bi-temporal history reconstructs any moment — what was true and what you <em>believed</em> then. The audit superpower for SOX/HIPAA-style review.</p></div>
+      <div class="card"><div class="ic">🧹</div><h3>Right to be forgotten, safely</h3><p>Crypto-erasure destroys a record's readability for GDPR while leaving the audit chain intact. Delete data without breaking the trail.</p></div>
+      <div class="card"><div class="ic">🔐</div><h3>Data sovereignty</h3><p>The AI runs locally — sensitive data never leaves your network, and every model answer is itself an auditable, queryable fact.</p></div>
+      <div class="card"><div class="ic">🪪</div><h3>Enterprise SSO &amp; access control</h3><p>OIDC/JWT single sign-on (Okta, Azure AD, Auth0, Keycloak), row-level security, and field-level masking — no extra identity glue.</p></div>
+      <div class="card"><div class="ic">♻️</div><h3>Retention &amp; legal hold</h3><p>Automated retention policies plus enforced legal hold that blocks deletion of records under investigation.</p></div>
+      <div class="card"><div class="ic">🔁</div><h3>High availability</h3><p>Automatic failover via leader election: if the primary dies, a replica promotes itself — no operator, no downtime drill.</p></div>
+      <div class="card"><div class="ic">📉</div><h3>Predictable cost</h3><p>No per-token AI bills and no database license. Offload high-volume transactions to free Postgres — adopting Centauri never means buying another license.</p></div>
+      <div class="card"><div class="ic">🔌</div><h3>Fits your stack</h3><p>Speaks the PostgreSQL wire protocol (Tableau, Power BI, JDBC connect directly) and uses S3-compatible storage for a cheap, verifiable cold tier.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- DEVELOPER -->
+<section id="developer">
+  <div class="wrap">
+    <div class="sec-head"><span class="badge b-dev">FOR DEVELOPERS</span></div>
+    <h2>One binary that does the job of five systems — and you can read the whole thing.</h2>
+    <p class="lead">A document store, vector DB, time-series, graph, and tamper-proof ledger in one zero-dependency Go binary, with a query language where time, cause, and trust are syntax — and a local-AI stack wired in.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">📦</div><h3>Zero dependencies</h3><p>Pure Go standard library — the <code>require</code> block in <code>go.mod</code> is empty. No supply chain, no runtime, one static binary.</p></div>
+      <div class="card"><div class="ic">🧮</div><h3>CeQL + plain English</h3><p>Query language with <code>AS OF</code> / <code>AS KNOWN AT</code>, causal <code>WHY</code>/<code>EFFECTS</code>/<code>MATCH</code>, and an NL→CeQL translator for the long tail.</p></div>
+      <div class="card"><div class="ic">📐</div><h3>Topology &amp; time-travel ops</h3><p>Analytics no other DB ships — <code>SHAPE</code> (persistent homology), <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — plus <code>SNAPSHOT</code>/<code>ROLLBACK</code>/<code>DIFF</code> and <code>PROFILE</code>.</p></div>
+      <div class="card"><div class="ic">🐘</div><h3>PostgreSQL wire protocol</h3><p>Simple <em>and</em> extended protocol — <code>psql</code>, JDBC and BI tools connect and run read-only SQL that transpiles to CeQL.</p></div>
+      <div class="card"><div class="ic">🤖</div><h3>Local AI, first-class</h3><p><code>ASK</code> = RAG with citations · <code>ENRICH</code> runs models in queries · hybrid BM25+vector <code>SEARCH</code> · vision extraction · <code>serve -ai</code> auto-provisions models.</p></div>
+      <div class="card"><div class="ic">🔄</div><h3>Auto-embed + feedback loop</h3><p>New facts embed themselves on write; user ratings re-rank retrieval — deterministic, auditable "learning," no weights touched.</p></div>
+      <div class="card"><div class="ic">🧩</div><h3>Agent-native (MCP) + SDK</h3><p>An MCP server makes agents first-class clients (grounded memory, no token cost to remember), plus a zero-dependency Python SDK.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>Scales past RAM</h3><p>Lazy disk-backed index, sharding, group commit, compressed cold segments with zone-map skipping, and an S3 backend with Merkle verification.</p></div>
+      <div class="card"><div class="ic">🔗</div><h3>Integrity &amp; replication</h3><p>Per-line hash chain, online verification, durable CDC slots, log shipping, snapshot/clone, and HA failover — all in the box.</p></div>
+      <div class="card"><div class="ic">🧪</div><h3>Batteries included</h3><p>Embedded dashboard, AI Studio IDE, a full CeQL textbook, autocomplete catalog, Airbyte connectors, and the Genesis Engine that builds a DB from a conversation.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- EVERYTHING -->
+<section id="everything">
+  <div class="wrap">
+    <div class="eyebrow">The full picture</div>
+    <h2 style="margin-top:6px">Everything it does — five pillars</h2>
+    <p class="lead">Every capability, grouped. (Honest by policy — see "where it fits" below.)</p>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#0a7f5b"></span>1 · Immutable memory &amp; time travel</h3>
+      <div class="caps">
+        <span class="cap"><b>Append-only</b> log — nothing erased</span>
+        <span class="cap"><b>Bi-temporal</b> AS OF / AS KNOWN AT</span>
+        <span class="cap"><b>Causal lineage</b> WHY · EFFECTS · MATCH</span>
+        <span class="cap"><b>SHA-256 hash chain</b> + Merkle roots</span>
+        <span class="cap"><b>Crypto-erasure</b> (GDPR)</span>
+        <span class="cap">Provenance &amp; confidence on every fact</span>
+        <span class="cap"><b>SNAPSHOT · ROLLBACK · DIFF</b> (time-travel)</span>
+        <span class="cap"><b>Topology</b>: SHAPE · CONSISTENCY · CYCLES · DRIFT</span>
+        <span class="cap"><b>PROFILE</b> · MEDIAN/STDDEV/LISTAGG · HyperLogLog distinct</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#7c3aed"></span>2 · Private local AI</h3>
+      <div class="caps">
+        <span class="cap"><b>Local LLM</b> (Ollama/LocalAI) — no cloud</span>
+        <span class="cap"><b>ASK</b> — RAG with citations</span>
+        <span class="cap"><b>ENRICH</b> — models inside queries</span>
+        <span class="cap">Hybrid <b>BM25 + vector</b> SEARCH / SIMILAR</span>
+        <span class="cap"><b>Vision</b> / document extraction</span>
+        <span class="cap"><b>Auto-embed</b> on ingest</span>
+        <span class="cap"><b>Feedback loop</b> re-ranks on ratings</span>
+        <span class="cap"><b>Tiered model presets</b> (serve -ai)</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#1d4ed8"></span>3 · Enterprise-ready &amp; standard protocols</h3>
+      <div class="caps">
+        <span class="cap"><b>PostgreSQL wire</b> (simple + extended)</span>
+        <span class="cap"><b>OIDC/JWT SSO</b></span>
+        <span class="cap">Row-level security + field masking</span>
+        <span class="cap">Retention + enforced legal hold</span>
+        <span class="cap"><b>Automatic HA failover</b> (lease election)</span>
+        <span class="cap">Prometheus metrics · health · TLS</span>
+        <span class="cap">Multitenant environments</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#b4690e"></span>4 · Scales and stays fast</h3>
+      <div class="caps">
+        <span class="cap"><b>Lazy index</b> — data exceeds RAM</span>
+        <span class="cap">Compressed cold segments + zone maps</span>
+        <span class="cap">Sharding · group commit</span>
+        <span class="cap">Checkpoints · auto-seal · compaction</span>
+        <span class="cap"><b>S3 cold tier</b> (stdlib SigV4, Merkle-verified)</span>
+        <span class="cap">Secondary index · dot-path · EXISTS</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#4f46e5"></span>5 · You own it</h3>
+      <div class="caps">
+        <span class="cap"><b>One binary</b>, zero Go dependencies</span>
+        <span class="cap">No cloud requirement</span>
+        <span class="cap">No license — open source</span>
+        <span class="cap">MCP server + Python SDK</span>
+        <span class="cap">Dashboard · AI Studio · CeQL textbook</span>
+        <span class="cap">Airbyte connectors · multi-format export</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HONEST FIT -->
+<section class="fit">
+  <div class="wrap">
+    <h2>Where it fits — straight talk</h2>
+    <p class="lead">Centauri is honest about its lane; the right tool earns trust.</p>
+    <div class="cols">
+      <div class="box">
+        <h3>✅ Best for</h3>
+        <ul>
+          <li>Systems of record and audit trails</li>
+          <li>Compliance-sensitive data &amp; bi-temporal "as-of" reporting</li>
+          <li>Private RAG / "ask your own documents," fully local</li>
+          <li>Teams that need data ownership and a verifiable history</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>↔ Pair it for</h3>
+        <ul>
+          <li>High-contention multi-writer <b>OLTP</b> — writes are single-writer by design; pair with Postgres/SQLite (free)</li>
+          <li>Sub-millisecond transactional workloads</li>
+          <li>The PostgreSQL wire exposes <b>read-only</b> SQL; writes use CeQL</li>
+          <li>Billion-scale pure ANN — a dedicated vector DB still wins at that size</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Your own AI. Your own data. Your own machine.</h2>
+    <p class="tagline">One binary · no cloud · no license · nothing leaves your building.</p>
+    <div class="btns">
+      <a class="btn primary" href="index.html#download">⬇ Download</a>
+      <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri">★ GitHub</a>
+      <a class="btn outline" href="index.html">Back to centauri.dev</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Centauri by Centauri LLC · sponsored by Proxima360 · open source under a PostgreSQL-style license ·
+  <a href="https://github.com/aniljacobv-lab/centauri">GitHub</a> · <a href="how-it-works.html">how it works</a> · <a href="index.html">centauri.dev</a>
+</footer>
+
+</body>
+</html>

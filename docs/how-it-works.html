@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Centauri works — architecture, CeQL, AI/SDK integration &amp; comparisons</title>
+<meta name="description" content="A complete technical tour of Centauri: the append-only bi-temporal storage engine, the hash chain and tamper-evidence, the CeQL query language, how it talks to local and cloud AI (Ollama/LocalAI/OpenAI, MCP, SDK), and honest comparisons to Postgres, MongoDB, Oracle, Pinecone and Elasticsearch.">
+<style>
+  :root{
+    --ink:#0e1116;--ink2:#36405a;--muted:#6b7280;--line:#e6e8ee;
+    --bg:#fff;--bg2:#f7f8fb;--code:#0f172a;--codetx:#e2e8f0;
+    --accent:#4f46e5;--accent2:#7c3aed;--ok:#0a7f5b;--warn:#b4690e;--no:#b42318;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 10px 30px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+  h1,h2,h3,h4{line-height:1.22;letter-spacing:-.01em}
+  code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
+  p code,li code,td code{background:#eef0f6;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+
+  header.top{background:linear-gradient(180deg,#fff,var(--bg2));border-bottom:1px solid var(--line)}
+  header.top .wrap{max-width:1180px;margin:0 auto;padding:46px 22px 34px}
+  header.top h1{font-size:clamp(30px,4.4vw,46px);margin:.25em 0 .2em}
+  header.top p{font-size:clamp(16px,2vw,19px);color:var(--ink2);max-width:840px;margin:0}
+  .crumbs{font-size:14px;color:var(--muted);margin-bottom:6px}
+
+  .layout{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:248px 1fr;gap:36px;padding:0 22px}
+  @media(max-width:960px){.layout{grid-template-columns:1fr}.toc{position:static!important;height:auto!important;border:0!important;padding:0!important}}
+  .toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:28px 8px 28px 0;border-right:1px solid var(--line)}
+  .toc h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 6px}
+  .toc a{display:block;color:var(--ink2);font-size:14px;padding:5px 8px;border-radius:7px}
+  .toc a:hover{background:var(--bg2);text-decoration:none}
+
+  main{padding:30px 0 60px;min-width:0}
+  section{padding:14px 0 30px;border-bottom:1px solid var(--line);scroll-margin-top:14px}
+  section:last-child{border-bottom:0}
+  h2{font-size:clamp(23px,3vw,30px);margin:18px 0 6px}
+  h3{font-size:19px;margin:24px 0 6px}
+  p{margin:10px 0}
+  .lead{font-size:18px;color:var(--ink2)}
+  ul,ol{margin:10px 0;padding-left:22px}li{margin:5px 0}
+
+  pre{background:var(--code);color:var(--codetx);border-radius:12px;padding:16px 18px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px;line-height:1.55;box-shadow:var(--shadow)}
+  pre .k{color:#c4b5fd}.cm{color:#7c8aa5}.s{color:#86efac}.n{color:#fdba74}
+
+  .note{background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px 16px;margin:16px 0;font-size:15px}
+  .note.ok{border-left-color:var(--ok)} .note.warn{border-left-color:var(--warn)}
+
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--bg2);font-weight:700}
+  td.c{text-align:center;font-weight:700}
+  .y{color:var(--ok)} .pp{color:var(--warn)} .x{color:var(--no)}
+  caption{caption-side:bottom;color:var(--muted);font-size:13px;padding-top:8px;text-align:left}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  .box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .box h4{margin:0 0 6px;font-size:15px}
+  .box p{margin:0;color:var(--muted);font-size:14px}
+
+  .cta{background:linear-gradient(180deg,#fff,var(--bg2));text-align:center;border:0;padding:46px 0}
+  .btn{display:inline-block;font-weight:700;border-radius:10px;padding:12px 20px;border:1px solid var(--accent);margin:6px}
+  .btn.primary{background:var(--accent);color:#fff}.btn.outline{background:#fff;color:var(--accent)}
+  footer{max-width:1180px;margin:0 auto;padding:26px 22px;color:var(--muted);font-size:13.5px;border-top:1px solid var(--line)}
+  .diagram{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin:14px 0}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap">
+  <div class="crumbs"><a href="index.html">centauri.dev</a> › How it works</div>
+  <div class="eyebrow">The complete tour</div>
+  <h1>How Centauri works</h1>
+  <p>Everything under the hood — the storage engine that never erases, the bi-temporal data model, the CeQL query language, how Centauri talks to local and cloud AI, and honest comparisons to the databases you already know. If the <a href="showcase.html">showcase</a> is the <em>what</em>, this is the <em>how</em>.</p>
+</div></header>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>Contents</h4>
+    <a href="#bigpicture">1 · The big picture</a>
+    <a href="#fact">2 · The atom: a fact</a>
+    <a href="#engine">3 · The storage engine</a>
+    <a href="#integrity">4 · Tamper-evidence</a>
+    <a href="#bitemporal">5 · Bi-temporal &amp; causal</a>
+    <a href="#ceql">6 · The CeQL language</a>
+    <a href="#sql">7 · SQL &amp; Postgres wire</a>
+    <a href="#ai">8 · Talking to AI &amp; SDKs</a>
+    <a href="#enterprise">9 · Enterprise &amp; ops</a>
+    <a href="#scale">10 · Scale &amp; performance</a>
+    <a href="#compare">11 · Comparisons</a>
+    <a href="#fit">12 · Where it fits</a>
+  </aside>
+
+  <main>
+
+  <!-- 1 -->
+  <section id="bigpicture">
+    <h2>1 · The big picture</h2>
+    <p class="lead">Centauri is one self-contained binary that is two things at once: an <b>immutable system of record</b> and a <b>private AI engine</b> that reasons over it — with zero third-party dependencies.</p>
+    <p>Ordinary databases store the <em>latest</em> value and overwrite the rest. Centauri stores <em>every</em> fact, forever, on an append-only log. An "update" appends a superseding fact; a "delete" appends a RETIRE marker. Because the past is never destroyed, Centauri can answer questions no ordinary store can — what was true at any moment, what you <em>believed</em> then, why it changed, and whether anyone tampered with it — and it keeps the same discipline for AI: every model answer and every human correction is itself a fact.</p>
+    <svg class="diagram" viewBox="0 0 920 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Centauri architecture: clients talk to one binary that writes an append-only hash-chained log, tiers it into compressed segments and an S3 cold tier, indexes current facts in RAM, and answers queries with an optional local LLM.">
+      <rect x="0" y="0" width="920" height="380" fill="#ffffff"/>
+      <!-- clients -->
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#36405a">Clients</text>
+      <g font-size="12" fill="#0e1116">
+        <rect x="20" y="40" width="150" height="30" rx="7" fill="#eef0f6" stroke="#e6e8ee"/><text x="32" y="59">CeQL · SQL · REST</text>
+        <rect x="20" y="78" width="150" height="30" rx="7" fill="#eef0f6" stroke="#e6e8ee"/><text x="32" y="97">psql / JDBC / BI</text>
+        <rect x="20" y="116" width="150" height="30" rx="7" fill="#eef0f6" stroke="#e6e8ee"/><text x="32" y="135">AI agents (MCP)</text>
+        <rect x="20" y="154" width="150" height="30" rx="7" fill="#eef0f6" stroke="#e6e8ee"/><text x="32" y="173">Python SDK</text>
+      </g>
+      <!-- arrow -->
+      <line x1="172" y1="112" x2="232" y2="112" stroke="#9aa3b2" stroke-width="2" marker-end="url(#a)"/>
+      <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9aa3b2"/></marker></defs>
+      <!-- centauri box -->
+      <rect x="236" y="20" width="450" height="340" rx="14" fill="#faf9ff" stroke="#d8d4f5"/>
+      <text x="252" y="44" font-size="14" font-weight="800" fill="#4f46e5">Centauri — one binary</text>
+      <!-- write path -->
+      <text x="252" y="70" font-size="12" font-weight="700" fill="#36405a">Write path (write-then-apply)</text>
+      <g font-size="11.5" fill="#0e1116">
+        <rect x="252" y="78" width="98" height="30" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="262" y="97">append</text>
+        <rect x="356" y="78" width="110" height="30" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="366" y="97">hash-chain</text>
+        <rect x="472" y="78" width="86" height="30" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="482" y="97">fsync</text>
+        <rect x="564" y="78" width="110" height="30" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="574" y="97">apply→RAM</text>
+      </g>
+      <!-- storage tiers -->
+      <text x="252" y="140" font-size="12" font-weight="700" fill="#36405a">Storage tiers</text>
+      <g font-size="11.5" fill="#0e1116">
+        <rect x="252" y="148" width="130" height="46" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="262" y="168">hot log</text><text x="262" y="184" fill="#6b7280" font-size="10.5">JSONL, appended</text>
+        <rect x="392" y="148" width="150" height="46" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="402" y="168">sealed segments</text><text x="402" y="184" fill="#6b7280" font-size="10.5">compressed + zone maps</text>
+        <rect x="552" y="148" width="122" height="46" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="562" y="168">cold tier</text><text x="562" y="184" fill="#6b7280" font-size="10.5">local / S3</text>
+      </g>
+      <line x1="382" y1="171" x2="392" y2="171" stroke="#9aa3b2" stroke-width="2" marker-end="url(#a)"/>
+      <line x1="542" y1="171" x2="552" y2="171" stroke="#9aa3b2" stroke-width="2" marker-end="url(#a)"/>
+      <!-- indexes + query -->
+      <text x="252" y="226" font-size="12" font-weight="700" fill="#36405a">In-RAM indexes</text>
+      <g font-size="11.5" fill="#0e1116">
+        <rect x="252" y="234" width="200" height="30" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="262" y="253">current fact per subject · vectors</text>
+        <rect x="252" y="270" width="200" height="30" rx="7" fill="#fff" stroke="#e6e8ee"/><text x="262" y="289">secondary &amp; zone-map index</text>
+      </g>
+      <text x="472" y="226" font-size="12" font-weight="700" fill="#36405a">Query engine</text>
+      <rect x="472" y="234" width="202" height="66" rx="7" fill="#fff" stroke="#e6e8ee"/>
+      <text x="482" y="253" font-size="11.5" fill="#0e1116">CeQL · time-travel · causal</text>
+      <text x="482" y="271" font-size="11.5" fill="#0e1116">BM25 + vector search</text>
+      <text x="482" y="289" font-size="11.5" fill="#0e1116">RAG / ENRICH / ASK</text>
+      <text x="252" y="330" font-size="11" fill="#6b7280">Replay rebuilds every in-RAM index from the log — deterministically.</text>
+      <!-- local LLM -->
+      <line x1="688" y1="267" x2="748" y2="267" stroke="#9aa3b2" stroke-width="2" marker-end="url(#a)"/>
+      <rect x="752" y="234" width="150" height="80" rx="12" fill="#eef9f4" stroke="#bfe6d6"/>
+      <text x="766" y="258" font-size="12" font-weight="800" fill="#0a7f5b">Local LLM</text>
+      <text x="766" y="278" font-size="11" fill="#0e1116">Ollama / LocalAI</text>
+      <text x="766" y="295" font-size="11" fill="#0e1116">OpenAI-compatible</text>
+      <text x="766" y="311" font-size="10.5" fill="#6b7280">nothing leaves the box</text>
+      <text x="752" y="40" font-size="12" font-weight="700" fill="#36405a">AI (optional)</text>
+    </svg>
+  </section>
+
+  <!-- 2 -->
+  <section id="fact">
+    <h2>2 · The atom: a fact</h2>
+    <p>The unit of storage is not a row or a document — it's an immutable <b>fact</b> (event). Each fact carries who/what it's about, the value, two clocks, and trust metadata:</p>
+    <ul>
+      <li><b>Subject</b> — what the fact is about, e.g. <code>item:123456/store:4412</code>.</li>
+      <li><b>Facet</b> — which "reality" the fact belongs to (<code>source</code>, <code>register</code>, <code>shelf</code>, …), so the same subject can hold several parallel truths.</li>
+      <li><b>Value</b> — the payload (a flexible field map), optionally schema-checked.</li>
+      <li><b>Two clocks</b> — <b>valid time</b> (when it was true in the world) and <b>transaction time</b> (when Centauri learned it). This is what makes it bi-temporal.</li>
+      <li><b>Provenance &amp; confidence</b> — where the fact came from and how much to trust it.</li>
+      <li><b>Causal links</b> — directed edges (<code>TRIGGERED</code>, <code>SUPERSEDES</code>, <code>CORRECTS</code>, <code>ENRICHED_FROM</code>, …) so lineage is first-class data, not a join you invent later.</li>
+    </ul>
+    <div class="note">Updates and deletes are also facts. "Change the price" appends a new fact that <em>supersedes</em> the old one; "remove this" appends a <b>RETIRE</b> marker. The original bytes are never modified — that's the whole point.</div>
+  </section>
+
+  <!-- 3 -->
+  <section id="engine">
+    <h2>3 · The storage engine</h2>
+    <p class="lead">A hot append-only log, sealed into compressed segments, tiered to cheap cold storage — with the working set indexed in RAM.</p>
+    <h3>Write-then-apply</h3>
+    <p>A write is appended to the log, linked into the hash chain, and made durable (<code>fsync</code>) <em>before</em> it changes any in-memory state. If the process crashes mid-write, recovery replays the log and lands in a consistent state — memory never gets ahead of disk. An optional <b>group commit</b> coalesces concurrent writes into a single fsync for throughput.</p>
+    <h3>Hot log → sealed segments → cold tier</h3>
+    <p>Recent facts live in a hot JSONL log. Once it grows past a threshold (or on demand) the tail is <b>sealed</b> into a segment that is <b>flate-compressed</b> (typically 5–10× on cold data) and carries uncompressed <b>zone-map</b> statistics + a Merkle root in its manifest — so the engine can prune and verify a segment without decompressing it. Sealed segments can be pushed to an <b>S3-compatible cold tier</b> (AWS/MinIO/R2/B2) over stdlib request signing; segments fetched from untrusted storage are Merkle-verified before use and LRU-cached.</p>
+    <h3>Replay &amp; determinism</h3>
+    <p>Every in-RAM index (current-fact pointers, vectors, secondary indexes) is rebuilt by replaying the log through one apply step, so a restart reconstructs exactly the same state. A periodic <b>checkpoint</b> means open/recovery replays only the tail since the last checkpoint, not the whole history — recovery time stays bounded no matter how much data accumulates.</p>
+    <h3>Crypto-erasure</h3>
+    <p>For "right to be forgotten" without breaking the audit trail: a segment's payloads are encrypted with a per-segment AES-256-GCM key; destroying that key makes the payloads permanently unreadable while the hash chain — and therefore the proof of history — stays intact.</p>
+  </section>
+
+  <!-- 4 -->
+  <section id="integrity">
+    <h2>4 · Tamper-evidence (without a blockchain)</h2>
+    <p>Every committed line is linked into a <b>SHA-256 hash chain</b>: each entry's hash folds in the previous entry's hash, so changing any past byte breaks every hash after it. Each sealed segment also publishes a <b>Merkle root</b>. The same chain is computed identically on the write path, on replay, and on raw ingestion (replication), and <code>verify</code> (or the dashboard's Verify button / <code>/v1/verify</code>) recomputes both to prove nothing was altered — with no downtime and no third party.</p>
+    <div class="note ok">This gives ledger-grade integrity for audit (prove what was true, what you knew, and that nothing changed) — the kind of evidence SOX/HIPAA-style reviews ask for — without the cost and complexity of an actual blockchain.</div>
+  </section>
+
+  <!-- 5 -->
+  <section id="bitemporal">
+    <h2>5 · Bi-temporal &amp; causal queries</h2>
+    <p>Two clocks unlock the questions ordinary databases can't answer:</p>
+    <table>
+      <tr><th>Question</th><th>How</th></tr>
+      <tr><td>What was <b>true</b> at a moment?</td><td><code>AS OF '2026-03-15'</code> — valid-time travel</td></tr>
+      <tr><td>What did we <b>believe</b> at a moment?</td><td><code>AS KNOWN AT '2026-03-01'</code> — transaction-time travel (the audit superpower)</td></tr>
+      <tr><td><b>Why</b> did it change?</td><td><code>WHY &lt;event&gt;</code> / <code>EFFECTS &lt;event&gt;</code> — walk the causal graph</td></tr>
+      <tr><td>Did a change actually land?</td><td><code>PENDING</code> — find facts distributed but never activated</td></tr>
+      <tr><td>Where do sources disagree?</td><td><code>DISAGREE ON &lt;field&gt;</code> — cross-facet conflict detection</td></tr>
+    </table>
+    <p>Causal links make lineage queryable directly: <code>MATCH item:* CAUSES order:*</code> finds chains across subjects without hand-written joins.</p>
+  </section>
+
+  <!-- 6 -->
+  <section id="ceql">
+    <h2>6 · The CeQL query language</h2>
+    <p class="lead">CeQL is the native language where <b>time, cause, and trust are syntax</b> — not bolted-on functions. It comes in three interchangeable forms (text, JSON-AST, and REST) and has a plain-English translator for the rest.</p>
+
+    <h3>Reading &amp; time travel</h3>
+    <pre><span class="k">FACTS OF</span> item:* <span class="k">WHERE</span> price_cents &gt; <span class="n">700</span>
+<span class="k">HISTORY OF</span> item:1                       <span class="cm">-- the whole story of one subject</span>
+<span class="k">FACTS OF</span> item:1 <span class="k">AS OF</span> <span class="k">YESTERDAY</span>          <span class="cm">-- what was true then</span>
+<span class="k">FACTS OF</span> item:1 <span class="k">AS KNOWN AT</span> <span class="s">'2026-03-01'</span>   <span class="cm">-- what we believed then</span></pre>
+
+    <h3>Causality</h3>
+    <pre><span class="k">WHY</span> ev_01H...           <span class="cm">-- what caused this fact</span>
+<span class="k">EFFECTS</span> ev_01H...       <span class="cm">-- what this fact caused</span>
+<span class="k">MATCH</span> item:* <span class="k">CAUSES</span> order:*   <span class="cm">-- causal chains across subjects</span></pre>
+
+    <h3>Search — keyword, vector, hybrid</h3>
+    <pre><span class="k">SEARCH</span> <span class="s">'late markdown'</span> <span class="k">OF</span> item:*            <span class="cm">-- ranked BM25, bi-temporal</span>
+<span class="k">SIMILAR TO</span> <span class="s">'contract terms'</span> <span class="k">TOP</span> <span class="n">5</span>          <span class="cm">-- vector / semantic</span>
+<span class="k">SEARCH</span> <span class="s">'risk'</span> <span class="k">OF</span> doc:* <span class="k">SIMILAR TO</span> <span class="s">'liability'</span> <span class="k">ALPHA</span> <span class="n">0.5</span>  <span class="cm">-- hybrid</span></pre>
+
+    <h3>Aggregation &amp; data shape</h3>
+    <pre><span class="k">FACTS</span> namespace, <span class="k">COUNT</span>(*) <span class="k">OF</span> * <span class="k">GROUP BY</span> namespace
+<span class="k">FACTS</span> category, <span class="k">AVG</span>(price_cents) <span class="k">OF</span> sku:* <span class="k">GROUP BY</span> category <span class="k">ORDER BY</span> category
+<span class="cm">-- also SUM · MIN · MAX · MEDIAN · STDDEV · LISTAGG · COUNT(DISTINCT x)</span>
+<span class="cm">-- · APPROX_COUNT_DISTINCT (HyperLogLog) · HAVING · LIMIT · OFFSET</span>
+<span class="k">PROFILE OF</span> sku:*            <span class="cm">-- one-shot data-shape summary of a subject set</span></pre>
+
+    <h3>Topology &amp; data-shape analytics <span style="font-weight:400;color:#6b7280">— a genuine differentiator</span></h3>
+    <p>Operators that treat your facts as a <em>shape</em>, not just rows — borrowed from topological data analysis. No other database ships these:</p>
+    <pre><span class="k">SHAPE OF</span> sku:* <span class="k">ON</span> price_cents, margin   <span class="cm">-- persistent-homology fingerprint (Betti numbers)</span>
+<span class="k">CONSISTENCY OF</span> order:* <span class="k">EPS</span> <span class="n">0.1</span>          <span class="cm">-- sheaf-style cross-facet agreement</span>
+<span class="k">CYCLES IN CAUSES</span>                          <span class="cm">-- feedback loops in the causal graph</span>
+<span class="k">DRIFT OF</span> price_cents <span class="k">BUCKETS</span> <span class="n">12</span>          <span class="cm">-- distribution drift over time</span></pre>
+
+    <h3>Point-in-time transactions</h3>
+    <pre><span class="k">SNAPSHOT</span>                               <span class="cm">-- mark the current moment (a named chain head)</span>
+<span class="k">ROLLBACK OF</span> sku:* <span class="k">TO</span> <span class="s">'yesterday'</span>          <span class="cm">-- append facts restoring prior state — history kept</span>
+<span class="k">DIFF OF</span> sku:1 <span class="k">BETWEEN</span> <span class="s">'monday'</span> <span class="k">AND</span> <span class="k">NOW</span>     <span class="cm">-- exactly what changed between two moments</span></pre>
+
+    <h3>Writing (append-only)</h3>
+    <pre><span class="k">PUT</span> item:1 <span class="k">SET</span> price_cents=<span class="n">799</span>, note=<span class="s">'spring sale'</span>   <span class="cm">-- supersedes the old fact</span>
+<span class="k">RETIRE</span> item:1                                   <span class="cm">-- a delete marker, history kept</span>
+<span class="k">DEFINE SCHEMA</span> sku ...                            <span class="cm">-- optional validation</span></pre>
+
+    <h3>AI inside the language</h3>
+    <pre><span class="k">ENRICH</span> documents <span class="k">USING</span> model:llava        <span class="cm">-- run a model over facts; the result is a fact</span>
+<span class="k">ASK</span> <span class="s">'which invoices from Acme are overdue?'</span>  <span class="cm">-- RAG answer with citations</span></pre>
+    <p><b>Plain-English → CeQL</b> isn't a statement you type — the ✨ Helper (and <code>POST /v1/assist</code>) translates English into a CeQL query you review before running: deterministic rules first, a local LLM for the long tail.</p>
+
+    <h3>CePL — stored procedures</h3>
+    <p>CePL procedures are stored as versioned facts and are self-tracing: every run records what it did, so the logic and its effects are auditable like everything else.</p>
+
+    <div class="note">CeQL has an embedded, in-binary <b>textbook</b> (open <code>/ceql</code> on a running server) and an autocomplete <b>catalog</b> whose examples are tested to parse — the language documents and checks itself.</div>
+  </section>
+
+  <!-- 7 -->
+  <section id="sql">
+    <h2>7 · SQL &amp; the PostgreSQL wire protocol</h2>
+    <p>For people and tools that speak SQL, Centauri offers a lean read-only <code>SELECT</code> that transpiles to CeQL — over REST (<code>/v1/sql</code>) <em>and</em> over the real <b>PostgreSQL wire protocol</b>:</p>
+    <pre><span class="cm"># start the wire listener</span>
+centauri serve -pg-addr :5432
+
+<span class="cm"># now psql / JDBC / DBeaver / Tableau / Power BI connect directly</span>
+psql <span class="s">'host=localhost port=5432 user=any sslmode=disable'</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> sku <span class="k">WHERE</span> category=<span class="s">'beverage'</span> <span class="k">AS OF</span> <span class="s">'2026-03-15'</span> <span class="k">LIMIT</span> <span class="n">10</span>;</pre>
+    <p>Both the simple and the extended (prepared-statement) protocols are implemented, so JDBC and psycopg connect in their default mode. Honest scope: the wire path is <b>read-only</b> (writes use CeQL), every column comes back as text, and it serves the default database. It's a familiar front door for BI and LLMs, not a drop-in OLTP socket.</p>
+  </section>
+
+  <!-- 8 -->
+  <section id="ai">
+    <h2>8 · Talking to AI &amp; external SDKs</h2>
+    <p class="lead">Centauri embeds no model. It talks to whatever model server you run, over the standard OpenAI-compatible HTTP shape — using only the Go standard library, so AI adds zero dependencies.</p>
+
+    <h3>Models are facts</h3>
+    <p>You register a model by writing a fact — so the choice is versioned, queryable, and auditable, not a hidden config file:</p>
+    <pre><span class="k">PUT</span> model:llava <span class="k">FACET</span> config <span class="k">SET</span>
+    endpoint=<span class="s">'http://localhost:11434/v1/chat/completions'</span>,
+    kind=<span class="s">'vision'</span>, model=<span class="s">'llava'</span>, auth_env=<span class="s">'OLLAMA_KEY'</span></pre>
+    <p><code>kind</code> is <code>chat</code>, <code>embedding</code>, <code>vision</code>, or <code>image-embedding</code>. <code>auth_env</code> names an environment variable holding the token — the secret is read at call time and never stored.</p>
+
+    <h3>Works with</h3>
+    <div class="grid2">
+      <div class="box"><h4>Local runtimes (recommended)</h4><p><b>Ollama</b>, <b>LocalAI</b>, <b>vLLM</b> — all OpenAI-compatible. Centauri can auto-start and manage a local Ollama, and <code>serve -ai</code> auto-registers and pulls a chat + embedder + vision trio sized to your hardware.</p></div>
+      <div class="box"><h4>Cloud models (opt-in)</h4><p>Point an endpoint at OpenAI / Anthropic / any OpenAI-compatible API. Off by default and flagged in the UI, because the design is local-first — your data shouldn't leave by accident.</p></div>
+    </div>
+
+    <h3>What the AI does over your data</h3>
+    <ul>
+      <li><b>RAG (<code>ASK</code>)</b> — retrieves the most relevant facts (hybrid BM25 + vector) and has the model answer using only those, <b>with citations</b> to the exact source facts.</li>
+      <li><b>Auto-embed on ingest</b> — with the appliance on, new facts embed themselves in the background, so everything is instantly searchable with no manual step.</li>
+      <li><b>Feedback loop</b> — a thumbs-up/down on a source becomes a fact that re-ranks future retrieval. The system improves on your data with no model retraining.</li>
+      <li><b>Vision / extraction</b> — read PDFs and images into structured, searchable facts.</li>
+      <li><b>Every inference is a fact</b> — model, tokens, latency, result — so your AI's reasoning is part of the audit trail, not a black box.</li>
+    </ul>
+
+    <h3>Agents &amp; programs</h3>
+    <div class="grid2">
+      <div class="box"><h4>MCP server</h4><p>Centauri ships a Model Context Protocol server over stdio, so AI agents are first-class clients: they query the same store directly for grounded memory and RAG — no glue code, no token cost just to remember.</p></div>
+      <div class="box"><h4>Python SDK</h4><p>A zero-dependency Python SDK (with mock-server tests) for apps and pipelines. REST is always there too, and Airbyte connectors move data in/out of 300+ systems.</p></div>
+    </div>
+    <h3>The Genesis Engine — build a database from a conversation</h3>
+    <p>Describe your scenario in plain language and Centauri interviews you and generates the whole blueprint (subjects, facets, schema), or paste existing SQL <code>DDL</code> to convert it. Then it stores that very conversation as facts — so the database forever remembers <em>why it exists</em>. Drive it from the dashboard (🏗 Build my database) or <code>POST /v1/architect/plan</code> &amp; <code>/v1/architect/apply</code>.</p>
+  </section>
+
+  <!-- 9 -->
+  <section id="enterprise">
+    <h2>9 · Enterprise &amp; operations</h2>
+    <table>
+      <tr><th>Need</th><th>Centauri</th></tr>
+      <tr><td>Single sign-on</td><td>OIDC/JWT verification (Okta, Azure AD, Auth0, Keycloak) — validates IdP tokens, with a write scope; stdlib only</td></tr>
+      <tr><td>Access control</td><td>Token auth, row-level security by subject prefix, and field-level masking (VPD-style)</td></tr>
+      <tr><td>High availability</td><td>Automatic failover via lease-based leader election with epoch fencing; <code>/v1/ha</code> reports role/leader</td></tr>
+      <tr><td>Retention &amp; legal hold</td><td>RETIRE-based retention policies; enforced legal hold blocks deletion of held subjects</td></tr>
+      <tr><td>Observability</td><td>Prometheus <code>/metrics</code>, <code>/livez</code> &amp; <code>/readyz</code> probes, structured logs with request IDs, native TLS</td></tr>
+      <tr><td>Cold storage</td><td>S3-compatible tier (stdlib request signing), served on demand, Merkle-verified, LRU-cached</td></tr>
+      <tr><td>Multitenancy</td><td>Many independent databases ("environments") per server, with snapshot cloning</td></tr>
+      <tr><td>Replication / CDC</td><td>Log shipping + durable change-data-capture slots (resumable cursors)</td></tr>
+    </table>
+  </section>
+
+  <!-- 10 -->
+  <section id="scale">
+    <h2>10 · Scale &amp; performance</h2>
+    <ul>
+      <li><b>Beyond RAM</b> — a lazy disk-backed index keeps only the current fact per subject (plus small zone maps) resident; history, as-of, search and trace stream zone-map-pruned segments from disk, so total data can far exceed memory.</li>
+      <li><b>Write throughput</b> — group commit coalesces fsyncs; <b>sharding</b> partitions subjects across independent logs (each its own chain + lock) and writes them in parallel.</li>
+      <li><b>Data skipping</b> — zone-map statistics on each segment let the engine skip segments that can't match a predicate, without decompressing them.</li>
+      <li><b>Bounded recovery</b> — periodic checkpoints + auto-seal keep open/recovery time flat regardless of total history; compaction merges small segments while preserving the chain.</li>
+      <li><b>Parallelism</b> — independent segments and shards verify, compact and read in parallel across cores.</li>
+    </ul>
+    <div class="note warn">Honest limit: writes are <b>single-writer</b> per log and the hash chain is sequential by design — Centauri is not a high-contention multi-writer OLTP engine. Sharding scales throughput across subjects; it does not turn one chain into a parallel-write OLTP socket.</div>
+  </section>
+
+  <!-- 11 -->
+  <section id="compare">
+    <h2>11 · How it compares</h2>
+    <p class="lead">Centauri isn't trying to replace your operational database — it's the layer those engines don't have. It sits <em>beside</em> them as the system of record for what happened, when, why, how much to trust it, and now what the AI concluded.</p>
+    <table>
+      <caption>✓ built-in · ◐ partial / via add-ons · ✗ not its job. Comparisons are architectural; competitors evolve, so verify specifics for your version.</caption>
+      <tr>
+        <th>Capability</th><th>Centauri</th><th>Postgres<br>+ pgvector</th><th>MongoDB</th><th>Oracle</th><th>Pinecone /<br>Weaviate</th><th>Elastic-<br>search</th>
+      </tr>
+      <tr><td>Append-only, never-erased history</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c pp">◐</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Bi-temporal (valid <em>and</em> belief time)</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c pp">◐</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Causal lineage as first-class data</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Topology / data-shape analytics (TDA)</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Tamper-evidence (hash chain + Merkle)</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c pp">◐</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Vector / semantic search</td><td class="c y">✓</td><td class="c y">✓</td><td class="c pp">◐</td><td class="c pp">◐</td><td class="c y">✓</td><td class="c pp">◐</td></tr>
+      <tr><td>Ranked full-text (BM25)</td><td class="c y">✓</td><td class="c pp">◐</td><td class="c pp">◐</td><td class="c pp">◐</td><td class="c x">✗</td><td class="c y">✓</td></tr>
+      <tr><td>Built-in local LLM / RAG with citations</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>SQL access</td><td class="c pp">◐ read</td><td class="c y">✓</td><td class="c x">✗</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>High-volume multi-writer OLTP</td><td class="c x">✗</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Agent-native (MCP)</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Single binary, zero dependencies</td><td class="c y">✓</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td><td class="c x">✗</td></tr>
+      <tr><td>Self-hosted, no license</td><td class="c y">✓</td><td class="c y">✓</td><td class="c pp">◐</td><td class="c x">✗</td><td class="c x">✗</td><td class="c pp">◐</td></tr>
+    </table>
+    <div class="grid2">
+      <div class="box"><h4>vs Postgres + pgvector</h4><p>They store vectors; you still wire the LLM, the audit trail, and the document pipeline yourself. Centauri ships all of it in one binary — and remembers <em>why</em>. Run it <b>beside</b> Postgres, not instead of it.</p></div>
+      <div class="box"><h4>vs Oracle (Flashback / temporal tables)</h4><p>Centauri is Oracle-grade in its lane — immutable, bi-temporal, tamper-evident, HA, SSO, SQL-wire — without the license, and without pretending to be a general OLTP engine. Offload OLTP to free Postgres, not a new license.</p></div>
+      <div class="box"><h4>vs Pinecone / Weaviate</h4><p>Their RAG lives in the cloud and keeps no audit trail. Centauri's vectors live <em>next to</em> bi-temporal, provenance-tagged facts, retrieval runs locally, and every answer cites replayable sources. For billion-scale pure ANN, a dedicated vector DB still wins.</p></div>
+      <div class="box"><h4>vs Elasticsearch</h4><p>Native BM25 + hybrid vector in one zero-dependency binary, bi-temporal, that explains <em>why</em> a hit ranked where it did. For massive corpora and advanced analyzers, a dedicated engine still wins.</p></div>
+    </div>
+  </section>
+
+  <!-- 12 -->
+  <section id="fit">
+    <h2>12 · Where it fits — straight talk</h2>
+    <div class="grid2">
+      <div class="box"><h4>✅ Reach for Centauri when</h4><p>You need a system of record / audit trail, compliance-sensitive data, bi-temporal "as-of" reporting, or a private "ask your own documents" AI — and data ownership and a verifiable history matter.</p></div>
+      <div class="box"><h4>↔ Pair it (don't force it) when</h4><p>You need high-contention multi-writer OLTP or sub-millisecond transactions (use Postgres/SQLite — free — beside it), full read-write SQL over the wire, or billion-scale pure ANN.</p></div>
+    </div>
+    <p class="note">Documentation honesty is policy: the comparison tables above mark what Centauri does <b>not</b> do, and we never inflate a ✗ to a ✓.</p>
+  </section>
+
+  </main>
+</div>
+
+<section class="cta">
+  <div class="eyebrow">Your own AI · your own data · your own machine</div>
+  <h2 style="margin:8px 0">See it for yourself</h2>
+  <div>
+    <a class="btn primary" href="index.html#download">⬇ Download</a>
+    <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri">★ GitHub</a>
+    <a class="btn outline" href="showcase.html">Feature showcase</a>
+    <a class="btn outline" href="index.html#ask">Ask Centauri →</a>
+  </div>
+</section>
+
+<footer>
+  Centauri by Centauri LLC · sponsored by Proxima360 · open source under a PostgreSQL-style license ·
+  <a href="https://github.com/aniljacobv-lab/centauri">GitHub</a> · <a href="index.html">centauri.dev</a> · <a href="showcase.html">showcase</a>
+</footer>
+
+</body>
+</html>

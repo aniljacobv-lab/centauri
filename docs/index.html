@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Centauri — Memory for AI · the bi-temporal event database</title>
-<meta name="description" content="Centauri is the memory layer for AI agents: an open-source bi-temporal, causal event database your agents reason over natively. Query the past, replay what you believed, prove your history. One binary, zero dependencies, free.">
-<meta property="og:title" content="Centauri — Memory for AI that never forgets">
-<meta property="og:description" content="The memory layer for AI agents — an open-source bi-temporal, causal event database. Query the past, replay beliefs, prove history. One binary, zero dependencies, free.">
+<title>Centauri — Your own AI that knows your business and never forgets</title>
+<meta name="description" content="Centauri is your own private AI — it runs on your computer, learns your business from your own files, and answers questions in plain English with citations. Nothing leaves your machine. Under the hood: an open-source, bi-temporal, tamper-evident event database. One binary, zero dependencies, free.">
+<meta property="og:title" content="Centauri — Your own AI. It knows your business and never forgets.">
+<meta property="og:description" content="Your own private AI that runs on your computer and knows your business from your own files — answers in plain English, with citations, nothing sent to the cloud. Open source, one binary, free.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://aniljacobv-lab.github.io/centauri/">
 <meta property="og:image" content="https://aniljacobv-lab.github.io/centauri/og-image.png">
@@ -14,8 +14,8 @@
 <meta property="og:image:height" content="630">
 <meta property="og:site_name" content="Centauri">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Centauri — the database for AI">
-<meta name="twitter:description" content="Open-source bi-temporal, causal event database your AI agents reason over natively. Vision, semantic search, RAG ASK — local, free, one binary.">
+<meta name="twitter:title" content="Centauri — Your own AI">
+<meta name="twitter:description" content="Your own private AI that runs on your computer and knows your business from your own files. Ask in plain English, get answers with citations, nothing leaves your machine. Open source, one binary, free.">
 <meta name="twitter:image" content="https://aniljacobv-lab.github.io/centauri/og-image.png">
 <meta name="theme-color" content="#0f1b29">
 <link rel="canonical" href="https://aniljacobv-lab.github.io/centauri/">
@@ -251,8 +251,8 @@
 <!-- HERO -->
 <div class="hero"><div class="wrap">
   <div>
-    <h1>The database <span class="accent">for AI.</span></h1>
-    <p class="sub">Centauri is an open-source, <b>bi-temporal, causal event database</b> your AI agents reason over natively. It does the jobs of a <b>document store</b>, a <b>vector database</b>, a <b>time-series</b> DB, a <b>graph</b>, and a tamper-proof <b>ledger</b> — in one zero-dependency binary.</p>
+    <h1>Your own <span class="accent">AI.</span></h1>
+    <p class="sub"><b>It knows your business — and it never forgets.</b> Centauri is your own private AI that runs on <b>your</b> computer, not in the cloud. Put in your invoices, contracts, notes and PDFs, then ask questions in plain English — it answers and shows you exactly where it found them. Your data never leaves your machine, and there's no monthly AI bill. <span style="white-space:nowrap">(Under the hood: an open-source, bi-temporal, tamper-evident event database — one zero-dependency binary.)</span></p>
     <ul class="checks">
       <li><b>Agent-native (MCP)</b> — agents query it directly for grounded memory &amp; RAG; no glue, no token cost to remember</li>
       <li><b>A time machine</b> — query what was <b>true</b> and what you <b>believed</b> at any moment (bi-temporal)</li>
@@ -262,6 +262,8 @@
     </ul>
     <div class="btns">
       <a class="btn primary" href="#download">⬇ Download</a>
+      <a class="btn outline" href="showcase.html">See what it does →</a>
+      <a class="btn outline" href="how-it-works.html">How it works →</a>
       <a class="btn outline" href="#ask">Ask Centauri →</a>
     </div>
     <div class="dlhint">Packages for <a href="#download">Windows</a>, <a href="#download">macOS</a>, <a href="#download">Linux</a> · or <code>curl … | sh</code></div>
@@ -308,11 +310,11 @@
   <h2>Your data. Your hardware. <span class="rule">Your rules.</span></h2>
   <p class="lead">Oracle makes you rent your data's home and pay per core. Centauri flips that: the engine is free, and your data lives wherever <em>you</em> control — never on our servers. Oracle-grade memory for what happened, when, why, and how much to trust it — without the license, and on infrastructure you own.</p>
   <div class="grid3">
-    <div class="feat"><div class="fi">💾</div><h3>Runs where you control</h3><p>Your laptop, your server, a USB stick, a NAS, a synced folder (OneDrive, Google Drive, Dropbox), or — on the roadmap — your own object-storage bucket. Never a vendor's cloud.</p></div>
+    <div class="feat"><div class="fi">💾</div><h3>Runs where you control</h3><p>Your laptop, your server, a USB stick, a NAS, a synced folder (OneDrive, Google Drive, Dropbox), or your own <b>S3-compatible bucket</b> (AWS/MinIO/R2/B2) as a verifiable cold tier. Never a vendor's cloud.</p></div>
     <div class="feat"><div class="fi">🪙</div><h3>No license, no per-core fees</h3><p>Free and open source. No seats, no cores, no support contract — you pay only for the hardware you already own.</p></div>
     <div class="feat"><div class="fi">🔓</div><h3>Zero lock-in</h3><p>One open file (JSONL) you can read, move, back up, or delete; an open query language; <code>centauri export</code> any time. Walk away with everything.</p></div>
   </div>
-  <div class="honest" style="margin-top:24px"><b>Honest status:</b> your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder — now with a <b>single-writer lock</b> (safe on shared/synced storage) and <code>centauri merge</code> to reconcile copies edited on two devices. <code>--lazy</code> keeps payloads on disk so a dataset can exceed RAM (only the index stays resident). Log segmentation and a "bring your own bucket" (S3/GCS/Azure) backend are next on the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-own-your-data.md">roadmap</a>.</div>
+  <div class="honest" style="margin-top:24px"><b>Honest status:</b> your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder — with a <b>single-writer lock</b> (safe on shared/synced storage) and <code>centauri merge</code> to reconcile copies edited on two devices. <code>--lazy</code> keeps payloads on disk so a dataset can exceed RAM, and the disk-backed <b>lazy index</b> serves archives larger than memory. Cold data seals into <b>compressed segments</b> that push to an <b>S3-compatible bucket</b> (stdlib request signing, Merkle-verified on fetch) — shipped today. See <a href="how-it-works.html#engine">how the storage engine works →</a></div>
 </div></section>
 
 <!-- VISION & LOCAL AI -->
@@ -800,14 +802,13 @@ $ centauri verify
       <tr><td>Local vision ingest (images/PDFs)</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
       <tr><td>Runs a free local LLM for search &amp; Q&amp;A</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
       <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
-      <tr><td>Horizontal scale / sharding</td><td class="n">✗<small>single-node</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
-      <tr><td>Data larger than RAM</td><td class="p">~<small>--lazy: payloads on disk</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-      <tr><td>Standard SQL</td><td class="n">✗<small>CeQL</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+      <tr><td>Horizontal scale / sharding + HA failover</td><td class="y">✓<small>shards + auto-failover</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+      <tr><td>Data larger than RAM</td><td class="y">✓<small>lazy index</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+      <tr><td>SQL access</td><td class="p">~<small>read-only + Postgres wire</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+      <tr><td>Enterprise SSO + row-level security</td><td class="y">✓<small>OIDC/JWT, RLS, masking</small></td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
     </tbody>
   </table></div>
-  <div class="honest" style="margin-top:24px"><b>Honest limits:</b> single-node with read replicas — no clustering/sharding;
-    the index lives in memory (with <code>--lazy</code>, payloads spill to disk so the dataset can exceed RAM — only the lightweight index stays resident); no cost-based optimizer.
-    The vision &amp; local-LLM features <em>orchestrate</em> a model you run (free, e.g. Ollama) over HTTP and use an external PDF renderer — the engine itself bundles no model and stays zero-dependency; Centauri installs &amp; manages them for you, but they're optional add-ons, not built into the binary.</div>
+  <div class="honest" style="margin-top:24px"><b>Honest limits:</b> writes are <b>single-writer per log</b> (the hash chain is sequential by design) — Centauri is a system of record, not a high-contention multi-writer OLTP engine. <code>serve -shards</code> scales write throughput across subjects, <code>serve -ha-lease</code> adds automatic failover, and the lazy index serves data beyond RAM; there's no cost-based optimizer, and the SQL exposed over the PostgreSQL wire is <b>read-only</b> (writes use CeQL). The vision &amp; local-LLM features <em>orchestrate</em> a model you run (free, e.g. Ollama) over HTTP — the engine bundles no model and stays zero-dependency. Full detail: <a href="how-it-works.html#compare">how it compares →</a></div>
 </div></section>
 
 <!-- DOWNLOAD -->
@@ -897,7 +898,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"What problems does Centauri solve",t:"problems solve use cases pain points why what for",
       a:"Four questions ordinary databases can't answer: <b>what was true</b> at a past moment, <b>what we believed</b> then, <b>why</b> something changed, and whether the record was <b>tampered with</b>. It also catches changes that were sent but never landed (<code>PENDING</code>/<code>DISAGREE</code>), and gives agents point-in-time, provenance-aware memory."},
     {q:"Does Centauri scale larger than RAM sharding cluster",t:"scale scaling ram memory sharding cluster volume capacity big data petabyte how much data limits",
-      a:"Centauri is a <b>single-node engine with read replicas</b>. By default indexes and payloads live in memory; pass <code>--lazy</code> to keep <b>payloads on disk</b> so only the lightweight index stays resident — letting a dataset exceed RAM. It's the system of record for facts that matter (prices, decisions, state changes, audit) — a flight recorder beside your operational stores, not a petabyte warehouse. For large estates, shard by tenant/banner/region."},
+      a:"Yes. <code>--lazy</code> keeps payloads on disk, and the disk-backed <b>lazy index</b> (<code>serve -lazy-index</code>) serves archives far larger than RAM — only the current fact per subject stays resident. Cold data seals into <b>compressed segments</b> with zone-map skipping and can live in an <b>S3-compatible bucket</b>. <code>serve -shards N</code> partitions subjects across independent logs for parallel write throughput, and <code>serve -ha-lease</code> adds automatic failover. Writes are single-writer per log by design (sequential hash chain), so it's a system of record beside your operational stores — not a high-contention OLTP warehouse."},
     {q:"Is it free and what is the license",t:"free license cost open source pricing money commercial paid",
       a:"Yes — <b>free and open source</b> under a PostgreSQL-style permissive license. No paid tiers, no telemetry."},
     {q:"How is Centauri different from PostgreSQL",t:"postgresql postgres compare versus difference replace relational sql",
@@ -953,13 +954,13 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Performance and speed",t:"performance fast speed latency throughput benchmark memory in-memory",
       a:"Reads serve from in-memory indexes (sub-millisecond point queries); writes are append-then-apply with a durable log. It's built for correctness and rich queries over a working set that fits in RAM, not for petabyte OLAP."},
     {q:"Security tokens access control",t:"security token auth authentication access read-only encryption permission",
-      a:"Two-tier bearer tokens gate the HTTP API (a full token and a read-only token). Encryption-at-rest with crypto-erasure is on the roadmap. Followers can be run read-only."},
+      a:"Layered: static bearer tokens (full + read-only), <b>enterprise SSO</b> via OIDC/JWT (Okta/Azure AD/Auth0/Keycloak), <b>row-level security</b> by subject prefix with <b>field masking</b>, and native TLS. Sealed cold segments support <b>crypto-erasure</b> (per-segment AES-256-GCM key destruction) for right-to-be-forgotten without breaking the audit chain. Followers/replicas run read-only."},
     {q:"Retail pricing use case",t:"retail price markdown store sku inventory promotion register pos use case",
       a:"Centauri shines at retail price/promo integrity: did the markdown reach the register? where do POS and ERP disagree? what price did we believe at the moment of sale? — answered with <code>PENDING</code>, <code>DISAGREE</code>, <code>CONSISTENCY</code>, and <code>AS KNOWN AT</code>."},
     {q:"Who made Centauri Proxima360",t:"who made author company proxima360 centauri llc team built sponsor",
       a:"Centauri is by <b>Centauri LLC</b>, sponsored by <b>Proxima360</b> — the nearest star to your data. Source is on <a href='https://github.com/aniljacobv-lab/centauri'>GitHub</a>."},
     {q:"Roadmap future plans",t:"roadmap future encryption clustering plans coming soon next managed cloud",
-      a:"On the roadmap: encryption-at-rest with crypto-erasure, an ANN index for vectors at scale, and a fully managed Centauri Cloud. Single-node clustering/sharding is intentionally out of scope — partition by tenant instead."},
+      a:"Shipped since this page first launched: <b>crypto-erasure</b>, <b>subject sharding</b> (<code>serve -shards</code>), <b>automatic HA failover</b> (<code>serve -ha-lease</code>), <b>OIDC/JWT SSO</b>, the <b>PostgreSQL wire protocol</b>, an <b>S3 cold tier</b>, and a turnkey <b>local-AI appliance</b> (<code>serve -ai</code>). Still on the roadmap: an ANN index for billion-scale vectors and a fully managed Centauri Cloud."},
     {q:"Can it do compute and analytics",t:"compute computation analytics calculate calculation processing aggregate aggregation sum avg average group by having cepl procedure topology math run analysis",
       a:"Yes — Centauri runs real computation inside the engine: <b>aggregations</b> (<code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/<code>GROUP BY</code>/<code>HAVING</code>), <b>topology</b> (persistent homology, sheaf consistency), <b>BM25 search</b>, vector similarity, and <b>CePL stored procedures</b> for custom logic — all in pure Go over your in-memory working set. It's analytical, not a distributed compute grid; for heavy ETL, pair it with a warehouse."},
     {q:"How do I write or insert or update data",t:"write insert add put update record create save data ingest load import csv pump",
@@ -967,7 +968,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Is it production ready and stable",t:"production ready stable stability maturity reliable battle tested beta enterprise",
       a:"Centauri is young (v0.3.0). Use it as the system of record for facts, audit, and lineage <em>alongside</em> your proven operational store — not as the sole database for a critical transactional workload yet. It ships with a deterministic test suite, a tamper-evident log, and chain-verified backups."},
     {q:"GDPR right to be forgotten erasure if nothing is deleted",t:"gdpr erasure right to be forgotten delete privacy compliance forget personal data retention ccpa",
-      a:"Deletion is two-layered: <code>RETIRE</code> stops a fact from applying (history kept), and <b>crypto-erasure</b> (on the roadmap) destroys the key for a subject's encrypted payloads — rendering them unrecoverable while preserving the tamper-evident chain. That satisfies right-to-be-forgotten without breaking auditability."},
+      a:"Deletion is two-layered: <code>RETIRE</code> stops a fact from applying (history kept), and <b>crypto-erasure</b> destroys the per-segment AES-256-GCM key for encrypted cold payloads — rendering them unrecoverable while preserving the tamper-evident chain. That satisfies right-to-be-forgotten without breaking auditability."},
     {q:"Do I still need Elasticsearch",t:"elasticsearch opensearch elastic lucene search engine replace need separate cluster",
       a:"For ranked keyword search over your events, Centauri's native <b>BM25 SEARCH</b> (plus hybrid vector) often removes the need for a separate Elasticsearch cluster — and keeps it bi-temporal and zero-dependency. For massive document corpora or advanced analyzers, a dedicated search engine still wins; Centauri isn't trying to replace one."},
     {q:"Is Centauri a vector database",t:"vector database vectordb pinecone weaviate qdrant chroma milvus pgvector embedding store ann approximate nearest neighbor semantic index",
@@ -997,7 +998,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"How do authentication and access control work",t:"security auth authentication token access control permission read only api key bearer",
       a:"The HTTP API is gated by a bearer token, with an optional second <b>read-only</b> token; followers can run read-only. Put it behind TLS (Render or your own proxy)."},
     {q:"Does it encrypt data at rest and in transit",t:"encryption encrypt at rest tls in transit secure ssl https",
-      a:"In transit: run it behind HTTPS (Render provides it). At rest: encryption with crypto-erasure is on the roadmap; today, use disk/volume encryption."},
+      a:"In transit: native TLS (<code>-tls-cert</code>/<code>-tls-key</code>), no reverse proxy required. At rest: sealed cold segments support per-segment AES-256-GCM with <b>crypto-erasure</b>; for the hot tail and manifests, use disk/volume encryption."},
     {q:"Is it good for audit and compliance SOX HIPAA",t:"compliance audit sox hipaa regulatory governance trail evidence chain of custody",
       a:"Its bi-temporal, never-erased, tamper-evident log is built for audit: prove what was true, what you knew, and that nothing was altered — exactly what SOX/HIPAA-style reviews ask for."},
     {q:"Where does my data live and is there telemetry",t:"privacy telemetry data location phone home tracking local sovereignty residency",
@@ -1013,7 +1014,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"How is it different from Kafka event streaming",t:"kafka streaming event bus pulsar queue broker pub sub stream",
       a:"Kafka is a streaming bus that moves events between systems; Centauri is the database that stores and lets you query them bi-temporally, causally, and by shape. They're complementary — stream with Kafka, remember and reason with Centauri (<code>WATCH</code> even streams new facts out)."},
     {q:"Is it a blockchain or distributed ledger",t:"blockchain ledger distributed crypto chain web3 dlt consensus",
-      a:"No. It has a tamper-evident SHA-256 hash chain so you can prove integrity, but it's a single-node database, not a distributed consensus ledger — auditability without the blockchain overhead."},
+      a:"No. It has a tamper-evident SHA-256 hash chain so you can prove integrity, but it isn't a distributed consensus ledger — its HA is lease-based active/standby failover, not multi-node consensus. You get auditability without the blockchain overhead."},
     {q:"Which AI agents or LLMs can use it",t:"which agent llm claude gpt openai anthropic gemini model compatible support copilot",
       a:"Any agent that speaks MCP (Claude and other MCP clients) or can make an HTTP call. No model lock-in — the model just needs to call a tool or a REST endpoint."},
     {q:"Is there support or a community",t:"support community help enterprise commercial sla contact maintainer",
