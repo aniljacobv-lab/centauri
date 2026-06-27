@@ -34,6 +34,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/proxima360/centauri/internal/ai"
 	"github.com/proxima360/centauri/internal/api"
 	"github.com/proxima360/centauri/internal/assistant"
 	"github.com/proxima360/centauri/internal/catalog"
@@ -123,6 +124,7 @@ func main() {
 	haID := fs.String("ha-id", "", "serve: this node's HA id (default: hostname)")
 	haAddr := fs.String("ha-addr", "", "serve: this node's advertised base URL for replicas to follow when it leads (default: http://127.0.0.1<addr>)")
 	haTTL := fs.Int("ha-ttl", 10, "serve: HA lease TTL in seconds; a primary that can't renew within this window is failed over")
+	aiTier := fs.String("ai", "off", "serve: turnkey local-AI appliance — auto-register local models for a hardware tier: off | auto | small | balanced | max (uses Ollama; see docs/local-ai.md)")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	// Enterprise SSO: a JWT verifier is built only when an issuer or a JWKS URL
@@ -651,6 +653,12 @@ func main() {
 		if n, err := assistant.SeedIfEmpty(st, time.Now().UnixMicro()); err == nil {
 			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
 		}
+		// Turnkey local-AI appliance: register the tier's local models so ASK /
+		// SEARCH / ENRICH work out of the box. The business picks nothing —
+		// Centauri configures the models and tells you what to pull.
+		if *aiTier != "" && *aiTier != "off" {
+			setupAI(st, *aiTier)
+		}
 		fmt.Printf("data: %s\nlistening on %s   metrics: /metrics   health: /livez /readyz\n", *data, *addr)
 		fmt.Println(`try:  curl 'localhost:7771/v1/stats'
       curl 'localhost:7771/v1/context?subject=item:100001/store:4001'
@@ -785,6 +793,57 @@ func syncPeer(st *store.Store, peer, token string, interval time.Duration) {
 }
 
 // follow polls the primary's log endpoint and ingests new bytes forever.
+// setupAI turns Centauri into a local-AI appliance: it resolves the requested
+// tier (auto = detect from system memory), registers the matching local models
+// (chat, embedder, vision) so ASK/SEARCH/ENRICH work without manual config, and
+// prints the `ollama pull` commands to fetch the weights. Models run in the local
+// Ollama server Centauri manages — no cloud, no per-token cost.
+func setupAI(st *store.Store, tierFlag string) {
+	var tier ai.Tier
+	if tierFlag == "auto" {
+		tier = ai.DetectTier(availableMemGB())
+	} else if t, ok := ai.ParseTier(tierFlag); ok {
+		tier = t
+	} else {
+		log.Printf("ai: unknown tier %q (use off|auto|small|balanced|max) — skipping", tierFlag)
+		return
+	}
+	p := ai.PresetFor(tier)
+	added, err := ai.Register(st, p, time.Now().UnixMicro())
+	if err != nil {
+		log.Printf("ai: model registration failed: %v", err)
+		return
+	}
+	fmt.Printf("ai appliance: tier=%s  chat=%s  embed=%s  vision=%s\n     %s\n",
+		tier, p.Chat.Model, p.Embed.Model, p.Vision.Model, p.Note)
+	if len(added) > 0 {
+		fmt.Printf("     pull the models once:  ollama pull %s\n", strings.Join(added, " && ollama pull "))
+	} else {
+		fmt.Println("     models already registered (delete model:* facts to re-tier)")
+	}
+}
+
+// availableMemGB best-effort returns total system memory in GB (Linux
+// /proc/meminfo); 0 when unknown, which DetectTier treats as the small tier so
+// the appliance starts safely on any platform.
+func availableMemGB() int {
+	b, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			f := strings.Fields(line) // "MemTotal: 16384000 kB"
+			if len(f) >= 2 {
+				if kb, err := strconv.Atoi(f[1]); err == nil {
+					return kb / (1024 * 1024)
+				}
+			}
+		}
+	}
+	return 0
+}
+
 // startHA wires lease-based leader election into a running server: the elected
 // primary is writable and replicas auto-follow it, failing over automatically
 // when the primary's lease lapses. Returns the elector (for /v1/ha status).
