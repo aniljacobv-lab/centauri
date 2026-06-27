@@ -85,7 +85,7 @@ func AutoEmbed(st *store.Store, events []*model.Event, now int64) int {
 		}
 		if isBookkeeping(e.Subject) || strings.HasPrefix(e.Subject, "model:") ||
 			strings.HasPrefix(e.Subject, "kb:") || strings.HasPrefix(e.Subject, "kb_gap:") ||
-			strings.HasPrefix(e.Subject, "acl:") {
+			strings.HasPrefix(e.Subject, "acl:") || strings.HasPrefix(e.Subject, "feedback:") {
 			continue
 		}
 		if hasEnrichment(st, e.EventID, model.EmbeddingKind) {

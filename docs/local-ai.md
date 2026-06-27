@@ -86,8 +86,14 @@ external trainer — the data stays in Centauri, training happens out of process
    Embeddings are ordinary enrichment facts, so this never touches the original
    write's hash chain — it just appends more facts. Covers both ingest paths
    (`/v1/append` and CeQL `PUT`); a no-op if no embedder is registered.
-3. **Feedback loop** — `RATE`/`CORRECT` writes feedback facts that re-rank future
-   retrieval (deterministic, auditable "learning"). *Next.*
+3. **Feedback loop** — *done*. A thumbs-up/down on a source (`POST /v1/feedback`
+   `{event, score, note}`, score in [-1, 1]) is stored as an append-only feedback
+   fact; `retrieve()` adds a bounded nudge so liked sources rise and distrusted
+   ones sink in future RAG answers and SEARCHes. No model weights change — the
+   appliance improves on your data purely by accumulating facts, and every rating
+   is a timestamped, replayable fact. The flow: `ASK` returns source ids → user
+   rates one → next `ASK` re-ranks. (Remaining polish: a 👍/👎 control in the
+   dashboard, and an optional CeQL `RATE` keyword; the REST endpoint works today.)
 
 ---
 

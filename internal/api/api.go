@@ -359,6 +359,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/changes/ack", s.write(s.handleSlotAck))
 	mux.HandleFunc("GET /v1/slots", s.handleSlots)
 	mux.HandleFunc("POST /v1/acl", s.write(s.handleACL))
+	mux.HandleFunc("POST /v1/feedback", s.write(s.handleFeedback)) // rate a source → re-ranks future retrieval
 	mux.HandleFunc("POST /v1/query", s.handleQuery)
 	mux.HandleFunc("GET /v1/query", s.handleQuery)
 	mux.HandleFunc("POST /v1/sql", s.handleSQL) // lean read-only SQL SELECT → CeQL
@@ -846,6 +847,35 @@ func (s *Server) handleAppend(w http.ResponseWriter, r *http.Request) {
 		ids[i] = e.EventID
 	}
 	writeJSON(w, map[string]any{"appended": ids})
+}
+
+// handleFeedback records a user's rating of a source fact (an event a RAG answer
+// cited or a search returned). A positive score promotes that source in future
+// retrievals, a negative one demotes it — the closed feedback loop. Body:
+//
+//	{"event": "<source event id>", "score": 1, "note": "spot on"}
+//
+// score is clamped to [-1, 1]. Write-gated: a read-only/replica node rejects it.
+func (s *Server) handleFeedback(w http.ResponseWriter, r *http.Request) {
+	st := s.dbOr(w, r)
+	if st == nil {
+		return
+	}
+	var body struct {
+		Event string  `json:"event"`
+		Score float64 `json:"score"`
+		Note  string  `json:"note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpErr(w, 400, err.Error())
+		return
+	}
+	id, err := ceql.Feedback(st, body.Event, body.Score, body.Note, time.Now().UnixMicro())
+	if err != nil {
+		httpErr(w, 422, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"feedback": id, "target": body.Event, "score": body.Score})
 }
 
 func (s *Server) handleActivate(w http.ResponseWriter, r *http.Request) {

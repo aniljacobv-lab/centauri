@@ -142,7 +142,7 @@ func retrieve(st *store.Store, question string, k int) []*model.Event {
 	for _, e := range all {
 		if strings.HasPrefix(e.Subject, "model:") || strings.HasPrefix(e.Subject, "kb:") ||
 			strings.HasPrefix(e.Subject, "kb_gap:") || strings.HasPrefix(e.Subject, "acl:") ||
-			isBookkeeping(e.Subject) {
+			strings.HasPrefix(e.Subject, "feedback:") || isBookkeeping(e.Subject) {
 			continue
 		}
 		events = append(events, e)
@@ -167,6 +167,16 @@ func retrieve(st *store.Store, question string, k int) []*model.Event {
 		}
 	}
 	base := blendHybrid(bm, vec, 0.5)
+	// Closed feedback loop: a user's rating of a source nudges it up or down in
+	// future retrievals — bounded, so it re-ranks among relevant hits without
+	// overriding relevance. Costs nothing until ratings exist.
+	if fb := feedbackScores(st); len(fb) > 0 {
+		for d := range base {
+			if sc, ok := fb[events[d].EventID]; ok {
+				base[d] += feedbackWeight * sc
+			}
+		}
+	}
 	order := make([]int, 0, len(base))
 	for d := range base {
 		order = append(order, d)
