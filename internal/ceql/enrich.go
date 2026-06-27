@@ -50,6 +50,64 @@ type InferResult struct {
 // shapes over HTTP; tests swap it for a stub so ENRICH is verifiable offline.
 var Infer = httpInfer
 
+// AutoEmbedOnPut, when true, makes newly written facts embed themselves in the
+// background right after they're committed — so data is instantly semantic-search
+// and ASK-able with no manual ENRICH. The appliance (`serve -ai`) turns this on.
+// With no embedder registered it is a no-op. Embeddings are ordinary enrichment
+// facts, so this never touches the original write's hash chain — it just appends
+// more facts afterwards.
+var AutoEmbedOnPut bool
+
+// AutoEmbed embeds the given just-appended events with the registered embedder
+// (kind="embedding") and stores each vector as an embedding enrichment — the same
+// path ENRICH uses, so SIMILAR / hybrid SEARCH / ASK work immediately. It is
+// best-effort and side-effect-only: it skips Centauri's own bookkeeping subjects
+// and any event already embedded, swallows per-event errors, and is meant to run
+// in a goroutine so ingestion is never blocked. Returns the number embedded.
+func AutoEmbed(st *store.Store, events []*model.Event, now int64) int {
+	cfg := findModel(st, "embedding")
+	if cfg == nil {
+		return 0
+	}
+	endpoint, _ := cfg["endpoint"].(string)
+	if endpoint == "" {
+		return 0
+	}
+	var token string
+	if env, _ := cfg["auth_env"].(string); env != "" {
+		token = os.Getenv(env)
+	}
+	mid, _ := cfg["model"].(string)
+	n := 0
+	for _, e := range events {
+		if e == nil || e.EventID == "" {
+			continue
+		}
+		if isBookkeeping(e.Subject) || strings.HasPrefix(e.Subject, "model:") ||
+			strings.HasPrefix(e.Subject, "kb:") || strings.HasPrefix(e.Subject, "kb_gap:") ||
+			strings.HasPrefix(e.Subject, "acl:") {
+			continue
+		}
+		if hasEnrichment(st, e.EventID, model.EmbeddingKind) {
+			continue
+		}
+		text := enrichInput(e, "")
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		res, err := Infer(InferRequest{Endpoint: endpoint, Kind: "embedding", Model: mid, AuthToken: token, Input: text})
+		if err != nil || len(res.Vector) == 0 {
+			continue
+		}
+		if err := st.AddEnrichment(&model.Enrichment{TargetEvent: e.EventID, Kind: model.EmbeddingKind,
+			ModelID: "auto", Result: map[string]any{"vector": res.Vector}, Confidence: 1.0, CreatedAt: now}); err != nil {
+			continue
+		}
+		n++
+	}
+	return n
+}
+
 func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	if q.Using == "" {
 		return nil, fmt.Errorf("ENRICH needs USING <model>")

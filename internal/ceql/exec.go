@@ -166,6 +166,9 @@ func execPut(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	if err := st.Append(now, []*model.Event{e}, nil); err != nil {
 		return nil, err
 	}
+	if AutoEmbedOnPut {
+		go AutoEmbed(st, []*model.Event{e}, now) // background: never blocks the write
+	}
 	return map[string]any{"kind": "put", "event_id": e.EventID,
 		"subject": e.Subject, "facet": e.Facet}, nil
 }

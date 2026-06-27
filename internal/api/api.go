@@ -837,6 +837,10 @@ func (s *Server) handleAppend(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, 422, err.Error())
 		return
 	}
+	if ceql.AutoEmbedOnPut { // appliance mode: embed new facts in the background
+		evs := body.Events
+		go ceql.AutoEmbed(st, evs, time.Now().UnixMicro())
+	}
 	ids := make([]string, len(body.Events))
 	for i, e := range body.Events {
 		ids[i] = e.EventID

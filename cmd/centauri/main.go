@@ -814,8 +814,10 @@ func setupAI(st *store.Store, tierFlag string) {
 		log.Printf("ai: model registration failed: %v", err)
 		return
 	}
+	ceql.AutoEmbedOnPut = true // new facts embed themselves in the background → instantly askable
 	fmt.Printf("ai appliance: tier=%s  chat=%s  embed=%s  vision=%s\n     %s\n",
 		tier, p.Chat.Model, p.Embed.Model, p.Vision.Model, p.Note)
+	fmt.Println("     auto-embed on: new data is embedded in the background (instant SEARCH/ASK)")
 	if len(added) > 0 {
 		fmt.Printf("     pull the models once:  ollama pull %s\n", strings.Join(added, " && ollama pull "))
 	} else {

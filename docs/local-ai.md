@@ -79,11 +79,15 @@ external trainer — the data stays in Centauri, training happens out of process
 
 ## Roadmap
 
-1. **Tiered model bootstrap** (`serve -ai`) — *this increment*.
-2. **Auto-enrich on ingest** — embed/extract every fact as it's written, so data
-   is instantly askable with no manual `ENRICH`.
+1. **Tiered model bootstrap** (`serve -ai`) — *done*.
+2. **Auto-enrich on ingest** — *done*. With `serve -ai` on, every new fact embeds
+   itself in the background (via the registered embedder) right after it commits,
+   so data is instantly `SEARCH`/`SIMILAR`/`ASK`-able with no manual `ENRICH`.
+   Embeddings are ordinary enrichment facts, so this never touches the original
+   write's hash chain — it just appends more facts. Covers both ingest paths
+   (`/v1/append` and CeQL `PUT`); a no-op if no embedder is registered.
 3. **Feedback loop** — `RATE`/`CORRECT` writes feedback facts that re-rank future
-   retrieval (deterministic, auditable "learning").
+   retrieval (deterministic, auditable "learning"). *Next.*
 
 ---
 
