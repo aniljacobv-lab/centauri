@@ -65,10 +65,16 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: installer
-          path: dist/centauri-*-windows-setup.exe
+          # The .iss sets OutputBaseFilename=centauri-windows-setup, so the file
+          # is dist/centauri-windows-setup.exe (no version segment) — match it exactly.
+          path: dist/centauri-windows-setup.exe
+          if-no-files-found: error
 
   release:
     needs: [binaries, installer]
+    # Publish as long as the binaries built — never let an installer hiccup
+    # block the whole release (that previously left zero assets → 404s).
+    if: ${{ always() && needs.binaries.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -76,6 +82,7 @@ jobs:
           name: binaries
           path: dist
       - uses: actions/download-artifact@v4
+        continue-on-error: true   # installer is optional; binaries still ship
         with:
           name: installer
           path: dist
