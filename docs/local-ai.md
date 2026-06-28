@@ -22,18 +22,30 @@ the choice is data — versioned, queryable, auditable — not a config file.
 
 ## One command: the tiered appliance
 
+The average user does **nothing** — `centauri desktop` (the double-click path) turns
+this on automatically. For headless servers it's opt-in:
+
 ```
-centauri serve -ai auto       # detect hardware, register the right local models
-centauri serve -ai small      # force a tier
-centauri serve -ai balanced
-centauri serve -ai max
+centauri desktop              # turnkey: auto-detect, auto-install, auto-pull, just works
+centauri serve -ai auto       # server: detect hardware + provision
+centauri serve -ai small      # or force a tier: small | balanced | max
 ```
 
-`-ai` registers a **chat**, an **embedding**, and a **vision** model sized to the
-tier, then prints the `ollama pull` commands to fetch them once. Registration is
-idempotent — restarting never churns the log, and deleting the `model:*` facts
-lets you re-tier. `auto` reads total system memory (Linux `/proc/meminfo`; other
-platforms default to `small`, override explicitly).
+When AI mode is on, Centauri **provisions itself in the background** so startup is
+instant and AI lights up as soon as the one-time downloads finish:
+
+1. **Detects the hardware tier** from total system memory (Linux, macOS, Windows).
+2. **Installs the model runtime** (Ollama) if it's missing — via `winget` on Windows
+   and `brew` on macOS; on Linux it prints the one-line installer (we never pipe
+   `curl|sh` automatically).
+3. **Starts** Ollama (stopping only the instance Centauri itself started).
+4. **Pulls** the tier's chat + embedder + vision models (skipping any already present).
+5. **Registers** them as `model:*` facts and turns on **auto-embed**.
+
+Registration and pulls are idempotent — restarting never re-downloads or churns the
+log, and deleting the `model:*` facts lets you re-tier. If Ollama can't be installed
+automatically, Centauri still runs fully; AI features simply wait and light up once
+you install it and restart.
 
 ## Hardware tiers
 
@@ -62,9 +74,12 @@ reflect the June 2026 local-model landscape.
 Approximate VRAM (Q4 quantization): 3–4B ≈ 3 GB, 8B ≈ 6 GB, 12–14B ≈ 10 GB,
 32B ≈ 20–22 GB.
 
-A note on naming: there is no real "GLM-5.2" today; the GLM-4.x family is a
-credible alternative, but **Qwen3** and **Gemma 3** are the practical local
-defaults, which is why the presets use them. Model lineups change monthly — the
+Other models — including **Z.ai's GLM** family (GLM-5.2 ships open-weight on
+Ollama, alongside smaller GLM-4.5-Air / GLM-4.7-Flash) and DeepSeek, Llama, Phi,
+Mistral — run locally too: Centauri talks to whatever Ollama loads. The presets
+default to **Qwen3** and **Gemma 3** because they fit common 8–24 GB hardware
+(GLM-5.2 is 744B params and needs a 256 GB-class machine); to use GLM, register it
+as a model fact: `PUT model:chat FACET config SET endpoint='http://localhost:11434/v1/chat/completions', kind='chat', model='glm-5.2'`. Model lineups change monthly — the
 tier table is config, not a contract; edit `internal/ai/presets.go` to track new
 releases.
 

@@ -124,7 +124,7 @@ func main() {
 	haID := fs.String("ha-id", "", "serve: this node's HA id (default: hostname)")
 	haAddr := fs.String("ha-addr", "", "serve: this node's advertised base URL for replicas to follow when it leads (default: http://127.0.0.1<addr>)")
 	haTTL := fs.Int("ha-ttl", 10, "serve: HA lease TTL in seconds; a primary that can't renew within this window is failed over")
-	aiTier := fs.String("ai", "off", "serve: turnkey local-AI appliance — auto-register local models for a hardware tier: off | auto | small | balanced | max (uses Ollama; see docs/local-ai.md)")
+	aiTier := fs.String("ai", "off", "local-AI appliance: off | auto | small | balanced | max. On serve it's opt-in; `desktop` turns it on automatically. Centauri installs the model runtime (Ollama) if missing, starts it, and pulls the right models — no user steps. See docs/local-ai.md")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	// Enterprise SSO: a JWT verifier is built only when an issuer or a JWKS URL
@@ -580,11 +580,15 @@ func main() {
 		}
 		fmt.Printf("your data:  %s\ndashboard:  http://localhost%s  (opening in your browser…)\n", *data, *addr)
 		fmt.Printf("studio:     http://localhost%s/studio  (the AI-first IDE)\n", *addr)
-		if _, e := exec.LookPath("ollama"); e != nil {
-			fmt.Println("\nvision (optional): Ollama not detected — run 'centauri setup vision -install' to let an AI read images & PDFs, all local. The dashboard shows a setup banner too.")
-		} else if *manageOllama {
-			managedOllama = ensureOllama() // start it if it isn't running; we'll stop it on exit
+		// Turnkey local AI: pick the right models for this machine, turn on
+		// auto-embed, and in the background install the model runtime (Ollama) if
+		// needed and pull the models — so an average user does nothing at all.
+		// Desktop is AI-on by default; -ai <tier> overrides the auto-detected tier.
+		desktopTier := *aiTier
+		if desktopTier == "" || desktopTier == "off" {
+			desktopTier = "auto"
 		}
+		setupAI(st, desktopTier, *manageOllama)
 		if note := syncedFolderNote(*data); note != "" {
 			fmt.Println("\n" + note)
 		}
@@ -657,7 +661,7 @@ func main() {
 		// SEARCH / ENRICH work out of the box. The business picks nothing —
 		// Centauri configures the models and tells you what to pull.
 		if *aiTier != "" && *aiTier != "off" {
-			setupAI(st, *aiTier)
+			setupAI(st, *aiTier, true)
 		}
 		fmt.Printf("data: %s\nlistening on %s   metrics: /metrics   health: /livez /readyz\n", *data, *addr)
 		fmt.Println(`try:  curl 'localhost:7771/v1/stats'
@@ -798,7 +802,13 @@ func syncPeer(st *store.Store, peer, token string, interval time.Duration) {
 // (chat, embedder, vision) so ASK/SEARCH/ENRICH work without manual config, and
 // prints the `ollama pull` commands to fetch the weights. Models run in the local
 // Ollama server Centauri manages — no cloud, no per-token cost.
-func setupAI(st *store.Store, tierFlag string) {
+// setupAI makes Centauri a turnkey local-AI appliance: it picks the right model
+// tier for this machine, registers the models, turns on auto-embed, and — in the
+// background, so startup is instant — installs the model runtime (Ollama) if it's
+// missing, starts it, and pulls the models. The average user does nothing: they
+// run Centauri and the private AI provisions itself. `manage` lets the runtime be
+// auto-installed/started (the desktop/turnkey path); when false we only guide.
+func setupAI(st *store.Store, tierFlag string, manage bool) {
 	var tier ai.Tier
 	if tierFlag == "auto" {
 		tier = ai.DetectTier(availableMemGB())
@@ -809,36 +819,126 @@ func setupAI(st *store.Store, tierFlag string) {
 		return
 	}
 	p := ai.PresetFor(tier)
-	added, err := ai.Register(st, p, time.Now().UnixMicro())
-	if err != nil {
+	if _, err := ai.Register(st, p, time.Now().UnixMicro()); err != nil {
 		log.Printf("ai: model registration failed: %v", err)
 		return
 	}
 	ceql.AutoEmbedOnPut = true // new facts embed themselves in the background → instantly askable
 	fmt.Printf("ai appliance: tier=%s  chat=%s  embed=%s  vision=%s\n     %s\n",
 		tier, p.Chat.Model, p.Embed.Model, p.Vision.Model, p.Note)
-	fmt.Println("     auto-embed on: new data is embedded in the background (instant SEARCH/ASK)")
-	if len(added) > 0 {
-		fmt.Printf("     pull the models once:  ollama pull %s\n", strings.Join(added, " && ollama pull "))
-	} else {
-		fmt.Println("     models already registered (delete model:* facts to re-tier)")
+	fmt.Println("     setting up your private AI in the background — no action needed.")
+	go func() {
+		if ensureRuntime(manage) {
+			provisionModels(p)
+		}
+	}()
+}
+
+// ensureRuntime makes the local model server (Ollama) installed and running. When
+// manage is true it auto-installs (OS package manager) and starts it, tracking
+// the process so we stop only the one we started. Returns true when Ollama is
+// reachable. Best-effort and non-fatal: Centauri serves regardless.
+func ensureRuntime(manage bool) bool {
+	if _, err := exec.LookPath("ollama"); err != nil {
+		if manage {
+			fmt.Println("ai: installing the local model runtime (Ollama)…")
+			installOllama()
+		}
+		if _, err := exec.LookPath("ollama"); err != nil {
+			fmt.Println("ai: install Ollama from https://ollama.com/download, then restart — AI lights up automatically.")
+			return false
+		}
+	}
+	if ollamaUp() {
+		return true
+	}
+	if !manage {
+		fmt.Println("ai: start the model runtime with 'ollama serve' — AI lights up automatically.")
+		return false
+	}
+	if c := exec.Command("ollama", "serve"); c.Start() == nil {
+		managedOllama = c.Process // stop only the Ollama we started (see exit handler)
+	}
+	for i := 0; i < 30 && !ollamaUp(); i++ {
+		time.Sleep(500 * time.Millisecond)
+	}
+	return ollamaUp()
+}
+
+// provisionModels pulls the tier's models if they aren't already present (a large
+// one-time download), streaming progress so the user sees it.
+func provisionModels(p ai.Preset) {
+	for _, m := range uniqueModels(p) {
+		if modelPulled(m) {
+			continue
+		}
+		fmt.Printf("ai: downloading model %s (one-time; safe to keep using Centauri meanwhile)…\n", m)
+		_ = runStream("ollama", "pull", m)
+	}
+	fmt.Println("ai: your private AI is ready — ASK and SEARCH now run on local models, nothing leaves this machine.")
+}
+
+// uniqueModels lists the preset's distinct model tags (chat/embed/vision may share one).
+func uniqueModels(p ai.Preset) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range p.Models() {
+		if m.Model == "" || seen[m.Model] {
+			continue
+		}
+		seen[m.Model] = true
+		out = append(out, m.Model)
+	}
+	return out
+}
+
+// installOllama installs the model runtime via the OS package manager where we
+// can do it non-interactively; otherwise it points at the one-line installer. We
+// never pipe curl|sh automatically.
+func installOllama() {
+	switch runtime.GOOS {
+	case "windows":
+		_ = runStream("winget", "install", "-e", "--id", "Ollama.Ollama", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+	case "darwin":
+		if _, err := exec.LookPath("brew"); err == nil {
+			_ = runStream("brew", "install", "ollama")
+		} else {
+			fmt.Println("ai: install Homebrew (https://brew.sh) then 'brew install ollama', or get Ollama from https://ollama.com/download")
+		}
+	default: // linux
+		fmt.Println("ai: install Ollama with:  curl -fsSL https://ollama.com/install.sh | sh")
 	}
 }
 
-// availableMemGB best-effort returns total system memory in GB (Linux
-// /proc/meminfo); 0 when unknown, which DetectTier treats as the small tier so
-// the appliance starts safely on any platform.
+// availableMemGB best-effort returns total system memory in GB across Linux,
+// macOS and Windows; 0 when unknown, which DetectTier treats as the small tier
+// so the appliance starts safely on any machine.
 func availableMemGB() int {
-	b, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		if strings.HasPrefix(line, "MemTotal:") {
-			f := strings.Fields(line) // "MemTotal: 16384000 kB"
-			if len(f) >= 2 {
-				if kb, err := strconv.Atoi(f[1]); err == nil {
-					return kb / (1024 * 1024)
+	switch runtime.GOOS {
+	case "darwin":
+		if out, err := exec.Command("sysctl", "-n", "hw.memsize").Output(); err == nil {
+			if n, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64); err == nil {
+				return int(n / (1024 * 1024 * 1024))
+			}
+		}
+	case "windows":
+		out, err := exec.Command("powershell", "-NoProfile", "-Command",
+			"(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory").Output()
+		if err == nil {
+			if n, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64); err == nil {
+				return int(n / (1024 * 1024 * 1024))
+			}
+		}
+	default: // linux
+		if b, err := os.ReadFile("/proc/meminfo"); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				if strings.HasPrefix(line, "MemTotal:") {
+					f := strings.Fields(line) // "MemTotal: 16384000 kB"
+					if len(f) >= 2 {
+						if kb, err := strconv.Atoi(f[1]); err == nil {
+							return kb / (1024 * 1024)
+						}
+					}
 				}
 			}
 		}
