@@ -27,7 +27,7 @@ binary with an embedded web UI and documentation.
 | Property | Value |
 |---|---|
 | Name | Centauri |
-| Developer | Proxima360 and contributors |
+| Developer | JacobLabs LLC and contributors |
 | Initial release | 2026 |
 | Current release | v0.3.0, June 2026 |
 | License | Open Source (PostgreSQL-style permissive license) |
@@ -57,5 +57,5 @@ binary with an embedded web UI and documentation.
 
 Kind regards,
 Anil Jacob
-Proxima360
+JacobLabs LLC · jacoblabs.ai
 aniljacobv@gmail.com

@@ -10,7 +10,7 @@
 #ifndef MyAppVersion
   #define MyAppVersion "0.3.0"
 #endif
-#define MyAppPublisher "Proxima360"
+#define MyAppPublisher "JacobLabs LLC"
 #define MyAppURL "https://github.com/aniljacobv-lab/centauri"
 
 [Setup]

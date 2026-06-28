@@ -1,4 +1,4 @@
-// Centauri, by Proxima360 — a bi-temporal, causal, self-enriching,
+// Centauri, by JacobLabs LLC (jacoblabs.ai) — a bi-temporal, causal, self-enriching,
 // AI-first event database. v0.2: single binary; append-only log storage
 // with checkpoints; HTTP/JSON + MCP (agent) interfaces; log-shipping
 // read replicas.
@@ -66,7 +66,7 @@ const banner = `
  / __)(  __)( \( )(_  _)/ _\  / )( \(  _ \(  )
 ( (__  ) _) /    /  )( /    \ ) \/ ( )   / )(
  \___)(____)\_)__) (__)\_/\_/ \____/(__\_)(__)
-        Centauri v0.2 — by Proxima360
+        Centauri — by JacobLabs LLC · jacoblabs.ai
    every fact knows its time, cause, and source
 `
 

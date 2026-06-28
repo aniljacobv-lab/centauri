@@ -9,7 +9,7 @@ description = "The friendly Python SDK for Centauri, the bi-temporal, causal, AI
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "Proprietary" }
-authors = [{ name = "Proxima360" }]
+authors = [{ name = "JacobLabs LLC", email = "aniljacobv@gmail.com" }]
 keywords = ["centauri", "database", "bi-temporal", "event-sourcing", "ai"]
 dependencies = []  # zero dependencies, on purpose — installs never fight you
 
