@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri internals &amp; how its data management compares to Oracle</title>
+<meta name="description" content="A deep technical tour of Centauri's internals — the immutable append-only log, write-then-apply commit path, hash chain, segments and zone maps, replay recovery and bi-temporal time travel — mapped concept-by-concept to Oracle's data-management machinery: SGA, redo, SCN, undo, flashback, checkpoints, RAC, Data Guard, TDE, VPD and more.">
+<style>
+  :root{
+    --ink:#0e1116;--ink2:#36405a;--muted:#6b7280;--line:#e6e8ee;--bg:#fff;--bg2:#f7f8fb;
+    --code:#0f172a;--codetx:#e2e8f0;--accent:#4f46e5;--accent2:#7c3aed;
+    --ok:#0a7f5b;--warn:#b4690e;--no:#b42318;--ora:#c74634;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 10px 30px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+  h1,h2,h3,h4{line-height:1.22;letter-spacing:-.01em}
+  code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em}
+  p code,li code,td code{background:#eef0f6;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  header.top{background:linear-gradient(180deg,#fff,var(--bg2));border-bottom:1px solid var(--line)}
+  header.top .wrap{max-width:1180px;margin:0 auto;padding:44px 22px 32px}
+  header.top h1{font-size:clamp(28px,4.2vw,44px);margin:.25em 0 .2em}
+  header.top p{font-size:clamp(16px,2vw,19px);color:var(--ink2);max-width:860px;margin:0}
+  .crumbs{font-size:14px;color:var(--muted);margin-bottom:6px}
+  .layout{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:256px 1fr;gap:36px;padding:0 22px}
+  @media(max-width:960px){.layout{grid-template-columns:1fr}.toc{position:static!important;height:auto!important;border:0!important}}
+  .toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:26px 8px 26px 0;border-right:1px solid var(--line)}
+  .toc h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 6px}
+  .toc a{display:block;color:var(--ink2);font-size:13.5px;padding:5px 8px;border-radius:7px}
+  .toc a:hover{background:var(--bg2);text-decoration:none}
+  main{padding:28px 0 60px;min-width:0}
+  section{padding:12px 0 28px;border-bottom:1px solid var(--line);scroll-margin-top:14px}
+  h2{font-size:clamp(22px,3vw,30px);margin:16px 0 6px}
+  h3{font-size:18px;margin:22px 0 6px}
+  .lead{font-size:18px;color:var(--ink2)}
+  ul,ol{margin:10px 0;padding-left:22px}li{margin:5px 0}
+  pre{background:var(--code);color:var(--codetx);border-radius:12px;padding:15px 17px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;box-shadow:var(--shadow)}
+  .cm{color:#7c8aa5}.s{color:#86efac}.k{color:#c4b5fd}.n{color:#fdba74}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--bg2);font-weight:700}
+  caption{caption-side:bottom;color:var(--muted);font-size:12.5px;padding-top:8px;text-align:left}
+  .ora{color:var(--ora);font-weight:600}
+  .cen{color:var(--accent);font-weight:600}
+  .note{background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px 16px;margin:16px 0;font-size:15px}
+  .note.warn{border-left-color:var(--warn)} .note.ora{border-left-color:var(--ora)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.two{grid-template-columns:1fr}}
+  .col{border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .col h4{margin:0 0 8px;font-size:15px}
+  .col.o h4{color:var(--ora)} .col.c h4{color:var(--accent)}
+  .col ol{margin:0;padding-left:20px}
+  .cta{background:linear-gradient(180deg,#fff,var(--bg2));text-align:center;border:0;padding:44px 0}
+  .btn{display:inline-block;font-weight:700;border-radius:10px;padding:12px 20px;border:1px solid var(--accent);margin:6px}
+  .btn.primary{background:var(--accent);color:#fff}.btn.outline{background:#fff;color:var(--accent)}
+  footer{max-width:1180px;margin:0 auto;padding:26px 22px;color:var(--muted);font-size:13.5px;border-top:1px solid var(--line)}
+  .diagram{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin:14px 0}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap">
+  <div class="crumbs"><a href="index.html">centauri.dev</a> › <a href="how-it-works.html">how it works</a> › Internals &amp; Oracle comparison</div>
+  <div class="eyebrow">Deep technical reference</div>
+  <h1>Centauri internals — and how its data management compares to Oracle</h1>
+  <p>How Centauri actually moves bytes — the immutable log, the commit path, segments, recovery and time travel — mapped concept-by-concept onto Oracle's machinery (SGA, redo, SCN, undo, flashback, checkpoints, RAC, Data Guard, TDE, VPD). The goal is precision, not spin: where Centauri matches Oracle's audit/time-travel capabilities in one free binary, and where Oracle still wins.</p>
+</div></header>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>Contents</h4>
+    <a href="#lane">0 · The lane (read this first)</a>
+    <a href="#atom">1 · The atom: immutable fact vs mutable block</a>
+    <a href="#commit">2 · The write/commit path</a>
+    <a href="#storage">3 · Storage &amp; tiering</a>
+    <a href="#read">4 · Read consistency &amp; time travel</a>
+    <a href="#mutate">5 · Update, delete &amp; erase</a>
+    <a href="#recovery">6 · Durability &amp; crash recovery</a>
+    <a href="#integrity">7 · Integrity &amp; tamper-evidence</a>
+    <a href="#map">8 · Concept-by-concept map</a>
+    <a href="#walk">9 · Process walkthroughs</a>
+    <a href="#cost">10 · Licensing &amp; cost</a>
+    <a href="#wins">11 · Where Oracle still wins</a>
+  </aside>
+
+  <main>
+
+  <!-- 0 -->
+  <section id="lane">
+    <h2>0 · The lane — read this first</h2>
+    <p class="lead">Centauri is not an Oracle replacement for general OLTP. It is a <b>system of record</b>: the immutable, bi-temporal, tamper-evident store for <em>what happened, when, why, and how much to trust it</em> — the job Oracle does with a stack of separately-licensed options (Flashback, Total Recall, Advanced Security, Database Vault, Advanced Compression, partitioning, auditing).</p>
+    <p>The honest framing for everything below: in this lane, Centauri delivers Oracle-grade capabilities — point-in-time reconstruction, tamper-evidence, encryption with crypto-erasure, row-level security, HA failover, compression, cold tiering — <b>built into one free, zero-dependency binary</b>. For high-concurrency multi-writer OLTP, a mature cost-based optimizer, RAC-scale clustering, and three decades of ecosystem, Oracle wins. Run Centauri <em>beside</em> your OLTP store, not instead of it.</p>
+  </section>
+
+  <!-- 1 -->
+  <section id="atom">
+    <h2>1 · The atom: an immutable fact vs a mutable block</h2>
+    <p>This single difference drives everything else.</p>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><p>The atomic unit is a <b>data block</b> (typically 8&nbsp;KB). Rows live inside blocks; an <code>UPDATE</code> rewrites the row <b>in place</b> within its block and records the prior image in an <b>undo segment</b> so other sessions still see the old value and the change can be rolled back. The current block is mutable; history is a side-effect kept (briefly) in undo.</p></div>
+      <div class="col c"><h4>Centauri</h4><p>The atomic unit is an <b>immutable fact</b> appended to a log. An "update" appends a <em>new</em> fact that supersedes the old one; a "delete" appends a <code>RETIRE</code> marker. Nothing is ever rewritten in place, so <b>every prior version already exists</b> — history isn't a side-effect to retain, it's the substance of the database.</p></div>
+    </div>
+    <div class="note">Consequence: Oracle must <em>manufacture</em> history (undo, flashback logs, Total Recall) and bound how much it keeps; Centauri <em>starts</em> with complete history and never has to choose what to forget.</div>
+  </section>
+
+  <!-- 2 -->
+  <section id="commit">
+    <h2>2 · The write / commit path</h2>
+    <p>Both systems obey write-ahead logging — durability before visibility — but the log plays a different role.</p>
+    <div class="two">
+      <div class="col o"><h4>Oracle: redo is a side-channel</h4>
+        <ol>
+          <li>A DML statement changes a block in the <b>buffer cache</b> (in the SGA).</li>
+          <li>The change is described as a <b>redo entry</b> in the <b>log buffer</b>; the before-image goes to <b>undo</b>.</li>
+          <li>On <code>COMMIT</code>, <b>LGWR</b> flushes redo to the <b>online redo logs</b> (commit = redo durable). An <b>SCN</b> (System Change Number) stamps the order.</li>
+          <li><b>DBWR</b> writes dirty blocks to <b>datafiles</b> lazily, later, at a <b>checkpoint</b>. The datafiles are the database; redo exists to <em>recover</em> them.</li>
+        </ol>
+      </div>
+      <div class="col c"><h4>Centauri: the log <em>is</em> the database</h4>
+        <ol>
+          <li>A write is appended to the <b>append-only log</b> and linked into the <b>SHA-256 hash chain</b>.</li>
+          <li>The bytes are made durable (<code>fsync</code>) <b>before</b> any in-memory state changes — "write-then-apply." Optional <b>group commit</b> coalesces concurrent writes into one fsync.</li>
+          <li>Only then does <b>apply()</b> update the in-RAM indexes (current-fact pointers, vectors). Memory never gets ahead of disk.</li>
+          <li>There are no separate datafiles to flush: the log is the source of truth; sealed segments and indexes are <em>derived</em> from it.</li>
+        </ol>
+      </div>
+    </div>
+    <p>Oracle's <b>SCN</b> is a logical clock that totally orders changes. Centauri's equivalents are the <b>hash-chain position</b> (which both orders <em>and</em> proves each change) plus the two wall clocks every fact carries — <b>valid time</b> and <b>transaction time</b>.</p>
+  </section>
+
+  <!-- 3 -->
+  <section id="storage">
+    <h2>3 · Storage &amp; tiering</h2>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><p>Logical: <b>tablespace → segment → extent → block</b>. Physical: datafiles, often on <b>ASM</b>. Compression (<b>Advanced Compression</b>, or <b>Hybrid Columnar Compression</b> on Exadata) and <b>partitioning</b> are separately-licensed options. The optimizer skips data using indexes, partition pruning, and zone-map / storage-index features (Exadata).</p></div>
+      <div class="col c"><h4>Centauri</h4><p>A hot <b>append-only log</b> seals into immutable <b>segments</b> that are <b>flate-compressed</b> (typically 5–10× on cold data) and carry uncompressed <b>zone-map</b> statistics + a Merkle root in their manifest — so the engine prunes and verifies a segment <em>without decompressing it</em>. Cold segments push to an <b>S3-compatible</b> tier (AWS/MinIO/R2/B2) over stdlib request-signing, fetched on demand, Merkle-verified, and LRU-cached. Compression, zone-map pruning and cold-tiering are built in and free.</p></div>
+    </div>
+    <p>The rough analogy: a Centauri <b>segment</b> plays the role of an Oracle datafile/extent — a sealed, scannable, prune-able unit — except it is immutable and content-addressed by a Merkle root, not mutated in place.</p>
+  </section>
+
+  <!-- 4 -->
+  <section id="read">
+    <h2>4 · Read consistency &amp; time travel</h2>
+    <div class="two">
+      <div class="col o"><h4>Oracle: MVCC via undo</h4><p>A query reads a consistent snapshot as of its start SCN by reconstructing blocks from <b>undo</b>. <b>Flashback Query</b> (<code>AS OF SCN/TIMESTAMP</code>) reads the past the same way — but only as far back as <b>undo retention</b> allows; run out and you hit <b>ORA-01555 "snapshot too old."</b> Long-term history needs <b>Flashback Data Archive</b> (formerly the extra-cost "Total Recall").</p></div>
+      <div class="col c"><h4>Centauri: time travel is native</h4><p>Because nothing is overwritten, a point-in-time read is just a filter over facts already on disk — no undo to reconstruct, no retention to tune, <b>no "snapshot too old."</b> And it is <b>bi-temporal</b>: <code>AS OF</code> asks "what was true," <code>AS KNOWN AT</code> asks "what did we <em>believe</em>" — the audit superpower. History is unbounded by default.</p></div>
+    </div>
+    <pre><span class="cm">-- Oracle</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">AS OF TIMESTAMP</span> (SYSTIMESTAMP - <span class="k">INTERVAL</span> <span class="s">'7'</span> DAY);   <span class="cm">-- bounded by undo retention</span>
+
+<span class="cm">-- Centauri</span>
+<span class="k">FACTS OF</span> order:* <span class="k">AS OF</span> <span class="s">'7 days ago'</span>          <span class="cm">-- what was true, forever</span>
+<span class="k">FACTS OF</span> order:1 <span class="k">AS KNOWN AT</span> <span class="s">'2026-03-01'</span>      <span class="cm">-- what we believed then (no Oracle equivalent)</span></pre>
+  </section>
+
+  <!-- 5 -->
+  <section id="mutate">
+    <h2>5 · Update, delete &amp; the right to be forgotten</h2>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><p><code>UPDATE</code>/<code>DELETE</code> mutate blocks in place (old image to undo). Truly removing data means the row is gone and only recoverable from backups/flashback within their window. Encryption at rest is <b>TDE</b> (Transparent Data Encryption, part of the Advanced Security option); fine-grained auditing and <b>Database Vault</b> are further options.</p></div>
+      <div class="col c"><h4>Centauri</h4><p>An update is a superseding fact; a delete is a <code>RETIRE</code> marker — the history stays, auditable. For GDPR "erasure," <b>crypto-erasure</b> destroys the per-segment <b>AES-256-GCM</b> key so the payloads become permanently unreadable <em>while the hash chain stays intact</em> — you delete the data without breaking the proof of history. Encryption, masking and row-level security are built in, not options.</p></div>
+    </div>
+    <div class="note">The distinction matters for compliance: in Oracle, "delete" and "audit trail" pull in opposite directions; in Centauri, RETIRE + crypto-erasure satisfy right-to-be-forgotten <em>and</em> keep a tamper-evident record that the erasure happened.</div>
+  </section>
+
+  <!-- 6 -->
+  <section id="recovery">
+    <h2>6 · Durability &amp; crash recovery</h2>
+    <div class="two">
+      <div class="col o"><h4>Oracle: roll forward, then roll back</h4><p>Instance recovery has two phases: <b>roll forward</b> — replay redo from the last checkpoint to reapply all changes (committed and not) to the datafiles; then <b>roll back</b> — use undo to reverse transactions that never committed. <b>CKPT</b>/<b>DBWR</b> advance the checkpoint to bound how much redo must be replayed.</p></div>
+      <div class="col c"><h4>Centauri: deterministic replay, no rollback phase</h4><p>Recovery is a single deterministic <b>replay</b> of the committed log through <code>apply()</code>. There is <b>no roll-back phase</b>: write-then-apply means only durably-committed bytes were ever applied, and nothing was mutated in place, so there's nothing to undo. A periodic <b>checkpoint</b> means replay starts from the tail, not the beginning — recovery time stays bounded regardless of total history.</p></div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="integrity">
+    <h2>7 · Integrity &amp; tamper-evidence</h2>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><p>Block checksums (<code>DB_BLOCK_CHECKSUM</code>) detect <em>corruption</em> (bit rot, bad I/O). For tamper-<em>evidence</em> — proving no one maliciously altered rows — Oracle added <b>Blockchain Tables</b> and <b>Immutable Tables</b> (21c+), a special table type you opt into.</p></div>
+      <div class="col c"><h4>Centauri</h4><p>Tamper-evidence is the default for <em>all</em> data: every committed line folds the previous line's hash into its own <b>SHA-256 hash chain</b>, and each sealed segment publishes a <b>Merkle root</b>. Altering any past byte breaks every hash after it. <code>verify</code> recomputes the chain + roots on demand. It's not a special table type — it's how the whole log works.</p></div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="map">
+    <h2>8 · Concept-by-concept map</h2>
+    <p class="lead">Oracle's data-management vocabulary, translated to Centauri.</p>
+    <table>
+      <caption>Architectural mapping. Oracle licensing depends on edition (SE/EE) and version — many rows below are separately-licensed EE <em>options</em> or management <em>packs</em>; verify against your contract. The point isn't a price quote, it's that Centauri includes the capability in one free binary.</caption>
+      <tr><th>Oracle</th><th>What it does</th><th>Centauri equivalent</th></tr>
+      <tr><td class="ora">SGA buffer cache</td><td>In-memory cache of mutable blocks</td><td class="cen">In-RAM indexes (current fact per subject, vectors) + LRU decompressed-segment cache</td></tr>
+      <tr><td class="ora">Redo log + LGWR</td><td>Write-ahead log to recover datafiles</td><td class="cen">The append-only log itself — write-then-apply; the log <em>is</em> the database, not a recovery side-channel</td></tr>
+      <tr><td class="ora">SCN (System Change Number)</td><td>Logical clock ordering changes</td><td class="cen">Hash-chain position (orders <em>and</em> proves) + valid/transaction wall clocks per fact</td></tr>
+      <tr><td class="ora">Undo / rollback segments</td><td>Before-images for MVCC, rollback, flashback</td><td class="cen">Not needed — prior versions are already on the log; no undo retention, no ORA-01555</td></tr>
+      <tr><td class="ora">DBWR + checkpoint (CKPT)</td><td>Flush dirty blocks; bound recovery</td><td class="cen">Periodic checkpoint (pointer/Merkle-validated) + auto-seal; replay starts from the tail</td></tr>
+      <tr><td class="ora">Tablespace / segment / extent / block</td><td>Storage hierarchy, mutable blocks</td><td class="cen">Hot log → immutable compressed <b>segments</b> with zone maps (datafile/extent analog; no block management)</td></tr>
+      <tr><td class="ora">ARCHIVELOG + RMAN + PITR</td><td>Archived redo, backup, point-in-time recovery</td><td class="cen">The log + segments <em>are</em> the archive; backup = copy files; PITR = <code>AS KNOWN AT</code>; log shipping built in</td></tr>
+      <tr><td class="ora">Flashback Query (AS OF)</td><td>Read the past via undo (bounded)</td><td class="cen"><code>AS OF</code> over full history, unbounded; plus <code>AS KNOWN AT</code> (belief time) Oracle has no equivalent for</td></tr>
+      <tr><td class="ora">Flashback Data Archive (Total Recall)</td><td>Long-term history (option)</td><td class="cen">The default design — complete bi-temporal history, free</td></tr>
+      <tr><td class="ora">Data Guard / Active Data Guard</td><td>Standby replicas for HA/DR (option)</td><td class="cen">Log shipping + durable CDC slots + lease-based automatic failover, free</td></tr>
+      <tr><td class="ora">RAC (Real Application Clusters)</td><td>Shared-disk multi-node OLTP scale-out (option)</td><td class="cen"><b>No equivalent</b> — single-writer per log; sharding scales throughput across subjects; HA is active/standby, not RAC</td></tr>
+      <tr><td class="ora">Multitenant (CDB/PDB)</td><td>Pluggable databases (option beyond a limit)</td><td class="cen">Named environments per server with snapshot cloning, free</td></tr>
+      <tr><td class="ora">TDE (Advanced Security)</td><td>Transparent encryption at rest (option)</td><td class="cen">Per-segment AES-256-GCM + crypto-erasure, free</td></tr>
+      <tr><td class="ora">VPD / row-level security</td><td>Fine-grained access (EE feature)</td><td class="cen">Scoped tokens by subject prefix + field masking, free</td></tr>
+      <tr><td class="ora">Database Vault / FGA / Audit Vault</td><td>Separation of duties, auditing (options)</td><td class="cen">Enforced legal hold + a log where <em>every fact is the audit</em>, tamper-evident by default</td></tr>
+      <tr><td class="ora">Blockchain / Immutable Tables</td><td>Tamper-evident table type (21c+)</td><td class="cen">The entire log is hash-chained + Merkle-rooted — not a special table type</td></tr>
+      <tr><td class="ora">Advanced Compression / HCC</td><td>Compress data (option / Exadata)</td><td class="cen">Flate-compressed sealed segments, free</td></tr>
+      <tr><td class="ora">Cost-based optimizer (CBO) + stats</td><td>Plan selection over rich SQL</td><td class="cen"><b>Partial</b> — zone-map pruning + secondary index + <code>EXPLAIN ANALYZE</code>; no full CBO (honest gap)</td></tr>
+      <tr><td class="ora">SQL*Net / SQL</td><td>Wire protocol + full SQL</td><td class="cen">CeQL (native) + read-only SQL over the <b>PostgreSQL wire protocol</b> (psql/JDBC/BI)</td></tr>
+      <tr><td class="ora">AWR / ASH / Diagnostics Pack</td><td>Performance telemetry (packs)</td><td class="cen">Prometheus <code>/metrics</code>, health probes, structured logs, free</td></tr>
+    </table>
+  </section>
+
+  <!-- 9 -->
+  <section id="walk">
+    <h2>9 · Process walkthroughs, side by side</h2>
+
+    <h3>9.1 Committing a change</h3>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><ol><li>Modify block in buffer cache</li><li>Write redo to log buffer; before-image to undo</li><li><code>COMMIT</code> → LGWR flushes redo; SCN assigned</li><li>DBWR writes the dirty block to the datafile later, at a checkpoint</li></ol></div>
+      <div class="col c"><h4>Centauri</h4><ol><li>Append the fact; extend the hash chain</li><li><code>fsync</code> the bytes (optionally group-committed)</li><li><code>apply()</code> updates in-RAM indexes — only after durability</li><li>Tail later seals into a compressed, Merkle-rooted segment</li></ol></div>
+    </div>
+
+    <h3>9.2 Reading last month's value</h3>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><ol><li><code>SELECT … AS OF TIMESTAMP …</code></li><li>Reconstruct blocks from undo back to that SCN</li><li>Fails with ORA-01555 if undo retention has lapsed; needs Flashback Data Archive for the long term</li></ol></div>
+      <div class="col c"><h4>Centauri</h4><ol><li><code>FACTS OF … AS OF '1 month ago'</code></li><li>Filter facts already on disk — nothing to reconstruct</li><li>Always available; add <code>AS KNOWN AT</code> to also ask what was <em>believed</em> then</li></ol></div>
+    </div>
+
+    <h3>9.3 Deleting for GDPR / right to be forgotten</h3>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><ol><li><code>DELETE</code> (and purge from flashback/undo, backups, archives)</li><li>The audit trail of that data is lost along with it</li><li>Encryption via TDE if the Advanced Security option is licensed</li></ol></div>
+      <div class="col c"><h4>Centauri</h4><ol><li><code>RETIRE</code> the subject (history retained, marked)</li><li>Destroy the segment's AES-256-GCM key → payloads unreadable forever</li><li>The hash chain stays intact — you can still prove <em>that</em> the erasure happened</li></ol></div>
+    </div>
+
+    <h3>9.4 Surviving a crash &amp; failing over</h3>
+    <div class="two">
+      <div class="col o"><h4>Oracle</h4><ol><li>Instance recovery: roll forward redo, roll back uncommitted undo</li><li>HA/DR via RAC (shared-disk cluster) and/or Data Guard standby — separately licensed</li></ol></div>
+      <div class="col c"><h4>Centauri</h4><ol><li>Replay the committed log from the last checkpoint — one deterministic pass, no roll-back phase</li><li>HA via lease-based leader election: a replica auto-promotes when the primary's lease lapses (epoch-fenced), free</li></ol></div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section id="cost">
+    <h2>10 · Licensing &amp; cost</h2>
+    <p>The capabilities above — Flashback/Total Recall, Advanced Security/TDE, Database Vault, Advanced Compression, Partitioning, Active Data Guard, RAC, Multitenant beyond a limit, the Diagnostics/Tuning packs — are, on Oracle, typically <b>separately-licensed Enterprise Edition options or management packs</b>, charged per processor on top of the base license (exact entitlements vary by edition and version — check your contract).</p>
+    <p>In Centauri the equivalents — bi-temporal history, tamper-evidence, crypto-erasure, row-level security + masking, compression, S3 cold tiering, HA failover, metrics — are <b>all in the single open binary</b>: zero third-party dependencies, no per-core fee, no option matrix, no support contract required. That is the core "own your data" thesis: the engine is free and runs on infrastructure you control.</p>
+    <div class="note ora">This isn't a claim that Centauri is "cheaper Oracle." It's that for the <em>system-of-record</em> job — immutable, auditable, time-travelable facts — you no longer need Oracle's premium options to get those properties.</div>
+  </section>
+
+  <!-- 11 -->
+  <section id="wins">
+    <h2>11 · Where Oracle still wins (honesty by policy)</h2>
+    <ul>
+      <li><b>High-concurrency multi-writer OLTP.</b> Centauri writes are single-writer per log (the hash chain is sequential by design). Oracle/RAC are built for thousands of concurrent writers and sub-millisecond transactions.</li>
+      <li><b>Mature SQL + cost-based optimizer.</b> Decades of SQL surface, a sophisticated CBO, PL/SQL, and tooling. Centauri's SQL is a read-only subset over the wire; CeQL is the full surface.</li>
+      <li><b>Scale-out clustering.</b> RAC's shared-disk, cache-fusion scale-out has no Centauri equivalent; Centauri scales reads/throughput by sharding and serves data beyond RAM, but it is not a clustered OLTP engine.</li>
+      <li><b>Ecosystem &amp; hardening.</b> Thirty-plus years of drivers, certifications, DBA expertise, and battle-testing at extreme scale.</li>
+    </ul>
+    <p>So the recommendation is architectural, not partisan: keep Oracle (or free Postgres/SQLite) for transactional workloads; put Centauri beside it as the tamper-evident, bi-temporal, AI-queryable record of what happened and why — the part those engines don't do, without the option licenses.</p>
+  </section>
+
+  </main>
+</div>
+
+<section class="cta">
+  <div class="eyebrow">One binary · zero dependencies · your hardware</div>
+  <h2 style="margin:8px 0">See the rest of how it works</h2>
+  <div>
+    <a class="btn primary" href="how-it-works.html">Full how-it-works →</a>
+    <a class="btn outline" href="index.html#download">⬇ Download</a>
+    <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri">★ GitHub</a>
+  </div>
+</section>
+
+<footer>
+  Centauri by Centauri LLC · sponsored by Proxima360 · open source under a PostgreSQL-style license ·
+  <a href="https://github.com/aniljacobv-lab/centauri">GitHub</a> · <a href="index.html">centauri.dev</a> · <a href="how-it-works.html">how it works</a> · <a href="showcase.html">showcase</a>
+  <br><br><small>Oracle, RAC, Exadata, Data Guard, Flashback and related marks are trademarks of Oracle Corporation, used here for factual comparison only. Architectural descriptions are general; verify version- and edition-specific behaviour and licensing against Oracle's documentation and your contract.</small>
+</footer>
+
+</body>
+</html>
