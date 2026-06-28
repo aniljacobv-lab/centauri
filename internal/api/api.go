@@ -382,6 +382,7 @@ func (s *Server) Routes() http.Handler {
 	root.HandleFunc("GET /{$}", s.handleUI) // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
+	root.HandleFunc("GET /app", s.handleApp)       // the simple layman UI (add + ask)
 	// Admission control on the hot path: per-tenant fairness (inner) + a global
 	// concurrency/timeout ceiling (outer), both skipping streaming/health.
 	return WithLimitsExcept(s.perDBLimit(root), s.opts.MaxConcurrent, s.opts.RequestTimeout, limitExempt)

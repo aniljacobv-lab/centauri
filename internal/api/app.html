@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri — your private AI</title>
+<style>
+  :root{
+    --ink:#0e1116;--muted:#6b7280;--line:#e6e8ee;--bg:#f6f7fb;--card:#fff;
+    --accent:#4f46e5;--accent2:#7c3aed;--ok:#0a7f5b;--shadow:0 1px 2px rgba(16,24,40,.06),0 10px 30px rgba(16,24,40,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px 60px}
+  header{text-align:center;padding:34px 18px 18px}
+  header h1{margin:0 0 4px;font-size:28px;letter-spacing:-.01em}
+  header h1 .a{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  header p{margin:0;color:var(--muted);font-size:14.5px}
+  .tabs{display:flex;gap:8px;justify-content:center;margin:18px 0}
+  .tab{font-weight:700;font-size:15px;border:1px solid var(--line);background:#fff;color:#3a4254;border-radius:999px;padding:9px 18px;cursor:pointer}
+  .tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:18px}
+  .card .hint{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+  label{display:block;font-weight:600;font-size:13px;color:#3a4254;margin:10px 0 4px}
+  input[type=text],textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;background:#fff}
+  textarea{min-height:120px;resize:vertical}
+  .ask input{font-size:17px;padding:14px}
+  button.go{margin-top:14px;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;cursor:pointer}
+  button.go:disabled{opacity:.55;cursor:default}
+  .hide{display:none}
+  .msg{margin-top:12px;font-size:14px;border-radius:10px;padding:10px 13px}
+  .msg.ok{background:#eaf7f1;color:#0a7f5b}.msg.err{background:#fdecec;color:#b42318}
+  .answer{margin-top:16px;background:#faf9ff;border:1px solid #e7e3fb;border-radius:12px;padding:16px;white-space:pre-wrap}
+  .answer.empty{background:#fff7ed;border-color:#fde2bf}
+  .sources{margin-top:10px;font-size:13px;color:var(--muted)}
+  .sources b{color:#3a4254}
+  .recent{list-style:none;margin:0;padding:0}
+  .recent li{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:8px;background:#fff;cursor:pointer}
+  .recent li:hover{border-color:var(--accent)}
+  .recent .s{font-weight:600}.recent .v{color:var(--muted);font-size:13px;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{text-align:center;color:var(--muted);font-size:12.5px;margin-top:18px}
+  footer a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Your private <span class="a">AI</span></h1>
+  <p>Add your stuff, then ask in plain English. Everything stays on this computer.</p>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" id="tabAsk" onclick="show('ask')">💬 Ask</button>
+    <button class="tab" id="tabAdd" onclick="show('add')">➕ Add</button>
+    <button class="tab" id="tabRecent" onclick="show('recent')">📋 Recent</button>
+  </div>
+
+  <!-- ASK -->
+  <section id="paneAsk" class="card ask">
+    <h2>Ask a question</h2>
+    <p class="hint">For example: “Which notes mention Acme?” or “Summarize what I added about pricing.”</p>
+    <input type="text" id="q" placeholder="Ask anything about your data…" onkeydown="if(event.key==='Enter')doAsk()">
+    <button class="go" id="askBtn" onclick="doAsk()">Ask</button>
+    <div id="answer"></div>
+    <div id="askMsg"></div>
+  </section>
+
+  <!-- ADD -->
+  <section id="paneAdd" class="card hide">
+    <h2>Add something</h2>
+    <p class="hint">Type a note, a customer detail, a meeting summary — anything. It's saved on this machine and becomes instantly searchable.</p>
+    <label for="title">Title (optional)</label>
+    <input type="text" id="title" placeholder="e.g. Acme contract terms">
+    <label for="body">Details</label>
+    <textarea id="body" placeholder="Write anything here…"></textarea>
+    <button class="go" id="addBtn" onclick="doAdd()">Add it</button>
+    <div id="addMsg"></div>
+  </section>
+
+  <!-- RECENT -->
+  <section id="paneRecent" class="card hide">
+    <h2>Recent items</h2>
+    <p class="hint">The latest things you've added. Click one to see it.</p>
+    <ul class="recent" id="recentList"></ul>
+    <div id="recentMsg"></div>
+  </section>
+
+  <footer>
+    Powered by Centauri · <a href="/">advanced dashboard</a> · <a href="/studio">Studio</a> · nothing leaves this machine
+  </footer>
+</div>
+
+<script>
+  // Optional bearer token (blank on a local desktop). Kept in memory only.
+  var TOKEN = "";
+  function hdrs(){ var h={"Content-Type":"application/json"}; if(TOKEN) h["Authorization"]="Bearer "+TOKEN; return h; }
+  function esc(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  function show(which){
+    ['ask','add','recent'].forEach(p=>{
+      document.getElementById('pane'+cap(p)).classList.toggle('hide', p!==which);
+      document.getElementById('tab'+cap(p)).classList.toggle('on', p===which);
+    });
+    if(which==='recent') loadRecent();
+  }
+  function cap(s){ return s[0].toUpperCase()+s.slice(1); }
+  function setMsg(id,text,kind){ var e=document.getElementById(id); e.className='msg '+(kind||''); e.textContent=text; if(!text) e.className=''; }
+
+  // ---- ASK (RAG with citations) ----
+  async function doAsk(){
+    var q=document.getElementById('q').value.trim();
+    if(!q) return;
+    var btn=document.getElementById('askBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>Thinking…';
+    document.getElementById('answer').innerHTML=''; setMsg('askMsg','');
+    // ASK is a CeQL statement; soften any quotes so the query always parses.
+    var safe=q.replace(/'/g,'’');
+    try{
+      var r=await fetch('/v1/query',{method:'POST',headers:hdrs(),body:JSON.stringify({q:"ASK '"+safe+"'"})});
+      var data=await r.json();
+      if(!r.ok){ setMsg('askMsg', data.error||('Error '+r.status), 'err'); return; }
+      renderAnswer(data);
+    }catch(e){ setMsg('askMsg','Could not reach Centauri: '+e.message,'err'); }
+    finally{ btn.disabled=false; btn.textContent='Ask'; }
+  }
+  function renderAnswer(data){
+    var ans=(data.answer||'').trim();
+    var box=document.getElementById('answer');
+    if(ans){
+      box.className='answer'; box.textContent=ans;
+      var ids=data.sources||(data.source?[data.source]:[]);
+      if(ids.length){ var s=document.createElement('div'); s.className='sources'; s.innerHTML='<b>Based on '+ids.length+' of your item'+(ids.length>1?'s':'')+'.</b>'; box.appendChild(s); }
+    }else{
+      box.className='answer empty';
+      box.textContent = data.note || "I don't have anything about that yet. Add some details on the Add tab, then ask again.";
+    }
+  }
+
+  // ---- ADD (append a note fact) ----
+  async function doAdd(){
+    var title=document.getElementById('title').value.trim();
+    var body=document.getElementById('body').value.trim();
+    if(!title && !body){ setMsg('addMsg','Type something to add first.','err'); return; }
+    var btn=document.getElementById('addBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>Saving…';
+    var ev={ subject:"note:"+Date.now(), facet:"note", value:{ title:title, text:body, added:new Date().toISOString() } };
+    try{
+      var r=await fetch('/v1/append',{method:'POST',headers:hdrs(),body:JSON.stringify({events:[ev]})});
+      var data=await r.json();
+      if(!r.ok){ setMsg('addMsg', data.error||('Error '+r.status), 'err'); return; }
+      document.getElementById('title').value=''; document.getElementById('body').value='';
+      setMsg('addMsg','Added ✓  It\'s now searchable — try the Ask tab.','ok');
+    }catch(e){ setMsg('addMsg','Could not reach Centauri: '+e.message,'err'); }
+    finally{ btn.disabled=false; btn.textContent='Add it'; }
+  }
+
+  // ---- RECENT ----
+  async function loadRecent(){
+    var ul=document.getElementById('recentList'); ul.innerHTML=''; setMsg('recentMsg','');
+    try{
+      var r=await fetch('/v1/subjects',{headers:hdrs()});
+      var data=await r.json();
+      var subs=(data.subjects||data||[]).filter(s=>String(s).indexOf('note:')===0).slice(-30).reverse();
+      if(!subs.length){ setMsg('recentMsg','Nothing yet — add your first item on the Add tab.'); return; }
+      for(const s of subs){
+        var li=document.createElement('li'); li.onclick=()=>openItem(s);
+        li.innerHTML='<span class="s">'+esc(s.replace('note:',''))+'</span><span class="v" id="v_'+esc(s)+'">…</span>';
+        ul.appendChild(li);
+        previewItem(s);
+      }
+    }catch(e){ setMsg('recentMsg','Could not load items: '+e.message,'err'); }
+  }
+  async function previewItem(s){
+    try{
+      var r=await fetch('/v1/current?subject='+encodeURIComponent(s),{headers:hdrs()});
+      var ev=await r.json(); var e=Array.isArray(ev)?ev[0]:ev;
+      var v=e&&e.value?e.value:{}; var t=v.title||v.text||'';
+      var cell=document.getElementById('v_'+s); if(cell) cell.textContent=t;
+    }catch(_){}
+  }
+  async function openItem(s){
+    try{
+      var r=await fetch('/v1/current?subject='+encodeURIComponent(s),{headers:hdrs()});
+      var ev=await r.json(); var e=Array.isArray(ev)?ev[0]:ev; var v=(e&&e.value)||{};
+      alert((v.title?v.title+'\n\n':'')+(v.text||JSON.stringify(v,null,2)));
+    }catch(e){ alert('Could not open: '+e.message); }
+  }
+</script>
+</body>
+</html>

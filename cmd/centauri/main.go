@@ -125,6 +125,7 @@ func main() {
 	haAddr := fs.String("ha-addr", "", "serve: this node's advertised base URL for replicas to follow when it leads (default: http://127.0.0.1<addr>)")
 	haTTL := fs.Int("ha-ttl", 10, "serve: HA lease TTL in seconds; a primary that can't renew within this window is failed over")
 	aiTier := fs.String("ai", "off", "local-AI appliance: off | auto | small | balanced | max. On serve it's opt-in; `desktop` turns it on automatically. Centauri installs the model runtime (Ollama) if missing, starts it, and pulls the right models — no user steps. See docs/local-ai.md")
+	aiYes := fs.Bool("ai-yes", false, "skip the one-time 'set up local AI?' prompt and proceed (for scripts/unattended installs)")
 	_ = fs.Parse(os.Args[2:])
 	logger := api.SetupLogger(*logFormat, *logLevel)
 	// Enterprise SSO: a JWT verifier is built only when an issuer or a JWKS URL
@@ -578,8 +579,9 @@ func main() {
 		if n, err := assistant.SeedIfEmpty(st, time.Now().UnixMicro()); err == nil {
 			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
 		}
-		fmt.Printf("your data:  %s\ndashboard:  http://localhost%s  (opening in your browser…)\n", *data, *addr)
-		fmt.Printf("studio:     http://localhost%s/studio  (the AI-first IDE)\n", *addr)
+		fmt.Printf("your data:  %s\n", *data)
+		fmt.Printf("open:       http://localhost%s/app   (the simple view — opening in your browser…)\n", *addr)
+		fmt.Printf("dashboard:  http://localhost%s        ·  studio: http://localhost%s/studio\n", *addr, *addr)
 		// Turnkey local AI: pick the right models for this machine, turn on
 		// auto-embed, and in the background install the model runtime (Ollama) if
 		// needed and pull the models — so an average user does nothing at all.
@@ -588,14 +590,16 @@ func main() {
 		if desktopTier == "" || desktopTier == "off" {
 			desktopTier = "auto"
 		}
-		setupAI(st, desktopTier, *manageOllama)
+		if aiConsent(st, *data, *aiYes) {
+			setupAI(st, desktopTier, *manageOllama)
+		}
 		if note := syncedFolderNote(*data); note != "" {
 			fmt.Println("\n" + note)
 		}
 		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
 		go func() {
 			time.Sleep(1200 * time.Millisecond)
-			openBrowser("http://localhost" + *addr)
+			openBrowser("http://localhost" + *addr + "/app") // the simple, friendly view
 		}()
 		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data,
 			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second,
@@ -660,7 +664,7 @@ func main() {
 		// Turnkey local-AI appliance: register the tier's local models so ASK /
 		// SEARCH / ENRICH work out of the box. The business picks nothing —
 		// Centauri configures the models and tells you what to pull.
-		if *aiTier != "" && *aiTier != "off" {
+		if *aiTier != "" && *aiTier != "off" && aiConsent(st, *data, *aiYes) {
 			setupAI(st, *aiTier, true)
 		}
 		fmt.Printf("data: %s\nlistening on %s   metrics: /metrics   health: /livez /readyz\n", *data, *addr)
@@ -802,6 +806,38 @@ func syncPeer(st *store.Store, peer, token string, interval time.Duration) {
 // (chat, embedder, vision) so ASK/SEARCH/ENRICH work without manual config, and
 // prints the `ollama pull` commands to fetch the weights. Models run in the local
 // Ollama server Centauri manages — no cloud, no per-token cost.
+// aiConsent decides whether to set up local AI, asking the user at most once. It
+// proceeds silently when AI is already configured (a prior "yes"), when -ai-yes is
+// given, or when there's no interactive terminal (unattended/turnkey). Otherwise
+// it asks once and remembers a "no" (an opt-out marker beside the data) so it
+// never nags again. This is the consent gate in front of installing Ollama and
+// downloading models.
+func aiConsent(st *store.Store, dataPath string, autoYes bool) bool {
+	if len(st.Current("model:chat", "config")) > 0 {
+		return true // already set up on a previous run
+	}
+	if autoYes {
+		return true
+	}
+	marker := filepath.Join(filepath.Dir(dataPath), ".centauri-ai-optout")
+	if _, err := os.Stat(marker); err == nil {
+		return false // the user declined before
+	}
+	if fi, _ := os.Stdin.Stat(); fi == nil || fi.Mode()&os.ModeCharDevice == 0 {
+		return true // no console (service / unattended) → turnkey default
+	}
+	fmt.Print("\nSet up your private local AI now? It runs entirely on this machine and may\n" +
+		"install the model runtime (Ollama) and download a few GB of models, one time. [Y/n]: ")
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "n", "no":
+		_ = os.WriteFile(marker, []byte("user opted out of local AI setup\n"), 0o644)
+		fmt.Println("Skipping AI setup. Enable it later with:  centauri serve -ai auto   (or delete " + marker + ")")
+		return false
+	}
+	return true
+}
+
 // setupAI makes Centauri a turnkey local-AI appliance: it picks the right model
 // tier for this machine, registers the models, turns on auto-embed, and — in the
 // background, so startup is instant — installs the model runtime (Ollama) if it's
