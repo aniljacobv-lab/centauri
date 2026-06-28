@@ -1,6 +1,6 @@
 #!/bin/sh
 # Centauri installer for Linux and macOS.
-#   curl -fsSL https://aniljacobv-lab.github.io/centauri/install.sh | sh
+#   curl -fsSL https://centauridb.ai/install.sh | sh
 # Installs the right binary to /usr/local/bin and tells you how to start.
 set -e
 
