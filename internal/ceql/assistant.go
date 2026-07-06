@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // askThreshold is the minimum BM25 score to count as a confident answer;
@@ -103,8 +103,8 @@ func execAsk(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	gap := "kb_gap:" + slugify(question)
 	ev := &model.Event{
 		Subject: gap, Facet: "assistant", Type: model.Observed,
-		Value:        map[string]any{"question": question, "asked_at": now},
-		Provenance:   model.SystemFeed, Confidence: 1.0, SourceSystem: "ASSISTANT",
+		Value:      map[string]any{"question": question, "asked_at": now},
+		Provenance: model.SystemFeed, Confidence: 1.0, SourceSystem: "ASSISTANT",
 	}
 	_ = st.Append(now, []*model.Event{ev}, nil)
 	return map[string]any{

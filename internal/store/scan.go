@@ -13,8 +13,8 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 func nsOf(s string) string {

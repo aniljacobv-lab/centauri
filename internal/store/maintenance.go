@@ -78,6 +78,13 @@ func (s *Store) maybeAutoSeal() {
 	if s.archiveDir == "" || s.opts.AutoSealBytes <= 0 || s.opts.LazyPayloads {
 		return
 	}
+	// Sealing resets the tail to byte offset 0, invalidating the byte-offset
+	// cursors CDC consumers and ship followers hold. slots.go promises that
+	// unconsumed log below MinSlotCursor is never discarded — so while any
+	// replication slot exists, skip auto-sealing rather than strand a consumer.
+	if len(s.Slots()) > 0 {
+		return
+	}
 	s.mu.RLock()
 	sz := s.size
 	s.mu.RUnlock()

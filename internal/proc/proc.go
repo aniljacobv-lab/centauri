@@ -28,10 +28,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // Step kinds.
@@ -215,7 +216,7 @@ func (r *runner) step(s *Step) (bool, error) {
 		inner, err := r.step(s.Then)
 		return inner, err
 	case sLetQuery:
-		q, err := r.substitute(s.Query)
+		q, err := r.substituteQuery(s.Query)
 		if err != nil {
 			return false, err
 		}
@@ -240,7 +241,7 @@ func (r *runner) step(s *Step) (bool, error) {
 		trace["bound"] = summarize(v)
 		return false, nil
 	case sPut:
-		q, err := r.substitute(s.Query)
+		q, err := r.substituteQuery(s.Query)
 		if err != nil {
 			return false, err
 		}
@@ -333,6 +334,8 @@ func flatten(e *model.Event) map[string]any {
 }
 
 // substitute fills ${var} / ${var.field} holes with raw formatted values.
+// Only for text that is NOT re-parsed as CeQL (FAIL messages) — query
+// templates go through substituteQuery, which quotes string values.
 func (r *runner) substitute(s string) (string, error) {
 	var firstErr error
 	out := reSubst.ReplaceAllStringFunc(s, func(hole string) string {
@@ -344,6 +347,111 @@ func (r *runner) substitute(s string) (string, error) {
 		return format(v)
 	})
 	return out, firstErr
+}
+
+// substituteQuery fills ${...} holes in a CeQL template. The result is
+// re-parsed as CeQL, so splicing raw strings would let an argument like
+// "x' , retired=true" reshape the generated statement (textual injection —
+// and proc_* tools are pitched as confinement for scoped principals).
+// Rules, by where the hole sits in the template:
+//   - numbers and bools always render bare, as before;
+//   - inside an already-quoted literal ('… ${x} …') the value is spliced
+//     raw but must not contain the surrounding quote character;
+//   - a hole touching a word (hts:${item}) accepts only strings that stay
+//     inside that single token — no quotes, spaces, operators, or '*';
+//   - anywhere else a string value becomes a quoted CeQL string literal
+//     (the parser accepts quoted strings in subject positions too).
+func (r *runner) substituteQuery(s string) (string, error) {
+	locs := reSubst.FindAllStringSubmatchIndex(s, -1)
+	if len(locs) == 0 {
+		return s, nil
+	}
+	var out strings.Builder
+	var quote byte // open quote character in the template text; 0 = none
+	prev := 0
+	for _, loc := range locs {
+		start, end := loc[0], loc[1]
+		lit := s[prev:start]
+		for j := 0; j < len(lit); j++ {
+			switch {
+			case quote == 0 && (lit[j] == '\'' || lit[j] == '"'):
+				quote = lit[j]
+			case lit[j] == quote:
+				quote = 0
+			}
+		}
+		out.WriteString(lit)
+		name := s[loc[2]:loc[3]]
+		v, err := lookup(name, r.vars)
+		if err != nil {
+			return "", err
+		}
+		rendered := format(v)
+		switch {
+		case quote != 0:
+			if strings.IndexByte(rendered, quote) >= 0 {
+				return "", fmt.Errorf("argument ${%s} contains the %q quote of the surrounding string literal", name, string(quote))
+			}
+			out.WriteString(rendered)
+		case isBareValue(v):
+			out.WriteString(rendered)
+		case isBareString(v):
+			out.WriteString(rendered)
+		case touchesWord(s, start, end):
+			if !ceql.SafeWordSplice(rendered) {
+				return "", fmt.Errorf("argument ${%s} = %q can't be spliced into a subject/name — only letters, digits and :/_-.@ stay inside one token", name, rendered)
+			}
+			out.WriteString(rendered)
+		default:
+			q, err := ceql.QuoteString(rendered)
+			if err != nil {
+				return "", fmt.Errorf("argument ${%s}: %w", name, err)
+			}
+			out.WriteString(q)
+		}
+		prev = end
+	}
+	out.WriteString(s[prev:])
+	return out.String(), nil
+}
+
+// isBareValue: numbers and bools render as single unambiguous tokens.
+func isBareValue(v any) bool {
+	switch v.(type) {
+	case float64, float32, int, int64, bool:
+		return true
+	}
+	return false
+}
+
+// reBareNum matches a strict numeric literal: one CeQL number token, nothing
+// else — no exponents, hex, underscores, or leading '+'.
+var reBareNum = regexp.MustCompile(`^-?[0-9]+(\.[0-9]+)?$`)
+
+// isBareString reports whether a string value is itself a single unambiguous
+// CeQL literal token (a strict number or true/false) and may therefore splice
+// bare. This preserves the pre-quoting behavior that DDL-generated procedures
+// rely on (SET n=${n} over number/bool params receiving JSON strings like
+// "320") while staying injection-safe: the whole value is provably one token.
+func isBareString(v any) bool {
+	s, ok := v.(string)
+	if !ok {
+		return false
+	}
+	return s == "true" || s == "false" || reBareNum.MatchString(s)
+}
+
+// touchesWord reports whether the hole s[start:end] is glued to a word
+// token on either side (e.g. hts:${item}), where a quoted literal would
+// split the token.
+func touchesWord(s string, start, end int) bool {
+	if r, size := utf8.DecodeLastRuneInString(s[:start]); size > 0 && ceql.IsWordRune(r) {
+		return true
+	}
+	if r, size := utf8.DecodeRuneInString(s[end:]); size > 0 && ceql.IsWordRune(r) {
+		return true
+	}
+	return false
 }
 
 func lookup(dotted string, vars map[string]any) (any, error) {

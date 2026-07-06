@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/objstore"
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/objstore"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 // memStore is an in-memory SegmentStore standing in for an object store.
@@ -21,8 +21,11 @@ func (s *memStore) Get(key string) ([]byte, error) {
 	}
 	return b, nil
 }
-func (s *memStore) Put(key string, data []byte) error { s.m[key] = append([]byte(nil), data...); return nil }
-func (s *memStore) Exists(key string) (bool, error)   { _, ok := s.m[key]; return ok, nil }
+func (s *memStore) Put(key string, data []byte) error {
+	s.m[key] = append([]byte(nil), data...)
+	return nil
+}
+func (s *memStore) Exists(key string) (bool, error) { _, ok := s.m[key]; return ok, nil }
 
 func TestOpenLazyIndexBackend(t *testing.T) {
 	dir := t.TempDir()
@@ -89,7 +92,7 @@ func TestOpenLazyIndexBackend(t *testing.T) {
 	}
 }
 
-func itoa(i int) string { return string(rune('0'+i)) } // 0..9 only, fine for this test
+func itoa(i int) string { return string(rune('0' + i)) } // 0..9 only, fine for this test
 func fmtV(v any) string {
 	switch x := v.(type) {
 	case int:

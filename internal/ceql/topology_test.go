@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // A circle: one component, one loop. Betti = [1,1].

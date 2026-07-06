@@ -82,8 +82,8 @@ func TestNaturalTimesInCeQL(t *testing.T) {
 
 func TestTranslateNL(t *testing.T) {
 	cases := []struct {
-		in       string
-		wantSub  string // substring that must appear in the CeQL
+		in      string
+		wantSub string // substring that must appear in the CeQL
 	}{
 		{"what was the price of toy:robot yesterday", "FACTS OF toy:robot AS OF "},
 		{"show me the history of toy:robot", "HISTORY OF toy:robot"},

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // Many goroutines append concurrently through the group committer: nothing is

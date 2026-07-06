@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 func TestEveryExampleParses(t *testing.T) {

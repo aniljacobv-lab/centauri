@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/proxima360/centauri/internal/objstore"
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/objstore"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 // CacheStats is the segment-cache scorecard surfaced on the dashboard.
@@ -114,10 +114,15 @@ func (a *archiveReader) segmentBytes(e segment.Entry) ([]byte, error) {
 		}
 	}
 	a.mu.Lock()
-	a.cache[ck] = raw
-	a.bytesCached += int64(len(raw))
-	a.order = append(a.order, ck)
-	a.evictLocked()
+	// Re-check under the final lock: two goroutines can miss concurrently and
+	// both fetch; only the first may insert, or bytesCached and the LRU order
+	// list would double-count the same key.
+	if _, ok := a.cache[ck]; !ok {
+		a.cache[ck] = raw
+		a.bytesCached += int64(len(raw))
+		a.order = append(a.order, ck)
+		a.evictLocked()
+	}
 	a.mu.Unlock()
 	return raw, nil
 }

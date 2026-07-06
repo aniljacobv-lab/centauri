@@ -5,7 +5,8 @@
 // time-travel-aware for free (search the state AS OF / AS KNOWN AT).
 //
 // SEARCH '<text>' [OF <pattern>] [FACET f] [SIMILAR TO <event> [ALPHA a]]
-//   [AS OF t] [AS KNOWN AT t] [LIMIT n]
+//
+//	[AS OF t] [AS KNOWN AT t] [LIMIT n]
 package ceql
 
 import (
@@ -15,8 +16,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const (

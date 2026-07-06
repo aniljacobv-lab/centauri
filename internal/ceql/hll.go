@@ -36,8 +36,8 @@ func fnv64(s string) uint64 {
 // add folds one value's hash into the sketch.
 func (h *hll) add(s string) {
 	x := fnv64(s)
-	idx := x >> (64 - hllP)           // top p bits select the register
-	w := x<<hllP | (1 << (hllP - 1))  // remaining bits; guard bit bounds rho
+	idx := x >> (64 - hllP)          // top p bits select the register
+	w := x<<hllP | (1 << (hllP - 1)) // remaining bits; guard bit bounds rho
 	rho := uint8(bits.LeadingZeros64(w)) + 1
 	if rho > h.reg[idx] {
 		h.reg[idx] = rho

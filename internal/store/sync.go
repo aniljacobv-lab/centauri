@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // IngestForeign appends facts received from a peer during sync. It skips any

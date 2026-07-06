@@ -17,6 +17,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -72,6 +73,12 @@ func VerifyChain(path string) (head string, size int64, records int, err error) 
 			records++
 		}
 		if rerr != nil {
+			if rerr != io.EOF {
+				// A mid-file read error is an I/O failure, not tampering:
+				// report it instead of returning a partial chain that would
+				// be misread as a mismatch.
+				return "", 0, 0, rerr
+			}
 			break
 		}
 	}
@@ -89,12 +96,12 @@ func (s *Store) Integrity() (map[string]any, error) {
 	}
 	ok := liveHead == diskHead && liveSize == diskSize
 	return map[string]any{
-		"verified":    ok,
-		"chain_head":  liveHead,
-		"log_bytes":   liveSize,
-		"records":     records,
-		"disk_head":   diskHead,
-		"disk_bytes":  diskSize,
+		"verified":   ok,
+		"chain_head": liveHead,
+		"log_bytes":  liveSize,
+		"records":    records,
+		"disk_head":  diskHead,
+		"disk_bytes": diskSize,
 		"note": fmt.Sprintf("record the chain_head externally; any future "+
 			"`centauri verify` reproducing it proves history is intact (%d records)", records),
 	}, nil

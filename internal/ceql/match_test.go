@@ -3,8 +3,8 @@ package ceql
 import (
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // link item:1 --TRIGGERED--> register:1 and return the store.

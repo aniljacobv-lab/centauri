@@ -121,10 +121,10 @@ type Query struct {
 	Where   *Expr        `json:"where,omitempty"`
 	GroupBy string       `json:"group_by,omitempty"`
 	Having  []HavingCond `json:"having,omitempty"`
-	OrderBy string `json:"order_by,omitempty"`
-	Desc    bool   `json:"desc,omitempty"`
-	Limit   int    `json:"limit,omitempty"`
-	Offset  int    `json:"offset,omitempty"`
+	OrderBy string       `json:"order_by,omitempty"`
+	Desc    bool         `json:"desc,omitempty"`
+	Limit   int          `json:"limit,omitempty"`
+	Offset  int          `json:"offset,omitempty"`
 
 	Why   bool `json:"why,omitempty"`
 	Depth int  `json:"depth,omitempty"`
@@ -205,6 +205,39 @@ type token struct {
 func isWordRune(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) ||
 		strings.ContainsRune(":/_-*.@", r)
+}
+
+// IsWordRune reports whether r can appear inside a CeQL word token
+// (subjects, fields, bare values). Exported for layers that assemble
+// query text — internal/proc splices argument values into templates
+// and must know what stays inside a single token.
+func IsWordRune(r rune) bool { return isWordRune(r) }
+
+// QuoteString renders s as a CeQL string literal — the exact inverse of
+// the lexer above, which reads to the closing quote and has NO escape
+// sequences. A string containing one quote character is wrapped in the
+// other; a string containing both cannot be written as CeQL text at all.
+func QuoteString(s string) (string, error) {
+	if !strings.ContainsRune(s, '\'') {
+		return "'" + s + "'", nil
+	}
+	if !strings.ContainsRune(s, '"') {
+		return `"` + s + `"`, nil
+	}
+	return "", fmt.Errorf("%q contains both quote characters — CeQL strings have no escapes, so it cannot be embedded in query text (send it via the JSON AST instead)", s)
+}
+
+// SafeWordSplice reports whether s can be spliced into the middle of a
+// word token (a subject template like hts:<s>) without changing the token
+// structure of the surrounding statement. '*' is excluded even though it
+// is a word rune: splicing a wildcard would silently widen a scoped read.
+func SafeWordSplice(s string) bool {
+	for _, r := range s {
+		if r == '*' || !isWordRune(r) {
+			return false
+		}
+	}
+	return true
 }
 
 func lex(src string) ([]token, error) {
@@ -320,8 +353,8 @@ func Parse(src string, now int64) (*Query, error) {
 	return q, nil
 }
 
-func (p *parser) peek() token { return p.toks[p.pos] }
-func (p *parser) next() token { t := p.toks[p.pos]; p.pos++; return t }
+func (p *parser) peek() token     { return p.toks[p.pos] }
+func (p *parser) next() token     { t := p.toks[p.pos]; p.pos++; return t }
 func (p *parser) at(k tkind) bool { return p.peek().k == k }
 
 // kw reports whether the next token is the given keyword (case-insensitive).
@@ -487,7 +520,8 @@ func (p *parser) statement() (*Query, error) {
 }
 
 // FACTS [proj] OF subj [FACET f] [AS OF t] [AS KNOWN AT t] [WHERE e]
-//       [GROUP BY g] [ORDER BY o [DESC]] [LIMIT n] [OFFSET n] [WHY [DEPTH n]]
+//
+//	[GROUP BY g] [ORDER BY o [DESC]] [LIMIT n] [OFFSET n] [WHY [DEPTH n]]
 func (p *parser) factsStmt() (*Query, error) {
 	q := &Query{Kind: KFacts}
 	// projection (until OF)
@@ -732,7 +766,8 @@ func (p *parser) subjectsStmt() (*Query, error) {
 }
 
 // PUT subj [FACET f] [TYPE t] SET k=v, ... [EFFECTIVE t] [CONFIDENCE c]
-//     [SCHEMA s] [PROVENANCE p] [REF r]
+//
+//	[SCHEMA s] [PROVENANCE p] [REF r]
 func (p *parser) putStmt(defType string) (*Query, error) {
 	q := &Query{Kind: KPut, EvType: defType}
 	subj, err := p.word("a subject")
@@ -857,9 +892,10 @@ func (p *parser) asClause(q *Query) error {
 }
 
 // SHAPE OF <pattern>
-//   ON <f1>[, <f2>…] | ON EMBEDDING | ON <field> WINDOW <n> [STRIDE <n>]
-//   [METRIC euclidean|cosine] [MAXDIM 1|2] [NORMALIZE|RAW]
-//   [FACET f] [SCALE n] [AS OF t] [AS KNOWN AT t] [LIMIT n]
+//
+//	ON <f1>[, <f2>…] | ON EMBEDDING | ON <field> WINDOW <n> [STRIDE <n>]
+//	[METRIC euclidean|cosine] [MAXDIM 1|2] [NORMALIZE|RAW]
+//	[FACET f] [SCALE n] [AS OF t] [AS KNOWN AT t] [LIMIT n]
 func (p *parser) shapeStmt() (*Query, error) {
 	q := &Query{Kind: KShape}
 	if err := p.expect("OF"); err != nil {
@@ -1033,7 +1069,8 @@ func (p *parser) driftStmt() (*Query, error) {
 }
 
 // SEARCH '<text>' [OF <pattern>] [FACET f] [SIMILAR TO <event> [ALPHA a]]
-//   [AS OF t] [AS KNOWN AT t] [LIMIT n]
+//
+//	[AS OF t] [AS KNOWN AT t] [LIMIT n]
 func (p *parser) searchStmt() (*Query, error) {
 	q := &Query{Kind: KSearch, Subject: "*"}
 	if p.peek().k != tStr {

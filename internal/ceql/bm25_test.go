@@ -18,10 +18,10 @@ func TestTokenize(t *testing.T) {
 func corpus() [][]string {
 	return [][]string{
 		tokenize("item:100001/store:4001 late markdown never reached the register"), // 0
-		tokenize("item:100002/store:4001 markdown applied at the register on time"),  // 1
-		tokenize("item:100003/store:9 seasonal price raise correction"),              // 2
-		tokenize("toy:robot markdown markdown markdown clearance"),                   // 3
-		tokenize("item:100005/store:4001 the the the the register the the"),          // 4
+		tokenize("item:100002/store:4001 markdown applied at the register on time"), // 1
+		tokenize("item:100003/store:9 seasonal price raise correction"),             // 2
+		tokenize("toy:robot markdown markdown markdown clearance"),                  // 3
+		tokenize("item:100005/store:4001 the the the the register the the"),         // 4
 	}
 }
 

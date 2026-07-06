@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // Sealing a log into compressed segments must reproduce the ENGINE's exact hash
@@ -232,4 +232,3 @@ func TestGCArchive(t *testing.T) {
 		t.Fatalf("verify after GC: %v", err)
 	}
 }
-

@@ -9,9 +9,11 @@
 // lifecycle bits set under the store lock by store.apply() and never part of
 // the durable fact's identity or payload: SupersededBy and EffectiveEnd
 // (written once when a later fact supersedes this one) and ActivationTime
-// (written once when a DISTRIBUTED fact is activated). Query paths return the
-// shared *Event pointer, so a caller holding one may observe these fields flip
-// after a concurrent Activate/supersede; re-query if you need a stable view.
+// (written once when a DISTRIBUTED fact is activated). Public query paths
+// return shallow copies taken under the store lock, so a returned event is a
+// stable snapshot that never observes a later concurrent Activate/supersede;
+// re-query for fresher lifecycle state. Value maps are shared by those copies
+// and are never mutated after append.
 package model
 
 import (
@@ -44,9 +46,9 @@ const (
 
 // Event is the immutable atom of Centauri.
 type Event struct {
-	EventID string `json:"event_id"` // time-ordered unique id (UUIDv7-style)
-	Subject string `json:"subject"`  // what the fact is about, e.g. "item:123456/store:4412"
-	Facet   string `json:"facet"`    // which reality: "source", "register", "pdt", "shelf", "storecentral"
+	EventID string    `json:"event_id"` // time-ordered unique id (UUIDv7-style)
+	Subject string    `json:"subject"`  // what the fact is about, e.g. "item:123456/store:4412"
+	Facet   string    `json:"facet"`    // which reality: "source", "register", "pdt", "shelf", "storecentral"
 	Type    EventType `json:"type"`
 
 	// Value is the domain payload. v0.1 keeps it as a generic map;
@@ -108,8 +110,8 @@ type Enrichment struct {
 type FieldDef struct {
 	Type        string   `json:"type"` // "number", "string", "bool", "any"
 	Required    bool     `json:"required,omitempty"`
-	Min         *float64 `json:"min,omitempty"` // numbers only
-	Max         *float64 `json:"max,omitempty"` // numbers only
+	Min         *float64 `json:"min,omitempty"`  // numbers only
+	Max         *float64 `json:"max,omitempty"`  // numbers only
 	Unit        string   `json:"unit,omitempty"` // e.g. "cents", "celsius"
 	Description string   `json:"description,omitempty"`
 }
@@ -138,7 +140,7 @@ const EmbeddingKind = "embedding"
 
 // NewID returns a time-ordered unique identifier: a UUIDv7-style id whose
 // leading bits are the current UnixMicro timestamp. Time-sortable ids are
-// cheap insurance for future log shipping and replication.
+// cheap insurance for log shipping and replication.
 func NewID() string {
 	var r [8]byte
 	_, _ = rand.Read(r[:])

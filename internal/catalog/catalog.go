@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // Entry is one command template.
@@ -54,6 +54,9 @@ func Entries() []Entry {
 		{"read", "where-like", "FACTS OF <pattern> WHERE <field> LIKE '<glob>'", "FACTS OF item:*/store:4001 WHERE kind LIKE 'PEN*'",
 			"Pattern-match a text field",
 			[]string{"starts with", "like"}},
+		{"read", "where-exists", "FACTS OF <pattern> WHERE EXISTS <field>", "FACTS OF item:*/store:4001 WHERE EXISTS discount",
+			"Only facts that carry a field at all (combine with NOT for the gaps)",
+			[]string{"exists", "has a", "field present", "is set", "not null", "missing field"}},
 		{"read", "search", "FACTS OF <pattern> WHERE any MATCHES '<text>'", "FACTS OF item:* WHERE any MATCHES 'penny' LIMIT 20",
 			"Full-text search across subject and all text values (case-insensitive)",
 			[]string{"search", "find text", "contains", "look for", "grep"}},
@@ -66,6 +69,9 @@ func Entries() []Entry {
 		{"read", "order-limit", "FACTS ... ORDER BY <key> DESC LIMIT <n>", "FACTS subject, price_cents OF item:*/store:4001 ORDER BY price_cents DESC LIMIT 10",
 			"Top-N by any field",
 			[]string{"top 10", "highest", "lowest", "most expensive", "cheapest", "sort"}},
+		{"read", "offset", "FACTS ... ORDER BY <key> LIMIT <n> OFFSET <n>", "FACTS subject, price_cents OF item:*/store:4001 ORDER BY price_cents DESC LIMIT 10 OFFSET 10",
+			"Page through ordered results: skip the first N rows (project rank for stable row numbers)",
+			[]string{"offset", "next page", "pagination", "skip rows", "page two", "paginate"}},
 		{"read", "history", "HISTORY OF <subject>", "HISTORY OF " + sub,
 			"Every fact ever recorded — nothing is erased",
 			[]string{"history", "story", "timeline", "all changes", "what happened to"}},
@@ -207,6 +213,19 @@ func Entries() []Entry {
 		{"agg", "minmax", "FACTS MIN(<field>), MAX(<field>) OF <pattern>", "FACTS MIN(price_cents), MAX(price_cents) OF item:*/store:4001",
 			"Extremes across matching facts",
 			[]string{"minimum", "maximum", "cheapest", "most expensive", "range"}},
+		{"agg", "median", "FACTS MEDIAN(<field>) OF <pattern>", "FACTS MEDIAN(price_cents) OF item:*/store:4001",
+			"The middle value — robust to outliers where AVG is not",
+			[]string{"median", "middle value", "typical value", "50th percentile"}},
+		{"agg", "stddev", "FACTS AVG(<field>), STDDEV(<field>) OF <pattern>", "FACTS AVG(price_cents), STDDEV(price_cents) OF item:*/store:4001",
+			"Spread around the mean (population standard deviation)",
+			[]string{"standard deviation", "stddev", "spread", "variance", "volatility", "dispersion"}},
+		{"agg", "listagg", "FACTS <key>, LISTAGG(<field>) OF <pattern> GROUP BY <key>", "FACTS facet, LISTAGG(kind) OF item:*/store:4001 GROUP BY facet",
+			"The distinct values in each group as one sorted, comma-separated string",
+			[]string{"listagg", "list the values", "concatenate", "string agg", "group concat", "which values"}},
+		{"agg", "having", "FACTS <key>, <AGG>(<field>) OF <pattern> GROUP BY <key> HAVING <AGG>(<field>) <op> <n>",
+			"FACTS facet, COUNT(*) OF item:*/store:4001 GROUP BY facet HAVING COUNT(*) > 5",
+			"Keep only groups whose aggregate passes the test (AND-combinable)",
+			[]string{"having", "groups with more than", "only groups where", "filter groups", "at least n per group"}},
 
 		// ---- LIVE ----
 		{"live", "watch-all", "WATCH ALL", "WATCH ALL",

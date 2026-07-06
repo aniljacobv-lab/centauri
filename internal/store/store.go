@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // ErrClosed is returned by writes after Close.
@@ -104,14 +104,14 @@ type Options struct {
 
 // Store is Centauri's storage engine.
 type Store struct {
-	mu     sync.RWMutex
-	path   string
-	f      *os.File
-	size   int64 // committed file size; rollback target on write error
-	opts      Options
-	closed    bool
-	failed    bool
-	lockPath  string // single-writer lock marker; "" when unlocked
+	mu         sync.RWMutex
+	path       string
+	f          *os.File
+	size       int64 // committed file size; rollback target on write error
+	opts       Options
+	closed     bool
+	failed     bool
+	lockPath   string // single-writer lock marker; "" when unlocked
 	archiveDir string // non-empty when opened via OpenArchive (segments + tail)
 
 	events map[string]*model.Event // event_id -> event (Value nil when offloaded)
@@ -140,7 +140,7 @@ type Store struct {
 	fieldIndex   map[string]map[string][]string
 	cappedFields map[string]bool
 	schemas      map[string][]*model.Schema // schema_id -> versions ascending
-	vectors        map[string][]float32       // event_id -> latest embedding
+	vectors      map[string][]float32       // event_id -> latest embedding
 
 	subs    map[int]chan *model.Event // watch subscribers
 	nextSub int
@@ -164,6 +164,11 @@ type Store struct {
 	maintStop     chan struct{}
 	maintDone     chan struct{}
 	maintStopOnce sync.Once
+
+	// slotMu serializes AdvanceSlot's read-check-append so the monotonic
+	// cursor guarantee holds under concurrent acks (slots.go). Ordering:
+	// slotMu is always taken before s.mu, never the other way around.
+	slotMu sync.Mutex
 }
 
 // commitReq is one queued append awaiting the group committer.
@@ -261,6 +266,24 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Acquire the single-writer lock BEFORE checkpoint load, replay, and the
+	// torn-tail truncation below — otherwise a second opener could truncate
+	// bytes a live writer is appending and only then fail the lock (TOCTOU).
+	if opts.Lock {
+		lp, lerr := acquireLock(path)
+		if lerr != nil {
+			f.Close()
+			return nil, lerr
+		}
+		s.lockPath = lp
+	}
+	// Every error path from here on must release the lock (Close releases it
+	// on the success path, exactly once).
+	fail := func(err error) (*Store, error) {
+		f.Close()
+		releaseLock(s.lockPath)
+		return nil, err
+	}
 	// A checkpoint (written on Close) lets Open replay only the log tail.
 	// It is an optimization, never truth: any mismatch — including a tail
 	// replay that fails — falls back to full replay of the log.
@@ -272,39 +295,26 @@ func OpenOptions(path string, opts Options) (*Store, error) {
 		good, err = s.replay(f, 0)
 	}
 	if err != nil {
-		f.Close()
-		return nil, err
+		return fail(err)
 	}
 	fi, err := f.Stat()
 	if err != nil {
-		f.Close()
-		return nil, err
+		return fail(err)
 	}
 	if good < fi.Size() {
 		// Torn tail from a crash mid-write: discard the partial record.
 		if err := f.Truncate(good); err != nil {
-			f.Close()
-			return nil, fmt.Errorf("store: truncate torn tail: %w", err)
+			return fail(fmt.Errorf("store: truncate torn tail: %w", err))
 		}
 		if err := f.Sync(); err != nil {
-			f.Close()
-			return nil, err
+			return fail(err)
 		}
 	}
 	if _, err := f.Seek(good, io.SeekStart); err != nil {
-		f.Close()
-		return nil, err
+		return fail(err)
 	}
 	s.f = f
 	s.size = good
-	if opts.Lock {
-		lp, lerr := acquireLock(path)
-		if lerr != nil {
-			f.Close()
-			return nil, lerr
-		}
-		s.lockPath = lp
-	}
 	// Start the group committer only after replay has reconstructed state.
 	if opts.GroupCommit {
 		s.writeQ = make(chan *commitReq, 4096)
@@ -331,6 +341,15 @@ func (s *Store) replay(f *os.File, start int64) (int64, error) {
 		if rerr != nil && rerr != io.EOF {
 			return 0, rerr
 		}
+		if len(line) > 0 && line[len(line)-1] != '\n' {
+			// The final bytes lack their newline terminator. commit writes each
+			// record and its '\n' in a single Write, so a complete record ALWAYS
+			// ends on '\n' — even if these bytes parse as JSON, they are a torn
+			// write. Never apply or chain-extend them: return the pre-line offset
+			// so the caller truncates the tail; advancing past it would make the
+			// next Append produce `{...}{...}\n` corruption.
+			return off, nil
+		}
 		trimmed := bytes.TrimSpace(line)
 		if len(trimmed) > 0 {
 			var r record
@@ -356,9 +375,10 @@ func (s *Store) replay(f *os.File, start int64) (int64, error) {
 				}
 			}
 		}
-		if len(line) > 0 && line[len(line)-1] == '\n' {
+		if len(line) > 0 {
 			// Read-side mirror of writeApplyNotify: apply-then-chainExtend over
 			// the exact on-disk bytes reproduces the writers' chain (invariant 4).
+			// Every kept line is newline-terminated (torn tails returned above).
 			s.chainExtend(line) // tamper-evidence chain covers every kept line
 		}
 		off += int64(len(line))
@@ -422,8 +442,10 @@ func (s *Store) Close() error {
 		delete(s.subs, id)
 	}
 	serr := s.f.Sync()
-	if serr == nil && !s.failed {
+	if serr == nil && !s.failed && s.archiveDir == "" {
 		// Best-effort: a missing/stale checkpoint only costs replay time.
+		// Archive-backed stores skip it: their state spans sealed segments
+		// plus the tail, which a plain-log checkpoint cannot describe.
 		_ = s.writeCheckpoint()
 	}
 	cerr := s.f.Close()
@@ -526,6 +548,12 @@ func (s *Store) apply(r *record) {
 		if en.Kind == model.EmbeddingKind {
 			if vec := parseVector(en.Result["vector"]); vec != nil {
 				s.vectors[en.TargetEvent] = vec
+			} else {
+				// A superseding embedding with a missing/unparseable vector
+				// must clear the stale one — the checkpoint rebuild keeps only
+				// vectors of non-superseded enrichments, and live state must
+				// match what replay reconstructs (replay determinism).
+				delete(s.vectors, en.TargetEvent)
 			}
 		}
 	case r.Schema != nil:
@@ -655,7 +683,10 @@ func (s *Store) heldLocked(subject string) bool {
 		if !strings.HasPrefix(k, "hold:") {
 			continue
 		}
-		e := s.events[id]
+		// Hydrate: with LazyPayloads, hold facts have their Value offloaded
+		// after a reopen — skipping them would let RETIRE through under an
+		// active hold. Holds are few, so the on-demand read is cheap.
+		e := s.hydrate(s.events[id])
 		if e == nil || e.Value == nil {
 			continue
 		}
@@ -737,7 +768,13 @@ func (s *Store) prepareBatch(now int64, events []*model.Event, links []model.Cau
 		return nil, errors.New("append: now must be a positive UnixMicro timestamp")
 	}
 
-	// Validate everything before writing anything: a batch is all-or-nothing.
+	// Validate everything before mutating anything: a batch is all-or-nothing,
+	// and a FAILED batch must leave no trace — neither in the shared `seen` set
+	// (a later append in the same commit group would falsely collide) nor on the
+	// caller's events (server fields are assigned only after the whole batch
+	// validates). Candidate ids are staged in locals until then.
+	ids := make([]string, len(events))
+	batchSeen := map[string]bool{}
 	for i, e := range events {
 		if e == nil {
 			return nil, fmt.Errorf("append: event %d is nil", i)
@@ -751,23 +788,15 @@ func (s *Store) prepareBatch(now int64, events []*model.Event, links []model.Cau
 		if !(e.Confidence >= 0 && e.Confidence <= 1) { // NaN-safe
 			return nil, fmt.Errorf("append: event %d confidence %v outside [0,1]", i, e.Confidence)
 		}
-		if e.EventID == "" {
-			e.EventID = model.NewID()
+		id := e.EventID
+		if id == "" {
+			id = model.NewID()
 		}
-		if _, dup := s.events[e.EventID]; dup || seen[e.EventID] {
-			return nil, fmt.Errorf("append: duplicate event id %s (events are immutable)", e.EventID)
+		if _, dup := s.events[id]; dup || seen[id] || batchSeen[id] {
+			return nil, fmt.Errorf("append: duplicate event id %s (events are immutable)", id)
 		}
-		seen[e.EventID] = true
-		if e.EffectiveTime <= 0 {
-			e.EffectiveTime = now
-		}
-		// Server-managed fields: client values are ignored.
-		e.RecordedTime = now
-		e.SupersededBy = ""
-		e.EffectiveEnd = 0
-		if e.Type != model.Activated {
-			e.ActivationTime = 0 // the wedge bit is set only via Activate
-		}
+		batchSeen[id] = true
+		ids[i] = id
 		if e.SchemaID != "" {
 			if err := s.validateAgainstSchema(e); err != nil {
 				return nil, fmt.Errorf("append: event %d: %w", i, err)
@@ -784,6 +813,21 @@ func (s *Store) prepareBatch(now int64, events []*model.Event, links []model.Cau
 	for i, l := range links {
 		if l.From == "" || l.To == "" || l.Type == "" {
 			return nil, fmt.Errorf("append: link %d requires from, to, and type", i)
+		}
+	}
+	// The whole batch validated: claim the ids and assign server-managed
+	// fields (client values are ignored).
+	for i, e := range events {
+		e.EventID = ids[i]
+		seen[ids[i]] = true
+		if e.EffectiveTime <= 0 {
+			e.EffectiveTime = now
+		}
+		e.RecordedTime = now
+		e.SupersededBy = ""
+		e.EffectiveEnd = 0
+		if e.Type != model.Activated {
+			e.ActivationTime = 0 // the wedge bit is set only via Activate
 		}
 	}
 
@@ -975,9 +1019,9 @@ func (s *Store) hydrateAllSafe(evs []*model.Event) []*model.Event {
 		return evs
 	}
 	type job struct {
-		idx      int
-		off, ln  int64
-		cp       *model.Event
+		idx     int
+		off, ln int64
+		cp      *model.Event
 	}
 	var jobs []job
 	s.mu.RLock()
@@ -1006,6 +1050,29 @@ func (s *Store) hydrateAllSafe(evs []*model.Event) []*model.Event {
 	return evs
 }
 
+// copyEvent returns a shallow copy of e. Public query paths return copies
+// because apply() mutates SupersededBy/EffectiveEnd/ActivationTime on the
+// stored events in place (supersession, activation): a caller reading a
+// returned event after the store lock is released must never race those
+// writes. The Value map is shared by the copy — payload maps are never
+// mutated after append, so sharing them is safe and keeps the copy cheap.
+func copyEvent(e *model.Event) *model.Event {
+	if e == nil {
+		return nil
+	}
+	cp := *e
+	return &cp
+}
+
+// copyEvents shallow-copies every event in evs (in place). Call under s.mu
+// so the copies are consistent snapshots.
+func copyEvents(evs []*model.Event) []*model.Event {
+	for i, e := range evs {
+		evs[i] = copyEvent(e)
+	}
+	return evs
+}
+
 func (s *Store) Current(subject, facet string) []*model.Event {
 	raw := func() []*model.Event {
 		s.mu.RLock()
@@ -1013,11 +1080,11 @@ func (s *Store) Current(subject, facet string) []*model.Event {
 		if facet != "" {
 			var out []*model.Event
 			if id, ok := s.open[key(subject, facet)]; ok {
-				out = append(out, s.events[id])
+				out = append(out, copyEvent(s.events[id]))
 			}
 			return out
 		}
-		return s.currentLocked(subject)
+		return copyEvents(s.currentLocked(subject))
 	}()
 	return s.hydrateAllSafe(raw) // disk read (lazy) happens off-lock
 }
@@ -1037,7 +1104,7 @@ func (s *Store) AsOf(subject, facet string, effectiveAt, knownAt int64) []*model
 	raw := func() []*model.Event {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
-		return s.asOfLocked(subject, facet, effectiveAt, knownAt)
+		return copyEvents(s.asOfLocked(subject, facet, effectiveAt, knownAt))
 	}()
 	return s.hydrateAllSafe(raw) // disk read (lazy) happens off-lock
 }
@@ -1093,7 +1160,7 @@ func (s *Store) HistoryN(subject, facet string, limit int) []*model.Event {
 		if limit > 0 && len(out) > limit {
 			out = out[len(out)-limit:] // keep the most recent `limit`
 		}
-		return out
+		return copyEvents(out)
 	}()
 	return s.hydrateAllSafe(raw) // disk read (lazy) happens off-lock
 }
@@ -1112,7 +1179,7 @@ func (s *Store) Pending(facet string, olderThan int64) []*model.Event {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].RecordedTime < out[j].RecordedTime })
-	return s.hydrateAll(out)
+	return s.hydrateAll(copyEvents(out))
 }
 
 // Disagreements returns subjects whose open facets disagree on field.
@@ -1121,7 +1188,7 @@ func (s *Store) Disagreements(field string) map[string][]*model.Event {
 	defer s.mu.RUnlock()
 	out := map[string][]*model.Event{}
 	for subject := range s.subjects {
-		evs := s.hydrateAll(s.currentLocked(subject)) // values needed inline
+		evs := s.hydrateAll(copyEvents(s.currentLocked(subject))) // values needed inline; copies escape to the caller
 		vals := map[string]bool{}
 		for _, e := range evs {
 			if v, ok := e.Value[field]; ok {
@@ -1170,7 +1237,7 @@ func (s *Store) Trace(eventID, direction string, maxDepth int) []TraceNode {
 		}
 		seen[id] = true
 		if e, ok := s.events[id]; ok {
-			out = append(out, TraceNode{Event: s.hydrate(e), Link: via, Depth: depth})
+			out = append(out, TraceNode{Event: copyEvent(s.hydrate(e)), Link: via, Depth: depth})
 		}
 		if direction == "cause" {
 			// inbound edges: From caused To==id, so the cause is From.
@@ -1203,7 +1270,7 @@ func (s *Store) TraceVia(eventID, direction string, maxDepth int, via string) []
 		}
 		seen[id] = true
 		if e, ok := s.events[id]; ok {
-			out = append(out, TraceNode{Event: s.hydrate(e), Link: edge, Depth: depth})
+			out = append(out, TraceNode{Event: copyEvent(s.hydrate(e)), Link: edge, Depth: depth})
 		}
 		if direction == "cause" {
 			for _, l := range s.causalIn[id] {
@@ -1242,7 +1309,7 @@ func (s *Store) ByRef(ref string) []*model.Event {
 	defer s.mu.RUnlock()
 	var out []*model.Event
 	for _, id := range s.byRef[ref] {
-		out = append(out, s.events[id])
+		out = append(out, copyEvent(s.events[id]))
 	}
 	return s.hydrateAll(out)
 }
@@ -1368,7 +1435,7 @@ func (s *Store) CurrentByField(field, val string) ([]*model.Event, bool) {
 		if e == nil || s.open[key(e.Subject, e.Facet)] != id {
 			continue // not the current fact for its (subject, facet)
 		}
-		out = append(out, s.hydrate(e))
+		out = append(out, copyEvent(s.hydrate(e)))
 	}
 	return out, true
 }

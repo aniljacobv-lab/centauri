@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 var validFieldTypes = map[string]bool{"number": true, "string": true, "bool": true, "any": true}

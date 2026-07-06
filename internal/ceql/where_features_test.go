@@ -3,7 +3,7 @@ package ceql
 import (
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // String equality on a value field returns the right rows (index fast path).

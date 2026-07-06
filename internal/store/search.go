@@ -14,7 +14,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // SimilarHit is one similarity-search result.
@@ -88,7 +88,7 @@ func (s *Store) Similar(vec []float32, k int, exclude string, minScore float64) 
 			continue
 		}
 		if e, ok := s.events[id]; ok {
-			hits = append(hits, SimilarHit{Event: s.hydrate(e), Score: score})
+			hits = append(hits, SimilarHit{Event: copyEvent(s.hydrate(e)), Score: score})
 		}
 	}
 	sort.Slice(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // The lazy index must hold only the CURRENT fact per (subject,facet) — so its RAM

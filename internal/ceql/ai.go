@@ -12,8 +12,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // findModel returns the config of the first registered model whose kind matches
@@ -38,6 +38,28 @@ func findModel(st *store.Store, kinds ...string) map[string]any {
 	return nil
 }
 
+// authTokenFor resolves the bearer token for a registered model's config.
+// Two fields can name the secret: auth_file (a path to a file whose trimmed
+// contents are the token — how cloud API keys are stored so the secret never
+// enters the log) and auth_env (an environment variable). auth_file wins when
+// both are set and the file reads OK; a missing, unreadable, or empty file
+// falls back to auth_env. It never returns an error: a bad path just means an
+// unauthenticated call that fails at the endpoint — the path (and the token)
+// never leak into query results or logs.
+func authTokenFor(cfg map[string]any) string {
+	if path, _ := cfg["auth_file"].(string); path != "" {
+		if b, err := os.ReadFile(path); err == nil {
+			if tok := strings.TrimSpace(string(b)); tok != "" {
+				return tok
+			}
+		}
+	}
+	if env, _ := cfg["auth_env"].(string); env != "" {
+		return os.Getenv(env)
+	}
+	return ""
+}
+
 // embedQuery embeds free text with a locally-registered embedder, or returns nil
 // if none is registered / the call fails (caller falls back to keyword search).
 func embedQuery(st *store.Store, text string) []float32 {
@@ -49,10 +71,7 @@ func embedQuery(st *store.Store, text string) []float32 {
 	if endpoint == "" {
 		return nil
 	}
-	var token string
-	if env, _ := cfg["auth_env"].(string); env != "" {
-		token = os.Getenv(env)
-	}
+	token := authTokenFor(cfg)
 	mid, _ := cfg["model"].(string)
 	res, err := Infer(InferRequest{Endpoint: endpoint, Kind: "embedding", Model: mid, AuthToken: token, Input: text})
 	if err != nil {
@@ -73,10 +92,7 @@ func chatLLM(st *store.Store, system, user string) string {
 	if endpoint == "" {
 		return ""
 	}
-	var token string
-	if env, _ := cfg["auth_env"].(string); env != "" {
-		token = os.Getenv(env)
-	}
+	token := authTokenFor(cfg)
 	mid, _ := cfg["model"].(string)
 	res, err := Infer(InferRequest{Endpoint: endpoint, Kind: "chat", Model: mid, AuthToken: token,
 		Prompt: system, Input: user, TimeoutSecs: 300})

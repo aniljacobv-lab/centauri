@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // execMatch runs a causal pattern query over the WHY graph: for every event

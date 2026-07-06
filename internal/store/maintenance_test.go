@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // Auto-seal rolls a grown tail into a segment, keeping the hot log bounded while
@@ -77,7 +77,7 @@ func TestPeriodicCheckpointLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	time.Sleep(50 * time.Millisecond) // let the periodic checkpoint fire
+	time.Sleep(50 * time.Millisecond)  // let the periodic checkpoint fire
 	if err := st.Close(); err != nil { // must not deadlock with the maintenance loop
 		t.Fatal(err)
 	}

@@ -3,7 +3,7 @@ package ceql
 import (
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 func searchTop(t *testing.T, r map[string]any) *model.Event {

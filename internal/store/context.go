@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // ContextBundle is everything a model needs to reason about a subject,
@@ -20,12 +20,12 @@ type ContextBundle struct {
 	Facts   []*model.Event `json:"facts"`             // one per facet
 	History []*model.Event `json:"history,omitempty"` // most recent first
 
-	Disagreements []FieldDisagreement              `json:"disagreements,omitempty"`
-	Pending       []*model.Event                   `json:"pending,omitempty"` // distributed, unactivated (as known then)
-	Enrichments   map[string][]*model.Enrichment   `json:"enrichments,omitempty"`
-	Causes        map[string][]TraceNode           `json:"causes,omitempty"` // fact id -> inbound chain
-	Schemas       []*model.Schema                  `json:"schemas,omitempty"`
-	Confidence    ConfidenceSummary                `json:"confidence"`
+	Disagreements []FieldDisagreement            `json:"disagreements,omitempty"`
+	Pending       []*model.Event                 `json:"pending,omitempty"` // distributed, unactivated (as known then)
+	Enrichments   map[string][]*model.Enrichment `json:"enrichments,omitempty"`
+	Causes        map[string][]TraceNode         `json:"causes,omitempty"` // fact id -> inbound chain
+	Schemas       []*model.Schema                `json:"schemas,omitempty"`
+	Confidence    ConfidenceSummary              `json:"confidence"`
 }
 
 // FieldDisagreement reports facets that disagree on one field, plus the
@@ -95,7 +95,7 @@ func (s *Store) Context(subject string, knownAt int64, historyLimit int, minConf
 	} else {
 		facts = s.currentLocked(subject)
 	}
-	facts = s.hydrateAll(facts) // *Locked now returns raw; values read below
+	facts = s.hydrateAll(copyEvents(facts)) // *Locked returns raw; copies escape to the caller
 	for _, e := range facts {
 		if e.Confidence >= minConfidence {
 			b.Facts = append(b.Facts, e)
@@ -112,7 +112,7 @@ func (s *Store) Context(subject string, knownAt int64, historyLimit int, minConf
 			if knownAt > 0 && e.RecordedTime > knownAt {
 				continue
 			}
-			full = append(full, s.hydrate(e))
+			full = append(full, copyEvent(s.hydrate(e)))
 		}
 	}
 	sort.Slice(full, func(i, j int) bool { return full[i].EffectiveTime > full[j].EffectiveTime })
@@ -247,7 +247,7 @@ func (s *Store) causeChainLocked(eventID string, maxDepth int) []TraceNode {
 			}
 			seen[l.From] = true
 			if e, ok := s.events[l.From]; ok {
-				out = append(out, TraceNode{Event: s.hydrate(e), Link: l.Type, Depth: depth})
+				out = append(out, TraceNode{Event: copyEvent(s.hydrate(e)), Link: l.Type, Depth: depth})
 			}
 			walk(l.From, depth+1)
 		}

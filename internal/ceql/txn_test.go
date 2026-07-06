@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // priceOf returns the single current price_cents value for a subject.

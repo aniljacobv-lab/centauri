@@ -1,6 +1,6 @@
 package store
 
-import "github.com/proxima360/centauri/internal/model"
+import "github.com/aniljacobv-lab/centauri/internal/model"
 
 // Subscribe registers a watcher that receives every event committed
 // after this call. Agents subscribe instead of polling. Delivery is

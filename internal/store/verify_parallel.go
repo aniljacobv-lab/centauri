@@ -21,7 +21,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 // VerifyArchiveParallel recomputes every segment's Merkle root concurrently and

@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // FanOutSupported reports whether a query can be answered by per-shard execution

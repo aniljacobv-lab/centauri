@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // TestConcurrentReadWriteWatch hammers the store with concurrent writers,

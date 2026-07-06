@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 func fact(id string, eff, rec int64, price int) *model.Event {
 	return &model.Event{
 		EventID: id, Subject: "item:9", Facet: "src", Type: model.Observed,
-		Value:      map[string]any{"price_cents": price},
+		Value:         map[string]any{"price_cents": price},
 		EffectiveTime: eff, RecordedTime: rec,
 		Provenance: model.SystemFeed, Confidence: 1,
 	}

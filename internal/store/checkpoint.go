@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // checkpointPrefixLen is how many leading log bytes are hashed to bind a

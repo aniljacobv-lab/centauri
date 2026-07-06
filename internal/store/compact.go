@@ -22,8 +22,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 // maxSegID returns the largest segment id in the manifest (0 if none). Used to
@@ -183,6 +183,9 @@ func mergeSegments(dir string, newID int, entries []segment.Entry) (segment.Entr
 	if err := writeFileSync(filepath.Join(dir, filepath.FromSlash(rel)), comp); err != nil {
 		return segment.Entry{}, err
 	}
+	// The merged segment's directory entry must be durable before the manifest
+	// swap references it and the GC deletes the originals it replaced.
+	syncDir(filepath.Join(dir, "segments"))
 	last := entries[len(entries)-1]
 	return segment.Entry{
 		ID: newID, Path: rel, Bytes: int64(len(comp)), Records: int64(len(lines)),

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // SlotInfo is a slot's current confirmed cursor (a byte offset into the log).
@@ -41,6 +41,12 @@ func (s *Store) AdvanceSlot(now int64, name string, cursor int64) error {
 	if cursor < 0 {
 		return fmt.Errorf("slot: cursor must be >= 0")
 	}
+	// Hold slotMu across the check AND the append: without it two concurrent
+	// acks could both pass the check and commit out of order, rewinding the
+	// cursor (check-then-append TOCTOU). slotMu is taken before s.mu (inside
+	// Append), never after — no lock-order cycle.
+	s.slotMu.Lock()
+	defer s.slotMu.Unlock()
 	if cursor < s.SlotCursor(name) {
 		return nil // monotonic: ignore acks that would rewind the slot
 	}

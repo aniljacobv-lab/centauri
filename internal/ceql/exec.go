@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // IsWrite reports whether executing q mutates the database (used by the
@@ -28,6 +28,11 @@ func (q *Query) IsWrite() bool {
 // (UnixMicro). The result is JSON-shaped: every kind returns a map with
 // a "kind" key the dashboard and agents can switch on.
 func Execute(st *store.Store, q *Query, now int64) (map[string]any, error) {
+	// Agents can send a hand-crafted AST directly ({"ast": {...}}), so the
+	// parser's guarantees don't hold here — validate before dispatch.
+	if err := q.Validate(); err != nil {
+		return nil, err
+	}
 	switch q.Kind {
 	case KExplain:
 		return execExplain(st, q, now)
@@ -622,6 +627,11 @@ func getField(e *model.Event, name string) any {
 }
 
 func evalExpr(x *Expr, e *model.Event) (bool, error) {
+	// Validate() rejects malformed trees up front; these guards are
+	// belt-and-braces for any caller that skips it.
+	if x == nil {
+		return false, fmt.Errorf("nil WHERE expression node")
+	}
 	switch x.Op {
 	case "and":
 		for _, k := range x.Kids {
@@ -643,6 +653,9 @@ func evalExpr(x *Expr, e *model.Event) (bool, error) {
 		}
 		return false, nil
 	case "not":
+		if len(x.Kids) != 1 {
+			return false, fmt.Errorf("%q needs exactly one operand, got %d", x.Op, len(x.Kids))
+		}
 		ok, err := evalExpr(x.Kids[0], e)
 		return !ok, err
 	case "exists":

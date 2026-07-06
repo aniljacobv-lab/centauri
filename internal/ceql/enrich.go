@@ -13,8 +13,11 @@
 //	PUT model:summarize FACET config SET endpoint='http://localhost:11434/v1/chat/completions',
 //	    kind='chat', model='llama3', prompt='Summarize in one line:', auth_env='OLLAMA_KEY'
 //
-// kind is "embedding" or "chat". auth_env names an environment variable that
-// holds the bearer token — the secret is read at call time and never stored.
+// kind is "embedding" or "chat". Two optional fields name the bearer token:
+// auth_env (an environment variable) and auth_file (a path to a file whose
+// trimmed contents are the token — how cloud API keys are kept on disk so the
+// secret itself never enters the log). auth_file wins when both are set and
+// readable; either way the secret is read at call time and never stored.
 package ceql
 
 import (
@@ -29,8 +32,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // InferRequest is one model call. InferResult carries either a Vector
@@ -73,10 +76,7 @@ func AutoEmbed(st *store.Store, events []*model.Event, now int64) int {
 	if endpoint == "" {
 		return 0
 	}
-	var token string
-	if env, _ := cfg["auth_env"].(string); env != "" {
-		token = os.Getenv(env)
-	}
+	token := authTokenFor(cfg)
 	mid, _ := cfg["model"].(string)
 	n := 0
 	for _, e := range events {
@@ -127,10 +127,7 @@ func execEnrich(st *store.Store, q *Query, now int64) (map[string]any, error) {
 	}
 	modelID, _ := cfg["model"].(string)
 	prompt, _ := cfg["prompt"].(string)
-	var token string
-	if env, _ := cfg["auth_env"].(string); env != "" {
-		token = os.Getenv(env)
-	}
+	token := authTokenFor(cfg)
 	timeoutSecs := 0
 	if t, ok := cfg["timeout_secs"].(float64); ok {
 		timeoutSecs = int(t)
@@ -395,10 +392,7 @@ func embedText(st *store.Store, modelName, text, eventID string, now int64) erro
 	if endpoint == "" {
 		return fmt.Errorf("embedder %q missing endpoint", modelName)
 	}
-	var token string
-	if env, _ := cfg["auth_env"].(string); env != "" {
-		token = os.Getenv(env)
-	}
+	token := authTokenFor(cfg)
 	mid, _ := cfg["model"].(string)
 	res, err := Infer(InferRequest{Endpoint: endpoint, Kind: "embedding", Model: mid, AuthToken: token, Input: text})
 	if err != nil {

@@ -26,9 +26,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/objstore"
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/objstore"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 const lazyCheckpointName = "lazy.ckpt"

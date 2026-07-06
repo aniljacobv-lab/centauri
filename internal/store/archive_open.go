@@ -22,8 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
 )
 
 // OpenArchive opens a store backed by dir/manifest.json + dir/segments/* and an
@@ -68,32 +68,9 @@ func OpenArchive(dir string, opts Options) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	good, err := s.replay(f, 0)
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	if good < fi.Size() { // torn tail
-		if err := f.Truncate(good); err != nil {
-			f.Close()
-			return nil, fmt.Errorf("archive: truncate torn tail: %w", err)
-		}
-		if err := f.Sync(); err != nil {
-			f.Close()
-			return nil, err
-		}
-	}
-	if _, err := f.Seek(good, io.SeekStart); err != nil {
-		f.Close()
-		return nil, err
-	}
-	s.f = f
-	s.size = good
+	// Acquire the single-writer lock BEFORE replay and the torn-tail truncation
+	// below — otherwise a second opener could truncate bytes a live writer is
+	// appending and only then fail the lock (TOCTOU).
 	if opts.Lock {
 		lp, lerr := acquireLock(tail)
 		if lerr != nil {
@@ -102,6 +79,32 @@ func OpenArchive(dir string, opts Options) (*Store, error) {
 		}
 		s.lockPath = lp
 	}
+	fail := func(err error) (*Store, error) {
+		f.Close()
+		releaseLock(s.lockPath)
+		return nil, err
+	}
+	good, err := s.replay(f, 0)
+	if err != nil {
+		return fail(err)
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return fail(err)
+	}
+	if good < fi.Size() { // torn tail
+		if err := f.Truncate(good); err != nil {
+			return fail(fmt.Errorf("archive: truncate torn tail: %w", err))
+		}
+		if err := f.Sync(); err != nil {
+			return fail(err)
+		}
+	}
+	if _, err := f.Seek(good, io.SeekStart); err != nil {
+		return fail(err)
+	}
+	s.f = f
+	s.size = good
 	s.startMaintenance() // auto-seal the tail when it grows past the threshold
 	return s, nil
 }
@@ -141,6 +144,11 @@ func (s *Store) applyLines(data []byte) error {
 // segment. A crash can only leave a harmless orphan file, never a gap or a
 // duplicate. Only valid on an archive-backed store, and (for now) not with
 // LazyPayloads, since the tail's offloaded payloads would dangle after the seal.
+//
+// NOTE: sealing resets the tail to a fresh, empty file, which invalidates any
+// byte-offset cursors into the old tail (ship followers, CDC /v1/changes
+// consumers, replication slots). Callers holding such cursors must re-seed;
+// maybeAutoSeal therefore skips sealing while any replication slot exists.
 func (s *Store) Seal() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -207,6 +215,10 @@ func (s *Store) Seal() error {
 	if err := writeFileSync(filepath.Join(s.archiveDir, filepath.FromSlash(segRel)), comp); err != nil {
 		return err
 	}
+	// The new segment's directory entry must be durable before the manifest
+	// references it — otherwise a crash could leave the manifest pointing at a
+	// missing file after the old tail is gone.
+	syncDir(segDir)
 
 	// Fresh empty tail generation (a NEW filename — never reuse the sealed one).
 	newTail := fmt.Sprintf("current.%08d.log", id)
@@ -232,6 +244,9 @@ func (s *Store) Seal() error {
 	}
 
 	// In-process cleanup (reconstructable from the manifest if we crash here).
+	// The manifest rename (and its directory entry) is durable — only now is it
+	// safe to remove the old tail; before this point a crash replays the old
+	// manifest + old tail and merely orphans the new segment.
 	oldPath := s.path
 	_ = s.f.Close()
 	s.f = newF
@@ -239,6 +254,20 @@ func (s *Store) Seal() error {
 	s.size = 0
 	_ = os.Remove(oldPath) // the sealed tail's bytes now live in the segment
 	return nil
+}
+
+// syncDir fsyncs a directory so the renames/creates inside it are durable
+// before anything that depends on them proceeds. Best-effort by design:
+// directory handles cannot be synced on some platforms (notably Windows,
+// where the host runs), so errors are ignored rather than failing the
+// operation — the sync is a durability upgrade, never a correctness gate.
+func syncDir(path string) {
+	d, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	_ = d.Sync()
+	_ = d.Close()
 }
 
 // writeFileSync writes data and fsyncs before returning, so the file is durable
@@ -270,5 +299,11 @@ func writeManifestAtomic(dir string, m *segment.Manifest) error {
 	if err := writeFileSync(tmp, b); err != nil {
 		return err
 	}
-	return os.Rename(tmp, filepath.Join(dir, "manifest.json"))
+	if err := os.Rename(tmp, filepath.Join(dir, "manifest.json")); err != nil {
+		return err
+	}
+	// Make the rename itself durable before callers act on it (e.g. delete
+	// the old tail or GC merged-away segments).
+	syncDir(dir)
+	return nil
 }

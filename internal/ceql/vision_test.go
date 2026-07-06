@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // Vision ENRICH must read the image from the fact's path, parse the model's

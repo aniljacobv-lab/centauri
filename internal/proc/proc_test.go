@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const (
@@ -142,16 +142,139 @@ END`
 	}
 }
 
+// A string argument full of CeQL metacharacters must round-trip as DATA:
+// it may not reshape the generated statement (no extra SET field, no
+// clipped value). Value-position holes are emitted as quoted literals.
+func TestSubstitutionInjectionValuePosition(t *testing.T) {
+	s := newStore(t)
+	src := `PROCEDURE note(msg)
+  PUT memo:1 SET note=${msg}
+  RETURN 'ok'
+END`
+	if _, err := Save(s, src, t1); err != nil {
+		t.Fatal(err)
+	}
+	evil := "x' , retired=true"
+	if _, err := RunStored(s, "note", map[string]any{"msg": evil}, t2); err != nil {
+		t.Fatal(err)
+	}
+	evs := s.Current("memo:1", "source")
+	if len(evs) != 1 {
+		t.Fatalf("memo not written: %v", evs)
+	}
+	if got := evs[0].Value["note"]; got != evil {
+		t.Fatalf("note = %q, want the raw value %q", got, evil)
+	}
+	if _, injected := evs[0].Value["retired"]; injected {
+		t.Fatalf("statement shape changed: injected field appeared in %v", evs[0].Value)
+	}
+	// A value with BOTH quote kinds cannot be a CeQL literal at all —
+	// clear error, not silent truncation.
+	if _, err := RunStored(s, "note", map[string]any{"msg": `a'b"c`}, t2); err == nil ||
+		!strings.Contains(err.Error(), "quote") {
+		t.Fatalf("both-quotes value: err = %v, want a quoting error", err)
+	}
+}
+
+// A hole glued to a word (FACTS OF hts:${item}) accepts only strings that
+// stay inside that token — metacharacters are rejected, not spliced.
+func TestSubstitutionInjectionSubjectPosition(t *testing.T) {
+	s := newStore(t)
+	if _, err := Save(s, dutySrc, t1); err != nil {
+		t.Fatal(err)
+	}
+	for _, evil := range []string{
+		"ghost' LIMIT 1",     // quote + clause injection
+		"g SET retired=true", // extra clause
+		"*",                  // wildcard would widen a scoped read
+	} {
+		_, err := RunStored(s, "duty_estimate", map[string]any{"item": evil, "units": 1.0}, t2)
+		if err == nil || !strings.Contains(err.Error(), "${item}") {
+			t.Fatalf("item=%q: err = %v, want a splice rejection naming the argument", evil, err)
+		}
+	}
+	// Plain word-safe values keep working (the existing template shape).
+	put(t, s, "hts:100001", map[string]any{"comp_rate": 0.05}, t1)
+	put(t, s, "cost:100001", map[string]any{"av_cost": 200}, t1)
+	if _, err := RunStored(s, "duty_estimate", map[string]any{"item": "100001", "units": 3.0}, t2); err != nil {
+		t.Fatalf("word-safe arg broke: %v", err)
+	}
+}
+
+// Inside an already-quoted template literal the value splices raw, but a
+// value carrying the surrounding quote character is rejected.
+func TestSubstitutionInsideQuotedLiteral(t *testing.T) {
+	s := newStore(t)
+	src := `PROCEDURE tag(who)
+  PUT memo:2 SET note='by ${who}', kind='tag'
+  RETURN 'ok'
+END`
+	if _, err := Save(s, src, t1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RunStored(s, "tag", map[string]any{"who": "anil"}, t2); err != nil {
+		t.Fatal(err)
+	}
+	evs := s.Current("memo:2", "source")
+	if len(evs) != 1 || evs[0].Value["note"] != "by anil" || evs[0].Value["kind"] != "tag" {
+		t.Fatalf("quoted-context substitution wrong: %v", evs)
+	}
+	if _, err := RunStored(s, "tag", map[string]any{"who": "a' , retired=true, x='y"}, t2); err == nil ||
+		!strings.Contains(err.Error(), "quote") {
+		t.Fatalf("quote-escape attempt: err = %v, want a quoting error", err)
+	}
+}
+
 func TestParseErrors(t *testing.T) {
 	bad := []string{
-		"LET x = 1",                            // no header
-		"PROCEDURE p()\n  JUMP somewhere\nEND", // unknown step
-		"PROCEDURE p()\nEND",                   // no steps
+		"LET x = 1",                                      // no header
+		"PROCEDURE p()\n  JUMP somewhere\nEND",           // unknown step
+		"PROCEDURE p()\nEND",                             // no steps
 		"PROCEDURE p()\n  WHEN a: WHEN b: FAIL 'x'\nEND", // nested WHEN
 	}
 	for _, src := range bad {
 		if _, err := Parse(src); err == nil {
 			t.Errorf("expected parse error for %q", src)
 		}
+	}
+}
+
+// Strings that are themselves one numeric or boolean literal splice bare —
+// the pre-hardening behavior DDL-generated procs (SET n=${n} over number/
+// bool params fed JSON strings) depend on. Still injection-safe: the whole
+// value is provably a single token.
+func TestSubstitutionNumericStringSplicesBare(t *testing.T) {
+	s := newStore(t)
+	src := `PROCEDURE score(v, flag)
+  PUT player:9 SET points=${v}, active=${flag}
+  RETURN 'ok'
+END`
+	if _, err := Save(s, src, t1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RunStored(s, "score", map[string]any{"v": "320", "flag": "true"}, t2); err != nil {
+		t.Fatal(err)
+	}
+	evs := s.Current("player:9", "source")
+	if len(evs) != 1 {
+		t.Fatalf("fact not written: %v", evs)
+	}
+	if got, ok := evs[0].Value["points"].(float64); !ok || got != 320 {
+		t.Fatalf("points = %#v, want the number 320", evs[0].Value["points"])
+	}
+	if got, ok := evs[0].Value["active"].(bool); !ok || !got {
+		t.Fatalf("active = %#v, want the bool true", evs[0].Value["active"])
+	}
+	// "320x" is NOT a bare literal: it must arrive as a quoted string, and
+	// near-miss injections stay data.
+	if _, err := RunStored(s, "score", map[string]any{"v": "320 , retired=true", "flag": "false"}, t2); err != nil {
+		t.Fatal(err)
+	}
+	evs = s.Current("player:9", "source")
+	if got := evs[0].Value["points"]; got != "320 , retired=true" {
+		t.Fatalf("points = %#v, want the raw string", got)
+	}
+	if _, injected := evs[0].Value["retired"]; injected {
+		t.Fatalf("statement shape changed: %v", evs[0].Value)
 	}
 }

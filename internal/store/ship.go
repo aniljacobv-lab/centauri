@@ -93,18 +93,75 @@ func (s *Store) IngestRaw(b []byte) error {
 		return errors.New("ingest: chunk does not end on a record boundary")
 	}
 	var recs []*record
+	var keep bytes.Buffer
+	keep.Grow(len(b))
 	for off, line := range bytes.Split(b[:len(b)-1], []byte{'\n'}) {
 		trimmed := bytes.TrimSpace(line)
 		if len(trimmed) == 0 {
+			keep.Write(line)
+			keep.WriteByte('\n')
 			continue
 		}
 		var r record
 		if err := json.Unmarshal(trimmed, &r); err != nil || r.empty() {
 			return fmt.Errorf("ingest: bad record in chunk (line %d): %v", off, err)
 		}
+		// Duplicate-delivery guard: a redelivered chunk (retry after a lost
+		// ack) must never double-apply. Skipped lines are not written either,
+		// so the chain keeps covering exactly the bytes on disk (invariant 4)
+		// and a fully-duplicate chunk leaves the log byte-identical to the
+		// primary's.
+		if s.alreadyApplied(&r) {
+			continue
+		}
+		keep.Write(line)
+		keep.WriteByte('\n')
 		recs = append(recs, &r)
+	}
+	if keep.Len() == 0 {
+		return nil // every line already applied: duplicate delivery, ack as done
 	}
 	// Same durable-write path as commit (write→fsync→chain→apply→notify);
 	// identical bytes ⇒ identical chain as the primary.
-	return s.writeApplyNotify(b, recs)
+	return s.writeApplyNotify(keep.Bytes(), recs)
+}
+
+// alreadyApplied reports whether one shipped record is already reflected in
+// the index, so IngestRaw can skip it on redelivery. Events are keyed by their
+// immutable id; the other record kinds are matched on their full identifying
+// content. Caller holds s.mu.
+func (s *Store) alreadyApplied(r *record) bool {
+	switch {
+	case r.Event != nil:
+		if r.Event.EventID == "" {
+			return false
+		}
+		_, ok := s.events[r.Event.EventID]
+		return ok
+	case r.Supersede != nil:
+		op := r.Supersede
+		e, ok := s.events[op.EventID]
+		return ok && e.SupersededBy == op.SupersededBy &&
+			e.EffectiveEnd == op.EffectiveEnd &&
+			s.supersededAt[op.EventID].recordedTime == op.RecordedTime
+	case r.Link != nil:
+		for _, l := range s.causalOut[r.Link.From] {
+			if l == *r.Link {
+				return true
+			}
+		}
+		return false
+	case r.Enrichment != nil:
+		for _, en := range s.enrichments[r.Enrichment.TargetEvent] {
+			if en.EnrichmentID == r.Enrichment.EnrichmentID {
+				return true
+			}
+		}
+		return false
+	case r.Schema != nil:
+		// Versions are 1-based and append-only on the primary: version N
+		// exists iff at least N versions have been applied.
+		return r.Schema.Version > 0 && len(s.schemas[r.Schema.SchemaID]) >= r.Schema.Version
+	}
+	return false
 }

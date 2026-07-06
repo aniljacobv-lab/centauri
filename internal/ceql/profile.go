@@ -5,19 +5,19 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // FieldProfile summarizes one value field across the profiled facts.
 type FieldProfile struct {
-	Name     string         `json:"name"`
-	Type     string         `json:"type"` // dominant type: number/string/bool/mixed
-	Coverage float64        `json:"coverage"` // share of facts carrying the field, 0..1
-	Distinct int            `json:"distinct"` // capped at 1000 ("1000+")
-	Min      *float64       `json:"min,omitempty"`
-	Max      *float64       `json:"max,omitempty"`
-	Avg      *float64       `json:"avg,omitempty"`
-	Top      []TopValue     `json:"top,omitempty"` // most common values (strings/bools)
+	Name     string     `json:"name"`
+	Type     string     `json:"type"`     // dominant type: number/string/bool/mixed
+	Coverage float64    `json:"coverage"` // share of facts carrying the field, 0..1
+	Distinct int        `json:"distinct"` // capped at 1000 ("1000+")
+	Min      *float64   `json:"min,omitempty"`
+	Max      *float64   `json:"max,omitempty"`
+	Avg      *float64   `json:"avg,omitempty"`
+	Top      []TopValue `json:"top,omitempty"` // most common values (strings/bools)
 }
 
 // TopValue is one frequent value.
@@ -139,8 +139,10 @@ func execProfile(st *store.Store, q *Query) (map[string]any, error) {
 		}
 		profiles = append(profiles, p)
 	}
-	sort.Slice(profiles, func(i, j int) bool { return profiles[i].Coverage > profiles[j].Coverage ||
-		(profiles[i].Coverage == profiles[j].Coverage && profiles[i].Name < profiles[j].Name) })
+	sort.Slice(profiles, func(i, j int) bool {
+		return profiles[i].Coverage > profiles[j].Coverage ||
+			(profiles[i].Coverage == profiles[j].Coverage && profiles[i].Name < profiles[j].Name)
+	})
 
 	return map[string]any{
 		"kind":       "profile",

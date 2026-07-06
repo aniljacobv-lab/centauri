@@ -12,7 +12,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // forEachArchiveRecordR streams every record in an archive (all segments + tail)
