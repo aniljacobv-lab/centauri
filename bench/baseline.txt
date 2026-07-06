@@ -1,0 +1,49 @@
+goos: windows
+goarch: arm64
+pkg: github.com/aniljacobv-lab/centauri/internal/store
+BenchmarkAppend-12                	   84064	     18837 ns/op	    6173 B/op	      46 allocs/op
+BenchmarkAppend-12                	   88458	     20219 ns/op	    6062 B/op	      46 allocs/op
+BenchmarkAppend-12                	   38595	     35670 ns/op	    6362 B/op	      46 allocs/op
+BenchmarkCurrent-12               	 1502152	       793.7 ns/op	     252 B/op	       4 allocs/op
+BenchmarkCurrent-12               	 1514998	       782.2 ns/op	     252 B/op	       4 allocs/op
+BenchmarkCurrent-12               	 3365966	       357.4 ns/op	     248 B/op	       4 allocs/op
+BenchmarkAsOf-12                  	 2138707	       518.6 ns/op	     242 B/op	       4 allocs/op
+BenchmarkAsOf-12                  	 1471900	       751.6 ns/op	     245 B/op	       4 allocs/op
+BenchmarkAsOf-12                  	 1453567	       700.6 ns/op	     245 B/op	       4 allocs/op
+BenchmarkHistoryCold-12           	      12	  90623400 ns/op	17875941 B/op	  221663 allocs/op
+BenchmarkHistoryCold-12           	      26	  43898127 ns/op	17875640 B/op	  221655 allocs/op
+BenchmarkHistoryCold-12           	      24	  45774529 ns/op	17873447 B/op	  221656 allocs/op
+BenchmarkHistoryCached-12         	      38	  28479868 ns/op	10179322 B/op	  220037 allocs/op
+BenchmarkHistoryCached-12         	      40	  28560808 ns/op	10179310 B/op	  220037 allocs/op
+BenchmarkHistoryCached-12         	      40	  28596195 ns/op	10179327 B/op	  220037 allocs/op
+BenchmarkAsOfCold-12              	     814	   1443059 ns/op	  699073 B/op	    8279 allocs/op
+BenchmarkAsOfCold-12              	     820	   1489232 ns/op	  698547 B/op	    8280 allocs/op
+BenchmarkAsOfCold-12              	     681	   1481282 ns/op	  698413 B/op	    8278 allocs/op
+BenchmarkAsOfCached-12            	    1166	   1009821 ns/op	  362129 B/op	    7870 allocs/op
+BenchmarkAsOfCached-12            	    1185	   1012596 ns/op	  362129 B/op	    7870 allocs/op
+BenchmarkAsOfCached-12            	    1179	   1009560 ns/op	  362129 B/op	    7870 allocs/op
+BenchmarkSearchCold-12            	      20	  52414645 ns/op	20560335 B/op	  257732 allocs/op
+BenchmarkSearchCold-12            	      18	  57502061 ns/op	20558556 B/op	  257741 allocs/op
+BenchmarkSearchCold-12            	      19	  56725568 ns/op	20560232 B/op	  257739 allocs/op
+BenchmarkSearchResident-12        	     427	   2779752 ns/op	 1502949 B/op	   26020 allocs/op
+BenchmarkSearchResident-12        	     424	   2762211 ns/op	 1502944 B/op	   26020 allocs/op
+BenchmarkSearchResident-12        	     416	   2778369 ns/op	 1502941 B/op	   26020 allocs/op
+BenchmarkOpenCold-12              	      20	  51679875 ns/op	20395602 B/op	  237829 allocs/op
+BenchmarkOpenCold-12              	      19	  57497595 ns/op	20394261 B/op	  237827 allocs/op
+BenchmarkOpenCold-12              	      19	  53821189 ns/op	20399418 B/op	  237827 allocs/op
+BenchmarkOpenFromCheckpoint-12    	     130	   9155796 ns/op	 5028531 B/op	   46680 allocs/op
+BenchmarkOpenFromCheckpoint-12    	     126	   9150979 ns/op	 5028384 B/op	   46680 allocs/op
+BenchmarkOpenFromCheckpoint-12    	     130	   9181822 ns/op	 5028341 B/op	   46680 allocs/op
+PASS
+ok  	github.com/aniljacobv-lab/centauri/internal/store	110.020s
+goos: windows
+goarch: arm64
+pkg: github.com/aniljacobv-lab/centauri/internal/ceql
+BenchmarkExecFactsWhere-12    	    4184	    275919 ns/op	  169375 B/op	    1634 allocs/op
+BenchmarkExecFactsWhere-12    	    4288	    287692 ns/op	  169317 B/op	    1634 allocs/op
+BenchmarkExecFactsWhere-12    	    4363	    280459 ns/op	  169259 B/op	    1634 allocs/op
+BenchmarkExecGroupBy-12       	    3516	    330582 ns/op	  201864 B/op	    2287 allocs/op
+BenchmarkExecGroupBy-12       	    3454	    329137 ns/op	  201918 B/op	    2287 allocs/op
+BenchmarkExecGroupBy-12       	    3664	    329595 ns/op	  201698 B/op	    2286 allocs/op
+PASS
+ok  	github.com/aniljacobv-lab/centauri/internal/ceql	12.908s
