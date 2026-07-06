@@ -4,7 +4,7 @@ A thin, **zero-dependency** Go client (stdlib `net/http` + `encoding/json`) for 
 Centauri server. Same surface as the Python SDK — one method per capability.
 
 ```go
-import centauri "github.com/proxima360/centauri/sdk/go"
+import centauri "github.com/aniljacobv-lab/centauri/sdk/go"
 
 c := centauri.New("http://localhost:7771", centauri.WithToken("secret"))
 

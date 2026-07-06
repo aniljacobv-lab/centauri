@@ -10,8 +10,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 var facets = []string{"register", "pdt", "shelf", "storecentral"}
@@ -75,7 +75,7 @@ func Seed(st *store.Store, nSKUs, nStores, nChanges int, rng *rand.Rand) (map[st
 						Value:         map[string]any{"price_cents": price, "kind": kind},
 						EffectiveTime: effective.UnixMicro(),
 						Provenance:    model.SystemFeed, Confidence: 1.0,
-						SourceSystem:  pipelineFor(fc), SourceRef: batch,
+						SourceSystem: pipelineFor(fc), SourceRef: batch,
 					}
 					d.EventID = model.NewID()
 					events = append(events, d)

@@ -25,3 +25,6 @@ tutorial.log
 .idea/
 Thumbs.db
 .DS_Store
+
+# review scratch
+review-diff.tmp

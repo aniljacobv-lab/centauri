@@ -12,8 +12,8 @@
 package demo
 
 import (
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const day = int64(24) * 60 * 60 * 1_000_000 // micros in a day

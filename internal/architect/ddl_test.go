@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/proc"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const rmsDDL = `

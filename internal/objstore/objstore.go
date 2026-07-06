@@ -59,7 +59,9 @@ func (p *prefixStore) Get(key string) ([]byte, error) { return p.inner.Get(path.
 func (p *prefixStore) Put(key string, data []byte) error {
 	return p.inner.Put(path.Join(p.prefix, key), data)
 }
-func (p *prefixStore) Exists(key string) (bool, error) { return p.inner.Exists(path.Join(p.prefix, key)) }
+func (p *prefixStore) Exists(key string) (bool, error) {
+	return p.inner.Exists(path.Join(p.prefix, key))
+}
 
 // ObjStats forwards the wrapped backend's stats (so metrics survive prefixing).
 func (p *prefixStore) ObjStats() ObjStats {

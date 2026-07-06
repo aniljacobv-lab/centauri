@@ -31,13 +31,13 @@ import (
 
 // Signals is what the analyzer extracted from the description.
 type Signals struct {
-	Domain      string   `json:"domain"` // retail, healthcare, finance, logistics, iot, generic
-	Entities    []string `json:"entities"`
-	HasMoney    bool     `json:"has_money"`
-	HasLifecycle bool    `json:"has_lifecycle"`  // send/distribute/deliver... -> wedges matter
-	HasMultiSrc bool     `json:"has_multi_source"` // several systems hold views -> facets
-	HasTenancy  bool     `json:"has_tenancy"`    // clients/tenants -> namespaces
-	HasAudit    bool     `json:"has_audit"`      // compliance words -> integrity emphasis
+	Domain       string   `json:"domain"` // retail, healthcare, finance, logistics, iot, generic
+	Entities     []string `json:"entities"`
+	HasMoney     bool     `json:"has_money"`
+	HasLifecycle bool     `json:"has_lifecycle"`    // send/distribute/deliver... -> wedges matter
+	HasMultiSrc  bool     `json:"has_multi_source"` // several systems hold views -> facets
+	HasTenancy   bool     `json:"has_tenancy"`      // clients/tenants -> namespaces
+	HasAudit     bool     `json:"has_audit"`        // compliance words -> integrity emphasis
 }
 
 type domainDef struct {
@@ -315,11 +315,11 @@ func NextQuestions(sig Signals, answers map[string]string) []Question {
 
 // FieldSpec is one inferred field.
 type FieldSpec struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Required bool   `json:"required"`
+	Name     string   `json:"name"`
+	Type     string   `json:"type"`
+	Required bool     `json:"required"`
 	Min      *float64 `json:"min,omitempty"`
-	Unit     string `json:"unit,omitempty"`
+	Unit     string   `json:"unit,omitempty"`
 }
 
 // SchemaSpec is one generated schema.
@@ -331,13 +331,13 @@ type SchemaSpec struct {
 
 // Blueprint is everything Genesis decided to build.
 type Blueprint struct {
-	Env         string       `json:"env"`
-	Description string       `json:"description"`
-	Signals     Signals      `json:"signals"`
-	Schemas     []SchemaSpec `json:"schemas"`
-	Procedures  []string     `json:"procedures"` // CePL sources
-	Watches     []string     `json:"watches"`    // CeQL WATCH statements
-	Queries     []string     `json:"queries"`    // starter CeQL, saved + shown
+	Env         string        `json:"env"`
+	Description string        `json:"description"`
+	Signals     Signals       `json:"signals"`
+	Schemas     []SchemaSpec  `json:"schemas"`
+	Procedures  []string      `json:"procedures"` // CePL sources
+	Watches     []string      `json:"watches"`    // CeQL WATCH statements
+	Queries     []string      `json:"queries"`    // starter CeQL, saved + shown
 	Samples     []SampleFact  `json:"samples"`
 	Guide       string        `json:"guide"`           // markdown-ish quickstart
 	Notes       []MappingNote `json:"notes,omitempty"` // RDBMS→Centauri mapping report (DDL imports)

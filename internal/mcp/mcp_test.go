@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/proc"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 func newStore(t *testing.T) *store.Store {

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/proc"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const dental = `I run a dental practice. We track patients, appointments and

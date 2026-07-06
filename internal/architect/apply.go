@@ -3,9 +3,9 @@ package architect
 import (
 	"fmt"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/proc"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // Apply builds the blueprint inside st: schemas, procedures, samples —

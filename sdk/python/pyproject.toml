@@ -14,7 +14,7 @@ keywords = ["centauri", "database", "bi-temporal", "event-sourcing", "ai"]
 dependencies = []  # zero dependencies, on purpose — installs never fight you
 
 [project.urls]
-Homepage = "https://github.com/proxima360/centauri"
+Homepage = "https://github.com/aniljacobv-lab/centauri"
 
 [tool.setuptools.packages.find]
 include = ["centauri*"]

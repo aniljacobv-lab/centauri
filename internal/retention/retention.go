@@ -16,8 +16,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const dayMicros int64 = 24 * 60 * 60 * 1_000_000

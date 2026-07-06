@@ -567,13 +567,13 @@ func writeRowDescription(w *bufio.Writer, cols []string) {
 	buf := be16(len(cols))
 	for _, c := range cols {
 		buf = append(buf, []byte(c)...)
-		buf = append(buf, 0)             // field name (null-terminated)
-		buf = append(buf, be32(0)...)    // table OID
-		buf = append(buf, be16(0)...)    // column attribute number
+		buf = append(buf, 0)          // field name (null-terminated)
+		buf = append(buf, be32(0)...) // table OID
+		buf = append(buf, be16(0)...) // column attribute number
 		buf = append(buf, be32(typeOIDText)...)
-		buf = append(buf, be16(-1)...)   // type size (variable)
-		buf = append(buf, be32(-1)...)   // type modifier
-		buf = append(buf, be16(0)...)    // format code: 0 = text
+		buf = append(buf, be16(-1)...) // type size (variable)
+		buf = append(buf, be32(-1)...) // type modifier
+		buf = append(buf, be16(0)...)  // format code: 0 = text
 	}
 	writeMsg(w, 'T', buf)
 }

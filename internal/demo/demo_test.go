@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // Seed must plant a working example of each headline capability.

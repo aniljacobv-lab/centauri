@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/proxima360/centauri/internal/architect"
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/proc"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/architect"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 const protocolVersion = "2024-11-05"

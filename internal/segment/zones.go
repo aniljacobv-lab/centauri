@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 // Zone maps: cheap per-segment summary stats computed once at seal time. A query

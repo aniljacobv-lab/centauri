@@ -39,8 +39,8 @@ type S3Store struct {
 	Client   *http.Client
 	nowFn    func() time.Time // overridable in tests
 
-	gets, puts, heads   atomic.Int64
-	getBytes, putBytes  atomic.Int64
+	gets, puts, heads  atomic.Int64
+	getBytes, putBytes atomic.Int64
 }
 
 // ObjStats reports access counts for cost visibility.

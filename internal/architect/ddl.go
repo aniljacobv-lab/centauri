@@ -42,8 +42,8 @@ type MappingNote struct {
 }
 
 var (
-	reCreateTable = regexp.MustCompile(`(?is)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'\x60]?([A-Za-z0-9_.$]+)["'\x60]?\s*\(([\s\S]*?)\)\s*(?:;|\z)`)
-	reInlineRef   = regexp.MustCompile(`(?i)REFERENCES\s+["'\x60]?([A-Za-z0-9_.$]+)`)
+	reCreateTable  = regexp.MustCompile(`(?is)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'\x60]?([A-Za-z0-9_.$]+)["'\x60]?\s*\(([\s\S]*?)\)\s*(?:;|\z)`)
+	reInlineRef    = regexp.MustCompile(`(?i)REFERENCES\s+["'\x60]?([A-Za-z0-9_.$]+)`)
 	reConstraintFK = regexp.MustCompile(`(?i)FOREIGN\s+KEY\s*\(\s*["'\x60]?([A-Za-z0-9_]+)["'\x60]?\s*\)\s*REFERENCES\s+["'\x60]?([A-Za-z0-9_.$]+)`)
 	reConstraintPK = regexp.MustCompile(`(?i)PRIMARY\s+KEY\s*\(([^)]*)\)`)
 	reAuditCol     = regexp.MustCompile(`(?i)^(creat|updat|modif|last_upd).*|.*(_by|_login)$`)

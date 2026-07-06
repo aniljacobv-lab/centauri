@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 func TestCompressRoundTrip(t *testing.T) {
