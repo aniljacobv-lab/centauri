@@ -1,0 +1,52 @@
+# Performance review: benchmarks run on every PR that touches Go code and
+# are compared against the PR's base with benchstat. Regressions surface
+# as warnings + a job-summary table (not a hard gate: shared runners are
+# noisy; a human reads the delta). A weekly run tracks drift on main.
+name: Perf
+on:
+  pull_request:
+    paths: ["**.go", "go.mod"]
+  schedule:
+    - cron: "0 5 * * 1" # Mondays 05:00 UTC — drift check on main
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+      - name: Bench base
+        if: github.event_name == 'pull_request'
+        run: |
+          git checkout ${{ github.event.pull_request.base.sha }}
+          go test -run '^$' -bench . -benchmem -count 6 -timeout 20m \
+            ./internal/store/ ./internal/ceql/ | tee /tmp/base.txt
+      - name: Bench head
+        run: |
+          git checkout ${{ github.sha }}
+          go test -run '^$' -bench . -benchmem -count 6 -timeout 20m \
+            ./internal/store/ ./internal/ceql/ | tee /tmp/head.txt
+      - name: Compare (benchstat)
+        if: github.event_name == 'pull_request'
+        run: |
+          benchstat /tmp/base.txt /tmp/head.txt | tee /tmp/delta.txt
+          {
+            echo "## Benchmark delta (base → PR)"
+            echo '```'
+            cat /tmp/delta.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Surface >10% time regressions as warnings (informational, not a gate).
+          awk '/[+][1-9][0-9](\.[0-9]+)?%|[+][0-9]{3,}(\.[0-9]+)?%/ {print "::warning::possible perf regression: " $0}' /tmp/delta.txt || true
+      - name: Summary (non-PR)
+        if: github.event_name != 'pull_request'
+        run: |
+          { echo "## Benchmarks (main)"; echo '```'; cat /tmp/head.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

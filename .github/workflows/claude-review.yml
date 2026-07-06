@@ -1,0 +1,40 @@
+# Automatic code review: every pull request gets a Claude review before a
+# human looks at it. Complements claude.yml (which reacts to @claude
+# mentions) — this one needs no mention. Uses the same ANTHROPIC_API_KEY
+# secret. CI still gates; a human always merges.
+name: Claude review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request as a senior engineer on Centauri.
+            Read CLAUDE.md first and check the diff against its five
+            invariants (append-only, replay determinism via store.apply,
+            write-then-apply, hash-chain parity across commit/replay/
+            IngestRaw, zero Go dependencies) and the feature checklist
+            (parser+executor+tests, ceql.html section, catalog entry,
+            dashboard surface). Flag correctness bugs, invariant
+            violations, races, security issues, and missing tests.
+            Be specific (file:line). Post the review as a PR comment;
+            approve-with-nits language when nothing blocking is found.
+          claude_args: "--allowed-tools Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
