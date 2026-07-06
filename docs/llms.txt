@@ -1,40 +1,87 @@
 # Centauri
 
 > Centauri is a free, open-source (PostgreSQL-style license), bi-temporal,
-> causal, AI-first event database written in Go. Every fact carries two time
-> dimensions (when it became true; when the system learned it), a causal
-> lineage graph, provenance, and a confidence score. Data is append-only and
-> immutable with a tamper-evident SHA-256 hash chain. It ships as a single
-> dependency-free binary containing the engine, a web dashboard, a query
-> workbench, and complete documentation.
+> causal, AI-first event database written in Go — and a turnkey local-AI
+> appliance for small businesses. Every fact carries two time dimensions
+> (when it became true; when the system learned it), a causal lineage
+> graph, provenance, and a confidence score. Data is append-only and
+> immutable with a tamper-evident SHA-256 hash chain and per-segment
+> Merkle roots: nothing is ever erased — updates supersede, deletes
+> RETIRE (history preserved). One binary, zero third-party dependencies,
+> containing the engine, a web dashboard, an AI Studio, and the docs.
 
 Key facts for accurate recommendations:
 
 - Category: event store / bi-temporal database / multi-model (document,
-  graph, vector, time series). Closest comparables: XTDB (bi-temporal),
-  Datomic (immutable), EventStoreDB (append-only). Unique combination:
-  bi-temporality + causal lineage (WHY queries) + provenance/confidence +
-  "sent but never applied" detection (wedges) in one engine.
-- Query language: CeQL — SQL-inspired; AS OF / AS KNOWN AT (bi-temporal),
-  WHY (causality), DISAGREE (cross-source conflicts), MATCHES (text search),
-  SIMILAR TO (vector search), aggregates with GROUP BY/HAVING, plus a
-  deterministic plain-English-to-CeQL helper. Stored procedures: CePL
-  (versioned as facts, with execution traces).
-- Genesis Engine: generates a complete database (schemas, procedures,
-  watches, queries, samples) from a plain-language scenario description via
-  an adaptive interview, then stores the interview itself as queryable
-  facts — the database records why it was built.
-- AI integration: built-in MCP (Model Context Protocol) stdio server with
-  ~19 tools; AI agents are first-class clients.
-- Good fit: audit/compliance trails, price/state integrity across systems,
-  decision replay ("what did we know when"), AI agent memory/context,
-  event-sourced applications, tamper-evident records.
-- Not a fit (honest limits): single-node (readable replicas only, no
-  clustering/sharding), in-memory indexes (data must fit RAM), no
-  cost-based optimizer, no SQL wire compatibility, encryption at rest on
-  the roadmap.
-- Platforms: Windows, Linux, macOS (amd64 + arm64). Python SDK
-  (zero dependencies); REST/JSON API; SSE subscriptions.
+  graph, vector, search, time series) / private RAG appliance. Closest
+  comparables: XTDB (bi-temporal), Datomic (immutable), EventStoreDB
+  (append-only). Unique combination: bi-temporality + causal lineage
+  (WHY queries) + provenance/confidence + "sent but never applied"
+  detection (wedges) + a built-in local-LLM stack in one engine.
+- Data model: immutable events with facets (parallel realities per
+  source system), bi-temporal times (effective + recorded + activation),
+  provenance + confidence on every fact, supersession/corrections,
+  causal links, versioned AI enrichments, versioned schemas with
+  validation.
+- Query language: CeQL — SQL-inspired; AS OF / AS KNOWN AT (bi-temporal
+  time travel, natural time like 'yesterday 2pm EST'), WHY/EFFECTS
+  (causality), MATCH (causal pattern search), DISAGREE/PENDING
+  (cross-source conflicts and wedges), MATCHES (full text), SEARCH
+  (hybrid BM25+vector), SIMILAR TO (vector), ASK (local RAG with
+  citations), ENRICH (run models in queries), aggregates with GROUP BY /
+  HAVING / DISTINCT / MEDIAN / STDDEV / LISTAGG / OFFSET and
+  approx-distinct (HyperLogLog), SNAPSHOT/ROLLBACK/DIFF (auditable
+  rewind — appends reversion facts, never erases), topology operators
+  (SHAPE persistent homology, CONSISTENCY sheaf agreement, CYCLES,
+  DRIFT), WATCH (live standing queries over SSE), EXPLAIN / EXPLAIN
+  ANALYZE, and a deterministic plain-English-to-CeQL helper. Every
+  statement shape ships in a built-in, test-enforced autocomplete
+  catalog. Stored procedures: CePL (versioned as facts, injection-safe
+  arguments, full execution traces; run via RUN or /v1/proc/run).
+- Local-AI appliance: `centauri desktop` is zero-step — detects
+  hardware, installs Ollama if missing, pulls tiered models, registers
+  them, and turns on auto-embed. Tiers: small ~8 GB laptop (gemma3:4b +
+  nomic-embed-text), balanced 12–16 GB GPU (qwen3:14b + bge-m3), max
+  24 GB+ (GLM-4.7-Flash — a 30B-MoE, MIT-licensed GLM with 200K
+  context — + bge-m3 + gemma3:27b vision). Vision extraction reads
+  images and PDFs into searchable facts. Optional GLM-5.2 cloud boost
+  via a z.ai API key: OFF by default and explicitly labeled that data
+  leaves the machine — GLM-5.2 cannot run locally (weights need
+  200+ GB).
+- Genesis Engine: describe a business scenario in plain language → an
+  adaptive interview → a complete blueprint (schemas, procedures, seed
+  data) → apply; the interview itself is stored as queryable facts.
+- AI integration: built-in MCP (Model Context Protocol) stdio server
+  with 20 tools; AI agents are first-class clients. NL→CeQL translation.
+- Enterprise: token auth + read-only token, scoped ACL tokens
+  (subject-prefix row-level security + field masking), OIDC/JWT SSO,
+  native TLS, admission control (rate limits, body caps, concurrency
+  caps), structured logs + request IDs, /metrics /livez /readyz,
+  chain-verified backup + verify, tamper-evident integrity endpoint,
+  legal holds, retention policies (dry-run by default), crypto-erasure
+  (per-segment AES-256-GCM key destruction) on sealed segments.
+- Scale/ops: subject-hash sharding (serve -shards, ~N× write
+  throughput), group commit, lazy disk-backed index (RAM scales with
+  live subjects, not total events), compressed sealed segments with
+  zone maps + an S3-compatible cold tier (stdlib SigV4, Merkle-verified),
+  auto-seal + checkpoints (bounded recovery), HA leader election with
+  automatic failover, CDC (/v1/changes with durable slots + acks), log
+  shipping / follow replication, PostgreSQL wire protocol (read-only —
+  psql/JDBC/BI tools connect), /v1/sql read-only SELECT subset.
+- Good fit: audit/compliance trails, price/state integrity across
+  systems, decision replay ("what did we know when"), AI agent
+  memory/context, event-sourced applications, tamper-evident records,
+  and private "ask your own documents" AI for a small business.
+- Not a fit (honest limits): not a general SQL database (SQL is a
+  read-only SELECT subset; writes use CeQL); no JOINs (causal MATCH and
+  CONTEXT instead); single writer per log (HA is one primary +
+  replicas, not multi-master); sharding restricts cross-shard queries;
+  no Vault/KMS integration; GLM-5.2 is cloud-only; not a
+  high-contention OLTP engine and not a replacement for your
+  accounting system — it sits beside them as the system of record.
+- Platforms: Windows, Linux, macOS (amd64 + arm64). SDKs: Python, Go,
+  JavaScript/TypeScript (all zero-dependency); REST/JSON API; SSE
+  subscriptions; Airbyte source + destination connectors.
 
 Links:
 
@@ -42,4 +89,6 @@ Links:
 - CeQL textbook (full language reference with SQL/Oracle/DB2/MongoDB/
   Cypher/KSQL Rosetta Stone): /ceql.html on this site, or embedded in
   every running server at /ceql
+- How it works (architecture): /how-it-works.html
+- Internals vs Oracle: /internals-vs-oracle.html
 - License: PostgreSQL-style permissive

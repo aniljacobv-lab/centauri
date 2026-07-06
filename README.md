@@ -8,16 +8,40 @@ Centauri is your own private AI that runs on *your* computer, not in the cloud. 
 
 Free and open source under a [PostgreSQL-style license](LICENSE). If you've spent years trapped in expensive database licensing — welcome home.
 
+## For small businesses — the 5-minute private AI
+
+Never integrated anything in your life? That's who this is for. Install it,
+double-click, and your own AI sets itself up on your computer — models download
+once, then everything runs locally and nothing leaves your machine.
+**[Read the plain-English quickstart →](docs/quickstart.md)**
+
+Optional: paste a [Z.ai](https://z.ai) API key into the dashboard's AI panel to
+boost answers with cloud **GLM-5.2** — off by default, clearly marked, because
+it sends data off-machine and costs money.
+
 ## Why Centauri
 
-Ordinary databases remember only the latest value. Centauri remembers the whole story, so it can answer four questions no ordinary database can:
+Two audiences, one binary.
 
-1. **What was true at any moment?** (`AS OF '2026-03-15'`)
-2. **What did we *believe* at any moment?** (`AS KNOWN AT '2026-03-01'` — the audit superpower)
-3. **WHY did it change?** (`WHY` — causes are first-class data)
-4. **Can we trust it — and did it actually land?** (provenance + confidence on every fact; `PENDING` finds changes that were sent but never applied)
+**For developers** — an event database where history *is* the data model:
 
-Plus: **CeQL** (a query language where time, cause, and trust are syntax — with a plain-English helper), **CePL** stored procedures that are versioned and self-tracing, vector search, an embedded dashboard and full textbook, a tamper-evident hash chain, multitenant environments with snapshot cloning, read replicas, an MCP server so AI agents are first-class clients — and the **Genesis Engine**: describe your scenario in plain language and Centauri interviews you and builds the entire database, then stores that conversation as facts so the database forever remembers *why it exists*.
+1. **Bi-temporal.** Every fact carries two clocks: `AS OF` asks what was true at any moment; `AS KNOWN AT` asks what we *believed* — the audit superpower.
+2. **Causal.** `WHY` and `EFFECTS` walk first-class cause links; `MATCH` pattern-searches the lineage graph.
+3. **Tamper-evident.** An append-only log sealed by a hash chain; `centauri verify` proves nothing was altered. There is no DELETE — `RETIRE` supersedes, history stays.
+4. **Trust-aware.** Provenance + confidence on every fact; `DISAGREE` finds where systems conflict; `PENDING` finds changes that were sent but never landed.
+5. **Zero dependencies.** One Go binary, an empty `require` block — dashboard, textbook (`/ceql`), REST API, MCP server, replication, backups, all inside.
+
+Plus: **CeQL** (time, cause, and trust as syntax — with aggregates, BM25 + hybrid vector `SEARCH`, topology operators, `EXPLAIN ANALYZE`, and a plain-English helper), **CePL** stored procedures (versioned facts, self-tracing, injection-safe substitution), reversible transactions (`SNAPSHOT`/`ROLLBACK`/`DIFF`), a lean read-only SQL door (`/v1/sql`, plus an optional Postgres wire listener via `-pg-addr` for psql/JDBC/BI tools), scoped tokens with field masking, retention with legal holds, tablespace archives (with S3 offload), CDC, HA failover, sharded write scaling — and the **Genesis Engine**: describe your scenario in plain language and Centauri interviews you and builds the entire database, then stores that conversation as facts so the database forever remembers *why it exists*.
+
+**For small businesses** — a turnkey private AI appliance: install, double-click, and a local model trio (chat, embeddings, vision — sized to your machine, from `gemma3:4b` up to `glm-4.7-flash`) sets itself up via Ollama. Ask in plain English; answers cite the facts they came from; new facts auto-embed so search-by-meaning just works; nothing leaves your computer and there is no per-token bill.
+
+**What Centauri is NOT** (honesty is policy):
+
+- Not a general SQL database. The SQL surface is a read-only `SELECT` subset; writes use CeQL. No JOINs — in SQL or CeQL.
+- Single writer per log. Sharded writes, read replicas, and HA failover exist; multi-writer clustering does not.
+- The working set lives in RAM. The tablespace/archive tier serves bigger-than-memory data, read-only.
+- **GLM-5.2 is cloud-only.** Its weights are 200+ GB and cannot run locally; the optional cloud boost sends data off-machine and costs money. Local tiers top out at `glm-4.7-flash`.
+- No Vault/KMS integration (secrets are env vars or a 0600 key file), no cost-based optimizer.
 
 ## Quickstart (30 seconds)
 
@@ -74,6 +98,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Hand-written PRs are equally welcome.
 
 ## Honest status
 
-v0.3: single-node engine with read replicas. In-memory indexes (your data must fit in RAM), no clustering/sharding, no cost-based optimizer, encryption-at-rest planned (v0.4 with crypto-erasure). The dashboard's **★ Why Centauri** table states plainly where Oracle/Postgres/Mongo still win. Centauri's lane: the system of record for *what happened, when, why, and how much to trust it* — the flight recorder beside your operational stores.
+v0.3: a single-writer engine with read replicas, HA failover, and optional sharded write scaling (`-shards`). In-memory indexes (your working set must fit in RAM; the sealed-segment archive tier serves larger data read-only), no multi-writer clustering, no cost-based optimizer. Crypto-erasure exists as a sealed-segment primitive; end-to-end encryption-at-rest of the live log is still planned. The dashboard's **★ Why Centauri** table states plainly where Oracle/Postgres/Mongo still win. Centauri's lane: the system of record for *what happened, when, why, and how much to trust it* — the flight recorder beside your operational stores.
 
 The Vision / local-LLM features *orchestrate* a model you run yourself (free, e.g. Ollama) over HTTP and use an external PDF renderer — the engine bundles no model and stays zero-dependency. Centauri installs and manages them for you, but they're optional add-ons, not built into the binary.

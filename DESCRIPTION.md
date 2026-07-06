@@ -15,6 +15,17 @@ dependencies, Postgres-style free.
 - Time travel isn't a feature here. It's the data model.
 - SQL asks "what is." CeQL asks "what was, what did we know, and why."
 - One file. The engine, the GUI, the textbook, and an architect that interviews you.
+- Install it like an app; it installs its own AI. Your data never leaves the building.
+
+## Small-business pitch (~90 words)
+
+Centauri is the AI for people who have never integrated anything: one
+installer, one double-click, and your own private AI — chat, search, and a
+perfect memory of your business — sets itself up on your computer. It
+auto-installs its local model runtime, downloads the models once, and opens
+in your browser. No cloud account, no per-token bill, and nothing you put in
+ever leaves the machine or gets erased. Want more horsepower? Paste a Z.ai
+key to boost answers with cloud GLM-5.2 — strictly optional, off by default.
 
 ## Developer description (~350 words)
 
@@ -43,12 +54,17 @@ starter queries, and sample data — then stores the interview itself as facts,
 so the database forever remembers why it was built.
 
 It ships as a single binary with zero dependencies: the dashboard, a full
-textbook, a REST API, an MCP server for AI agents, replication, backups, and
-multitenant environments are all inside one file. A zero-dependency Python SDK
-covers the rest.
+textbook, a REST API, a lean read-only SQL subset (with an optional Postgres
+wire-protocol listener for psql/BI tools), an MCP server for AI agents,
+replication, backups, and multitenant environments are all inside one file. A
+zero-dependency Python SDK covers the rest. Turn on local AI and it provisions
+a private model trio (chat, embeddings, vision) via Ollama, sized to the
+machine — nothing leaves it.
 
-Honest limits: single-node (read replicas, not clusters), memory-bound
-indexes, no query optimizer yet. Centauri isn't here to replace Postgres —
+Honest limits: single writer per log (read replicas, HA failover, and sharded
+write scaling — not multi-writer clusters), memory-bound indexes (a read-only
+archive tier for bigger-than-RAM data), a read-only SQL subset with no JOINs,
+no query optimizer yet. Centauri isn't here to replace Postgres —
 it's the flight recorder beside it: the system of record for what happened,
 when, why, and how much to trust it.
 

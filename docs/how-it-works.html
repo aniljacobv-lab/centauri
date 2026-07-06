@@ -227,7 +227,7 @@
 
     <h3>Search — keyword, vector, hybrid</h3>
     <pre><span class="k">SEARCH</span> <span class="s">'late markdown'</span> <span class="k">OF</span> item:*            <span class="cm">-- ranked BM25, bi-temporal</span>
-<span class="k">SIMILAR TO</span> <span class="s">'contract terms'</span> <span class="k">TOP</span> <span class="n">5</span>          <span class="cm">-- vector / semantic</span>
+<span class="k">SIMILAR TO</span> 0193fa2e-77c1 <span class="k">TOP</span> <span class="n">5</span>            <span class="cm">-- semantic: events nearest to this one</span>
 <span class="k">SEARCH</span> <span class="s">'risk'</span> <span class="k">OF</span> doc:* <span class="k">SIMILAR TO</span> <span class="s">'liability'</span> <span class="k">ALPHA</span> <span class="n">0.5</span>  <span class="cm">-- hybrid</span></pre>
 
     <h3>Aggregation &amp; data shape</h3>
@@ -255,7 +255,7 @@
 <span class="k">DEFINE SCHEMA</span> sku ...                            <span class="cm">-- optional validation</span></pre>
 
     <h3>AI inside the language</h3>
-    <pre><span class="k">ENRICH</span> documents <span class="k">USING</span> model:llava        <span class="cm">-- run a model over facts; the result is a fact</span>
+    <pre><span class="k">ENRICH</span> asset:* <span class="k">USING</span> vision           <span class="cm">-- run a model over facts; the result is a fact</span>
 <span class="k">ASK</span> <span class="s">'which invoices from Acme are overdue?'</span>  <span class="cm">-- RAG answer with citations</span></pre>
     <p><b>Plain-English → CeQL</b> isn't a statement you type — the ✨ Helper (and <code>POST /v1/assist</code>) translates English into a CeQL query you review before running: deterministic rules first, a local LLM for the long tail.</p>
 
@@ -285,15 +285,15 @@ psql <span class="s">'host=localhost port=5432 user=any sslmode=disable'</span>
 
     <h3>Models are facts</h3>
     <p>You register a model by writing a fact — so the choice is versioned, queryable, and auditable, not a hidden config file:</p>
-    <pre><span class="k">PUT</span> model:llava <span class="k">FACET</span> config <span class="k">SET</span>
+    <pre><span class="k">PUT</span> model:vision <span class="k">FACET</span> config <span class="k">SET</span>
     endpoint=<span class="s">'http://localhost:11434/v1/chat/completions'</span>,
-    kind=<span class="s">'vision'</span>, model=<span class="s">'llava'</span>, auth_env=<span class="s">'OLLAMA_KEY'</span></pre>
+    kind=<span class="s">'vision'</span>, model=<span class="s">'gemma3:27b'</span>, auth_env=<span class="s">'OLLAMA_KEY'</span></pre>
     <p><code>kind</code> is <code>chat</code>, <code>embedding</code>, <code>vision</code>, or <code>image-embedding</code>. <code>auth_env</code> names an environment variable holding the token — the secret is read at call time and never stored.</p>
 
     <h3>Works with</h3>
     <div class="grid2">
-      <div class="box"><h4>Local runtimes (recommended)</h4><p><b>Ollama</b>, <b>LocalAI</b>, <b>vLLM</b> — all OpenAI-compatible. Centauri can auto-start and manage a local Ollama, and <code>serve -ai</code> auto-registers and pulls a chat + embedder + vision trio sized to your hardware.</p></div>
-      <div class="box"><h4>Cloud models (opt-in)</h4><p>Point an endpoint at OpenAI / Anthropic / any OpenAI-compatible API. Off by default and flagged in the UI, because the design is local-first — your data shouldn't leave by accident.</p></div>
+      <div class="box"><h4>Local runtimes (recommended)</h4><p><b>Ollama</b>, <b>LocalAI</b>, <b>vLLM</b> — all OpenAI-compatible. <code>centauri desktop</code> (or <code>serve -ai</code>) auto-installs Ollama if missing and pulls a chat + embedder + vision trio sized to your hardware: <b>small</b> ~8&nbsp;GB laptop (gemma3:4b + nomic-embed-text) · <b>balanced</b> 12–16&nbsp;GB GPU (qwen3:14b + bge-m3) · <b>max</b> 24&nbsp;GB+ (<b>GLM-4.7-Flash</b>, a 30B-MoE MIT-licensed GLM with 200K context, + bge-m3 + gemma3:27b vision).</p></div>
+      <div class="box"><h4>Cloud models (opt-in)</h4><p>Point an endpoint at any OpenAI-compatible API, or use the dashboard's one-click <b>GLM-5.2 cloud boost</b> (z.ai API key). Both are <b>off by default and explicitly labeled</b>, because the design is local-first — with a cloud model your questions leave the machine. GLM-5.2 cannot run locally: its weights need 200+&nbsp;GB.</p></div>
     </div>
 
     <h3>What the AI does over your data</h3>
@@ -308,7 +308,7 @@ psql <span class="s">'host=localhost port=5432 user=any sslmode=disable'</span>
     <h3>Agents &amp; programs</h3>
     <div class="grid2">
       <div class="box"><h4>MCP server</h4><p>Centauri ships a Model Context Protocol server over stdio, so AI agents are first-class clients: they query the same store directly for grounded memory and RAG — no glue code, no token cost just to remember.</p></div>
-      <div class="box"><h4>Python SDK</h4><p>A zero-dependency Python SDK (with mock-server tests) for apps and pipelines. REST is always there too, and Airbyte connectors move data in/out of 300+ systems.</p></div>
+      <div class="box"><h4>SDKs</h4><p>Zero-dependency clients for <b>Python, Go, and JavaScript/TS</b> (the Python SDK ships mock-server tests). REST is always there too, and Airbyte connectors move data in/out of 300+ systems.</p></div>
     </div>
     <h3>The Genesis Engine — build a database from a conversation</h3>
     <p>Describe your scenario in plain language and Centauri interviews you and generates the whole blueprint (subjects, facets, schema), or paste existing SQL <code>DDL</code> to convert it. Then it stores that very conversation as facts — so the database forever remembers <em>why it exists</em>. Drive it from the dashboard (🏗 Build my database) or <code>POST /v1/architect/plan</code> &amp; <code>/v1/architect/apply</code>.</p>
@@ -324,6 +324,7 @@ psql <span class="s">'host=localhost port=5432 user=any sslmode=disable'</span>
       <tr><td>High availability</td><td>Automatic failover via lease-based leader election with epoch fencing; <code>/v1/ha</code> reports role/leader</td></tr>
       <tr><td>Retention &amp; legal hold</td><td>RETIRE-based retention policies; enforced legal hold blocks deletion of held subjects</td></tr>
       <tr><td>Observability</td><td>Prometheus <code>/metrics</code>, <code>/livez</code> &amp; <code>/readyz</code> probes, structured logs with request IDs, native TLS</td></tr>
+      <tr><td>Traffic protection</td><td>Admission control: global and per-tenant concurrency caps, per-request timeouts, request-body caps, rate limiting</td></tr>
       <tr><td>Cold storage</td><td>S3-compatible tier (stdlib request signing), served on demand, Merkle-verified, LRU-cached</td></tr>
       <tr><td>Multitenancy</td><td>Many independent databases ("environments") per server, with snapshot cloning</td></tr>
       <tr><td>Replication / CDC</td><td>Log shipping + durable change-data-capture slots (resumable cursors)</td></tr>

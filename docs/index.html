@@ -246,7 +246,7 @@
     <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
   </span>
 </div></nav>
-<div class="announce">Latest — <b>local-AI Vision</b>: drop in images &amp; PDFs, a model running free on <em>your</em> machine reads them, and you get <b>semantic search</b> + plain-English <b>ASK</b> over your own data. Plus a Studio IDE, ROLLBACK, ENRICH, causal MATCH, CDC, and Python / Go / JS SDKs. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
+<div class="announce">Latest — the <b>turnkey local-AI appliance</b>: <b>centauri desktop</b> detects your hardware, installs the model runtime, and pulls the right models automatically — from an 8&nbsp;GB laptop (gemma3:4b) to a 24&nbsp;GB+ GPU running <b>GLM-4.7-Flash</b> (30B MoE, 200K context). Optional GLM-5.2 cloud boost, off by default. Plus sharding, HA failover, Postgres wire &amp; CDC slots. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
 
 <!-- HERO -->
 <div class="hero"><div class="wrap">
@@ -258,6 +258,7 @@
       <li><b>A time machine</b> — query what was <b>true</b> and what you <b>believed</b> at any moment (bi-temporal)</li>
       <li><b>Blockchain-grade integrity</b> — a SHA-256 hash chain proves history was never altered — without a blockchain</li>
       <li><b>Your data, your hardware</b> — one open file on your laptop, server, or cloud. Free, no lock-in</li>
+      <li><b>A five-minute private AI</b> — <code>centauri desktop</code> detects your hardware, installs the runtime, and pulls models sized to the machine — zero steps, no cloud account</li>
       <li><b>Sees your files</b> — a local vision model reads images &amp; PDFs into searchable, vectorized facts; runs free on your machine, nothing leaves it</li>
     </ul>
     <div class="btns">
@@ -327,9 +328,10 @@
     <div class="feat"><div class="fi">🔎</div><h3>Semantic search</h3><p><code>SEARCH 'inventory stockout' OF asset:*</code> embeds your query and ranks by <em>meaning</em> blended with keyword — and it searches the AI's descriptions too. Find the right drawing without the exact words.</p></div>
     <div class="feat"><div class="fi">💬</div><h3>ASK your data (RAG)</h3><p><code>ASK 'what do my drawings say about the 200A panel?'</code> retrieves the most relevant facts and a local LLM answers — <b>with citations</b> to the source events. Private "chat with your data."</p></div>
     <div class="feat"><div class="fi">🗣️</div><h3>Plain English → CeQL</h3><p>The ✨ Copilot turns natural language into real CeQL — deterministic rules first, then the local LLM for the rest, re-parsed so a suggestion is never invalid.</p></div>
-    <div class="feat"><div class="fi">📦</div><h3>One package</h3><p>One click (or <code>centauri setup vision -install</code>) installs Ollama + a PDF renderer and pulls the models — skipping whatever's already there. <code>centauri desktop</code> then starts the model with Centauri and stops it on exit.</p></div>
-    <div class="feat"><div class="fi">🆓</div><h3>Free &amp; private</h3><p>Runs on free, open <a href="https://ollama.com">Ollama</a> (e.g. <code>llava</code> + <code>nomic-embed-text</code>). The engine stays zero-dependency; the model is reached over plain HTTP. Your documents never leave the machine.</p></div>
+    <div class="feat"><div class="fi">📦</div><h3>Zero-step setup</h3><p><code>centauri desktop</code> detects your hardware, installs Ollama + a PDF renderer if missing, pulls the right model tier, registers the models, and turns on auto-embed — skipping whatever's already there. <code>centauri desktop</code> then starts the model with Centauri and stops it on exit.</p></div>
+    <div class="feat"><div class="fi">🆓</div><h3>Free &amp; private</h3><p>Runs on free, open <a href="https://ollama.com">Ollama</a> models sized to your hardware — from <code>gemma3:4b</code> + <code>nomic-embed-text</code> on a laptop to <code>glm-4.7-flash</code> + <code>bge-m3</code> + <code>gemma3:27b</code> vision on a 24&nbsp;GB+ GPU. The engine stays zero-dependency; the model is reached over plain HTTP. Your documents never leave the machine.</p></div>
   </div>
+  <div class="honest" style="margin:18px 0 0"><b>Model tiers &amp; the cloud boost:</b> <code>centauri desktop</code> picks a preset for your hardware — <b>small</b> (~8&nbsp;GB laptop: gemma3:4b + nomic-embed-text), <b>balanced</b> (12–16&nbsp;GB GPU: qwen3:14b + bge-m3), <b>max</b> (24&nbsp;GB+: <b>GLM-4.7-Flash</b>, a 30B-MoE, MIT-licensed GLM with a 200K context, + bge-m3 + gemma3:27b vision). The dashboard's AI panel shows live status dots and offers a one-click, optional <b>GLM-5.2 cloud boost</b> via a z.ai API key — <b>off by default and explicitly labeled, because with it your questions leave the machine</b>. GLM-5.2 cannot run locally: its weights need 200+&nbsp;GB.</div>
   <p class="lead" style="margin-top:18px"><b>The loop:</b> <code>Upload → ENRICH → SEARCH / ASK</code>. Your electrical drawings, contracts, and photos become searchable by what's <em>in</em> them — the kind of thing teams normally wire up Firestore, an object store, and a cloud vision API to do. Here it's one local binary. Setup: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">vision-setup.md</a> · features: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">ai-features.md</a>.</p>
 </div></section>
 
@@ -481,7 +483,7 @@ client = OpenAI(base_url=<span class="lit">"http://localhost:11434/v1"</span>,  
       <pre><span class="cm"># macOS / Linux</span>
 curl -fsSL https://centauridb.ai/install.sh | sh
 centauri seed                 <span class="cm"># load demo data</span>
-centauri desktop              <span class="cm"># opens the dashboard; manages a local AI for you</span>
+centauri desktop              <span class="cm"># dashboard + local AI, auto-sized to your hardware</span>
 
 <span class="cm"># Windows: double-click run-centauri.bat — builds, opens the</span>
 <span class="cm"># dashboard, and offers (once) to set up local AI Vision</span>
@@ -517,7 +519,7 @@ centauri setup vision -install</pre>
     <div class="feat"><div class="fi">🔎</div><h3>Search &amp; retrieval</h3><p>Native ranked <code>SEARCH</code> (BM25), semantic <code>SIMILAR</code> over embeddings, and hybrid keyword+vector — the recall of semantics with the precision of keywords.</p></div>
     <div class="feat"><div class="fi">🧮</div><h3>Built-in topology</h3><p>Persistent homology &amp; sheaf consistency as operators: <code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — clusters, loops, voids, periodicity, and drift no row store can see.</p></div>
     <div class="feat"><div class="fi">🤖</div><h3>Built for AI agents</h3><p>A native MCP server lets agents speak CeQL directly. Plain-English compiles to queries with no tokens. <code>AS KNOWN AT</code> gives leak-free training features. Genesis builds a database from a description.</p></div>
-    <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>A <b>Studio</b> IDE (object explorer, causal-graph view, edit-as-a-fact), a psql-style <code>shell</code>, <code>EXPLAIN ANALYZE</code>, <code>doctor</code> diagnostics, CDC + replication slots, scoped-token security, CePL procedures, chain-verified backups, and Python / Go / JS SDKs.</p></div>
+    <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>A <b>Studio</b> IDE (object explorer, causal-graph view, edit-as-a-fact), a psql-style <code>shell</code>, <code>EXPLAIN ANALYZE</code>, <code>doctor</code> diagnostics, CDC + replication slots, the <b>PostgreSQL wire protocol</b> (read-only SQL for psql/BI), sharding + <b>HA auto-failover</b>, scoped-token security, CePL procedures, chain-verified backups, and Python / Go / JS SDKs.</p></div>
   </div>
 </div></section>
 
@@ -593,6 +595,7 @@ centauri setup vision -install</pre>
       <tr><td class="s">CONSISTENCY <span class="reftag">topology</span></td><td>Sheaf consistency across a subject's facets — agreement clusters + the outlier.</td><td class="ex">CONSISTENCY OF item:1/store:9 ON price_cents</td></tr>
       <tr><td class="s">CYCLES / DRIFT <span class="reftag">topology</span></td><td>Cycles in the causal graph (integrity); distribution drift over time.</td><td class="ex">DRIFT OF item:* ON price_cents BUCKETS 6</td></tr>
       <tr><td class="s">ENRICH <span class="reftag">new</span></td><td>Run a model over events and cache the result as a fact — embeddings or text, via your own LLM endpoint.</td><td class="ex">ENRICH ticket:* USING summarize ON body AS summary</td></tr>
+      <tr><td class="s">ASK <span class="reftag">new</span></td><td>Private RAG — retrieve the most relevant facts, have the local model answer, cite the source events.</td><td class="ex">ASK 'which invoices from Acme are overdue?'</td></tr>
       <tr><td class="s">CONTEXT FOR</td><td>Everything an AI needs in one call: facts, history, causes, disagreements, confidence.</td><td class="ex">CONTEXT FOR item:100001/store:4001</td></tr>
       <tr><td class="s">WATCH</td><td>A standing query — stream new facts as they commit.</td><td class="ex">WATCH ALL FACET pdt</td></tr>
       <tr><td class="s">DEFINE SCHEMA / RUN</td><td>Versioned validation schemas; run CePL stored procedures with a step trace.</td><td class="ex">RUN duty_estimate WITH item='100001'</td></tr>
@@ -967,7 +970,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"How do I write or insert or update data",t:"write insert add put update record create save data ingest load import csv pump",
       a:"Writing is one act: <code>PUT subject SET field=value, …</code>. Insert and update are the same — a new fact supersedes the old, and the old stays in history. Bulk-load with the SDK's <code>db.pump('data.csv')</code> or the HTTP ingest endpoint."},
     {q:"Is it production ready and stable",t:"production ready stable stability maturity reliable battle tested beta enterprise",
-      a:"Centauri is young (v0.3.0). Use it as the system of record for facts, audit, and lineage <em>alongside</em> your proven operational store — not as the sole database for a critical transactional workload yet. It ships with a deterministic test suite, a tamper-evident log, and chain-verified backups."},
+      a:"Centauri is young. Use it as the system of record for facts, audit, and lineage <em>alongside</em> your proven operational store — not as the sole database for a critical transactional workload yet. It ships with a deterministic test suite, a tamper-evident log, and chain-verified backups."},
     {q:"GDPR right to be forgotten erasure if nothing is deleted",t:"gdpr erasure right to be forgotten delete privacy compliance forget personal data retention ccpa",
       a:"Deletion is two-layered: <code>RETIRE</code> stops a fact from applying (history kept), and <b>crypto-erasure</b> destroys the per-segment AES-256-GCM key for encrypted cold payloads — rendering them unrecoverable while preserving the tamper-evident chain. That satisfies right-to-be-forgotten without breaking auditability."},
     {q:"Do I still need Elasticsearch",t:"elasticsearch opensearch elastic lucene search engine replace need separate cluster",
@@ -983,7 +986,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Can I embed the assistant or a live agent on my website",t:"embed widget website live agent chatbot support bot script iframe self host zero token docs assistant",
       a:"Yes. This assistant is a self-contained, <b>zero-token</b> BM25 widget that indexes your page's content — drop it into any site for a free docs/support bot with no LLM bill. For answers that <em>learn</em> over time, put a running Centauri behind it: the <code>ASK</code> statement searches your <code>kb:*</code> facts and logs gaps for an agent to fill."},
     {q:"What are the system requirements",t:"requirements hardware os ram cpu prerequisites needs minimum platform",
-      a:"Windows 10/11, macOS, or Linux (64-bit); enough RAM to hold your working set (indexes live in memory); no other dependencies — it's one static binary."},
+      a:"Windows 10/11, macOS, or Linux (64-bit); enough RAM for the live working set (the lazy index and <code>--lazy</code> let total data exceed RAM); no other dependencies — one static binary. The optional local AI wants ~8 GB free for the small tier, a 12–16 GB GPU for balanced, 24 GB+ for max."},
     {q:"How do I get started quickly quickstart",t:"quickstart getting started first steps tutorial begin demo seed",
       a:"Install, then <code>centauri seed</code> (demo data) → <code>centauri desktop</code> (opens the dashboard) → run <code>FACTS OF item:100001/store:4001</code>. See the Quickstart section."},
     {q:"What is a facet",t:"facet facets register shelf source storecentral system view reality per system",
@@ -1007,7 +1010,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Is there a REST API or HTTP interface",t:"rest api http endpoint json curl integrate v1 query web",
       a:"Yes — <code>POST /v1/query</code> runs CeQL or a JSON AST; there are also <code>/v1/context</code>, <code>/v1/asof</code>, <code>/v1/pending</code>, and <code>/v1/watch</code> (SSE). Any language that makes HTTP calls can use Centauri."},
     {q:"What languages and clients are supported",t:"language client driver python javascript java go sdk binding library",
-      a:"A zero-dependency Python SDK ships today; everything else uses the HTTP API (any language), and AI agents use the MCP server. CeQL's JSON AST makes typed clients trivial."},
+      a:"Zero-dependency SDKs for <b>Python, Go, and JavaScript/TS</b>; read-only SQL over the <b>PostgreSQL wire protocol</b> (psql, JDBC, DBeaver, Tableau, Power BI); the plain HTTP API from any language; and the MCP server for AI agents."},
     {q:"How do I import or export data",t:"import export csv jsonl bulk load migrate pump dump backfill",
       a:"Bulk-load with the SDK's <code>db.pump('data.csv')</code> or the HTTP ingest endpoint; export with <code>centauri export -q 'FACTS OF *' -format csv</code> (or jsonl)."},
     {q:"How does it compare to Datomic or EventStoreDB",t:"datomic eventstore eventstoredb immutable temporal event sourcing compare versus",

@@ -1,6 +1,6 @@
 # Design: vision — local assets an AI can see
 
-**Status:** MVP building · **Builds on:** ENRICH (`internal/ceql/enrich.go`), the
+**Status:** Shipped (see [ai-features.md](ai-features.md) for the user view) · **Builds on:** ENRICH (`internal/ceql/enrich.go`), the
 vector index (`internal/store/search.go`), enrichment facts, and on-disk
 payloads.
 
@@ -58,7 +58,7 @@ A vision model is registered as a fact, like any model:
 ```
 PUT model:drawing FACET config SET
   endpoint='http://localhost:11434/v1/chat/completions',
-  kind='vision', model='llava', auth_env='OLLAMA_KEY',
+  kind='vision', model='gemma3:12b', auth_env='OLLAMA_KEY',
   prompt='You are reading an electrical drawing. Return JSON:
           {"description": "...", "tags": ["..."], "fields": {"sheet":"", "panels":[], "ratings":[]}}',
   embed_with='nomic'      -- optional: embed the description for SIMILAR

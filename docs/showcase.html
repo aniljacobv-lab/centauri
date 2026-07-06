@@ -74,6 +74,8 @@
   .btn.outline{color:var(--accent);background:#fff}
   footer{padding:28px 0;color:var(--muted);font-size:13.5px;text-align:center}
   .tagline{color:var(--muted);font-weight:600}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:16px 18px;overflow:auto;font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;box-shadow:var(--shadow)}
+  pre .cm{color:#7c8aa5}
 </style>
 </head>
 <body>
@@ -108,11 +110,12 @@
     <h2>Do the work of a team — without sending your business to the cloud.</h2>
     <p class="lead">Drop in everything your business runs on and just ask. Centauri is the AI employee that already knows your stuff, costs nothing per question, and keeps every secret in the building.</p>
     <div class="grid">
+      <div class="card"><div class="ic">⚡</div><h3>A private AI in five minutes</h3><p>Run <code>centauri desktop</code> — it detects your hardware, installs the AI runtime, and pulls the right models by itself. No cloud account, no configuration, no consultant.</p></div>
       <div class="card"><div class="ic">💬</div><h3>Ask in plain English</h3><p>"Which invoices from Acme are overdue?" "What did we promise this client?" It answers and shows you exactly where it found it.</p></div>
       <div class="card"><div class="ic">📄</div><h3>It reads your documents</h3><p>PDFs, invoices, contracts, scanned images — a local vision model pulls out the facts so they're searchable, no manual data entry.</p></div>
       <div class="card"><div class="ic">🔎</div><h3>Instant search over everything</h3><p>New data embeds itself the moment you add it, so search and answers are ready immediately — no setup, no separate tool.</p></div>
       <div class="card"><div class="ic">👍</div><h3>Gets smarter on your data</h3><p>Thumbs-up or down on an answer's sources and it re-ranks next time. It learns your business — without ever changing the underlying model.</p></div>
-      <div class="card"><div class="ic">💸</div><h3>No cloud, no AI bill</h3><p>The AI runs on your own computer. No subscription, no per-question charge, no vendor watching your data.</p></div>
+      <div class="card"><div class="ic">💸</div><h3>No cloud, no AI bill</h3><p>The AI runs on your own computer. No subscription, no per-question charge, no vendor watching your data. (An optional GLM-5.2 cloud boost exists — off by default and clearly labeled, because that is the one mode where questions leave the building.)</p></div>
       <div class="card"><div class="ic">🗄️</div><h3>Never lose anything</h3><p>Everything you put in is kept forever, exactly as it was. You can always see what was true last month — and trust it.</p></div>
       <div class="card"><div class="ic">💻</div><h3>One file, runs anywhere</h3><p>Download a single program. It runs on a laptop or a small server — no install marathon, no database admin.</p></div>
       <div class="card"><div class="ic">🆓</div><h3>Free and yours</h3><p>Open source, no license to renew. Your data, your AI, your machine — nobody else's.</p></div>
@@ -151,13 +154,44 @@
       <div class="card"><div class="ic">🧮</div><h3>CeQL + plain English</h3><p>Query language with <code>AS OF</code> / <code>AS KNOWN AT</code>, causal <code>WHY</code>/<code>EFFECTS</code>/<code>MATCH</code>, and an NL→CeQL translator for the long tail.</p></div>
       <div class="card"><div class="ic">📐</div><h3>Topology &amp; time-travel ops</h3><p>Analytics no other DB ships — <code>SHAPE</code> (persistent homology), <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — plus <code>SNAPSHOT</code>/<code>ROLLBACK</code>/<code>DIFF</code> and <code>PROFILE</code>.</p></div>
       <div class="card"><div class="ic">🐘</div><h3>PostgreSQL wire protocol</h3><p>Simple <em>and</em> extended protocol — <code>psql</code>, JDBC and BI tools connect and run read-only SQL that transpiles to CeQL.</p></div>
-      <div class="card"><div class="ic">🤖</div><h3>Local AI, first-class</h3><p><code>ASK</code> = RAG with citations · <code>ENRICH</code> runs models in queries · hybrid BM25+vector <code>SEARCH</code> · vision extraction · <code>serve -ai</code> auto-provisions models.</p></div>
+      <div class="card"><div class="ic">🤖</div><h3>Local AI, first-class</h3><p><code>ASK</code> = RAG with citations · <code>ENRICH</code> runs models in queries · hybrid BM25+vector <code>SEARCH</code> · vision extraction · <code>centauri desktop</code> / <code>serve -ai</code> auto-provision tiered models up to GLM-4.7-Flash (30B MoE, 200K context).</p></div>
       <div class="card"><div class="ic">🔄</div><h3>Auto-embed + feedback loop</h3><p>New facts embed themselves on write; user ratings re-rank retrieval — deterministic, auditable "learning," no weights touched.</p></div>
       <div class="card"><div class="ic">🧩</div><h3>Agent-native (MCP) + SDK</h3><p>An MCP server makes agents first-class clients (grounded memory, no token cost to remember), plus a zero-dependency Python SDK.</p></div>
       <div class="card"><div class="ic">📈</div><h3>Scales past RAM</h3><p>Lazy disk-backed index, sharding, group commit, compressed cold segments with zone-map skipping, and an S3 backend with Merkle verification.</p></div>
       <div class="card"><div class="ic">🔗</div><h3>Integrity &amp; replication</h3><p>Per-line hash chain, online verification, durable CDC slots, log shipping, snapshot/clone, and HA failover — all in the box.</p></div>
       <div class="card"><div class="ic">🧪</div><h3>Batteries included</h3><p>Embedded dashboard, AI Studio IDE, a full CeQL textbook, autocomplete catalog, Airbyte connectors, and the Genesis Engine that builds a DB from a conversation.</p></div>
     </div>
+  </div>
+</section>
+
+<!-- REAL QUERIES -->
+<section id="queries">
+  <div class="wrap">
+    <div class="eyebrow">Real queries</div>
+    <h2 style="margin-top:6px">The range, in a few lines of CeQL</h2>
+    <p class="lead">Every query below runs verbatim on today's engine (try them on the demo seed: <code>centauri seed</code>).</p>
+    <pre><span class="cm">-- time travel: what was true then — and what we *believed* then</span>
+FACTS OF item:100001/store:4001 AS OF '2026-03-15' AS KNOWN AT '2026-03-01'
+
+<span class="cm">-- why did it change? walk the causal chain</span>
+FACTS OF item:100001/store:4001 WHY DEPTH 3
+
+<span class="cm">-- aggregate with GROUP BY / HAVING</span>
+FACTS facet, COUNT(*) OF item:*/store:4001 GROUP BY facet HAVING COUNT(*) > 5
+
+<span class="cm">-- ranked keyword search — and hybrid keyword + vector</span>
+SEARCH 'late markdown' OF item:*
+SEARCH 'markdown' OF item:* SIMILAR TO 0193fa2e-77c1 ALPHA 0.5
+
+<span class="cm">-- ask your own data: local RAG, answers cite their source facts</span>
+ASK 'does it scale?'
+
+<span class="cm">-- the shape of the data: clusters, loops, periodicity</span>
+SHAPE OF item:*/store:4001 ON price_cents
+
+<span class="cm">-- run a stored CePL procedure, with a full step-by-step trace</span>
+RUN duty_estimate WITH item='100001', units=3</pre>
+    <p style="color:var(--muted);font-size:14px">Full language reference: <a href="ceql.html">The CeQL Book</a> — every statement, with a SQL/Mongo/Cypher Rosetta Stone.</p>
   </div>
 </section>
 
@@ -193,7 +227,8 @@
         <span class="cap"><b>Vision</b> / document extraction</span>
         <span class="cap"><b>Auto-embed</b> on ingest</span>
         <span class="cap"><b>Feedback loop</b> re-ranks on ratings</span>
-        <span class="cap"><b>Tiered model presets</b> (serve -ai)</span>
+        <span class="cap"><b>Tiered presets</b> (centauri desktop / serve -ai): gemma3:4b → qwen3:14b → GLM-4.7-Flash</span>
+        <span class="cap">Optional <b>GLM-5.2 cloud boost</b> — off by default; cloud-only (its weights need 200+ GB)</span>
       </div>
     </div>
 
@@ -207,6 +242,8 @@
         <span class="cap"><b>Automatic HA failover</b> (lease election)</span>
         <span class="cap">Prometheus metrics · health · TLS</span>
         <span class="cap">Multitenant environments</span>
+        <span class="cap">CDC with durable replication slots · log shipping</span>
+        <span class="cap">Admission control: rate limits · body caps · timeouts</span>
       </div>
     </div>
 
@@ -228,7 +265,7 @@
         <span class="cap"><b>One binary</b>, zero Go dependencies</span>
         <span class="cap">No cloud requirement</span>
         <span class="cap">No license — open source</span>
-        <span class="cap">MCP server + Python SDK</span>
+        <span class="cap">MCP server + Python / Go / JS SDKs</span>
         <span class="cap">Dashboard · AI Studio · CeQL textbook</span>
         <span class="cap">Airbyte connectors · multi-format export</span>
       </div>

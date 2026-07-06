@@ -256,6 +256,27 @@
         </div>
         <div id="dlist" class="mini">—</div>
       </div>
+      <div class="card" style="text-align:left" id="aicard">
+        <h3>🤖 AI <span class="mini">— ask questions about your own data, in plain English</span></h3>
+        <div id="aistatus" class="mini" style="line-height:2">checking…</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="primary" onclick="aiEnable()"
+                  title="Downloads a free AI that runs entirely on this computer. Your data never leaves the building.">Turn on private AI</button>
+          <button class="ghost" onclick="aiLocal()"
+                  title="If you tried the cloud, this brings answers back onto this machine">Back to private/local</button>
+        </div>
+        <details style="margin-top:10px">
+          <summary class="mini" style="cursor:pointer">Optional: cloud boost (smarter answers, uses the internet)</summary>
+          <p class="mini" style="margin:8px 0 6px;color:var(--warn)">
+            Sends your questions and matching data to z.ai's servers. Costs money
+            (their pricing). Off unless you turn it on.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="aikey" type="password" placeholder="paste your z.ai API key" style="flex:1;min-width:180px">
+            <button onclick="aiCloud()">Use GLM-5.2 cloud</button>
+          </div>
+        </details>
+        <div id="aimsg" class="mini" style="margin-top:8px"></div>
+      </div>
     </div>
     <div id="detail" style="display:none"></div>
   </div>
@@ -433,19 +454,19 @@ function openVision(){
   <h3 style="margin:12px 0 4px">1) Register a local vision model <span class="mini">(once)</span></h3>
   <div style="margin:4px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
     <label class="mini">endpoint</label><input id="vmep" value="http://localhost:11434/v1/chat/completions" style="width:300px">
-    <label class="mini">vision model</label><input id="vmmodel" value="llava" style="width:80px">
+    <label class="mini">vision model</label><input id="vmmodel" value="gemma3:12b" style="width:110px">
     <label class="mini">embedder</label><input id="vmembed" value="nomic-embed-text" style="width:130px" title="leave blank to skip embedding">
     <button class="primary" onclick="registerVision()">Register model:vision</button>
     <span id="vmreg" class="mini"></span>
   </div>
-  <p class="mini">Defaults target <b>Ollama</b> (<code>ollama pull llava</code>). One click writes <code>model:vision</code> (and an embedder) as facts — edit the fields for a different local server.</p>
+  <p class="mini">Defaults target <b>Ollama</b> (<code>ollama pull gemma3:12b</code> — the same vision model the AI presets use). One click writes <code>model:vision</code> (and an embedder) as facts — edit the fields for a different local server.</p>
   <h3 style="margin:12px 0 4px">2) Analyze + index</h3>
   <div style="margin:4px 0">
     <input id="visionmodel" placeholder="vision model name" value="vision" style="width:160px">
     <button onclick="analyzeAssets()">Run ENRICH asset:* USING …</button>
     <span id="visionanalyze" class="mini" style="margin-left:8px"></span>
   </div>
-  <p class="mini">Needs a running multimodal model (e.g. <b>Ollama</b> with <code>llava</code>) and, for PDFs, a renderer (poppler/ImageMagick). Don't want to install by hand? Run <code>centauri setup vision -install</code> once and it sets both up for you.</p>
+  <p class="mini">Needs a running multimodal model (e.g. <b>Ollama</b> with <code>gemma3:12b</code>) and, for PDFs, a renderer (poppler/ImageMagick). Don't want to install by hand? Run <code>centauri setup vision -install</code> once and it sets both up for you.</p>
   <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>
   <p class="mini">Registering also powers <b>semantic SEARCH</b> (your query is embedded) and <b>ASK '…'</b> (plain-English answers from your data, with citations) — both use this embedder + chat model.</p>`);
   document.getElementById("modal").classList.add("wide");
@@ -474,7 +495,7 @@ async function uploadAsset(){
 }
 async function registerVision(){
   const ep=(document.getElementById("vmep").value||"http://localhost:11434/v1/chat/completions").trim();
-  const vm=(document.getElementById("vmmodel").value||"llava").trim();
+  const vm=(document.getElementById("vmmodel").value||"gemma3:12b").trim();
   const emb=(document.getElementById("vmembed").value||"").trim();
   const note=document.getElementById("vmreg"); if(note) note.textContent="registering…";
   try{
@@ -592,7 +613,7 @@ async function boot(){
     renderSubjects();
     loadWedges(); loadDisagreements();
     loadCatalog();
-    checkVision();
+    checkVision(); checkAI();
   } catch (e) { console.warn(e); }
 }
 // Surface a banner if the local vision stack (model + PDF renderer) isn't ready,
@@ -607,6 +628,75 @@ async function checkVision(){
       ` <button class="mini" style="margin-left:8px" onclick="openVision()">Set up</button>`+
       ` <button class="mini" onclick="document.getElementById('visionbanner').style.display='none'">Dismiss</button>`;
   }catch(e){ /* ignore — e.g. before unlock */ }
+}
+
+// ---------------- AI panel ----------------
+// Written for someone who has never heard of a "model": three dot-lines, one
+// button, and an explicitly-warned cloud opt-in. Polls /v1/ai/status every 3s
+// while a download is in flight. Admin-token only (the server enforces it).
+let AI_POLL = null;
+function aiDot(state){ // ok=green, warn=amber, off=grey
+  const c = state === "ok" ? "var(--good)" : state === "warn" ? "var(--warn)" : "var(--dim)";
+  return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:7px"></span>`;
+}
+function aiMsg(text, err){
+  const el = document.getElementById("aimsg"); if (!el) return;
+  el.textContent = text || "";
+  el.style.color = err ? "var(--bad)" : "";
+}
+function aiPoll(on){
+  if (on && !AI_POLL) AI_POLL = setInterval(checkAI, 3000);
+  if (!on && AI_POLL) { clearInterval(AI_POLL); AI_POLL = null; }
+}
+async function checkAI(){
+  const el = document.getElementById("aistatus"); if (!el) return;
+  try {
+    const v = await api("/v1/ai/status");
+    const models = (v.provision || {}).models || [];
+    const pulled = models.filter(m => m.pulled).length;
+    const pulling = models.some(m => m.pulling);
+    let mState = "off", mText = "not set up yet — use the button below";
+    if (models.length && pulled === models.length) { mState = "ok"; mText = "ready"; }
+    else if (pulling) { mState = "warn"; mText = "still downloading — fine to keep working"; }
+    else if (models.length) { mState = "warn"; mText = pulled + " of " + models.length + " ready"; }
+    const chat = v.active_chat || {};
+    let aState = "off", aText = "not configured yet";
+    if (chat.where === "cloud") { aState = "warn"; aText = "in the cloud (GLM-5.2) — questions leave this machine"; }
+    else if (chat.where === "local") { aState = "ok"; aText = "on this machine — private"; }
+    el.innerHTML =
+      `<div>${aiDot(v.runtime_up ? "ok" : "off")}<b>AI engine</b> — ${v.runtime_up ? "running" : "not running yet"}</div>` +
+      `<div>${aiDot(mState)}<b>Models</b> — ${esc(mText)}</div>` +
+      `<div>${aiDot(aState)}<b>Answers computed</b> — ${esc(aText)}</div>`;
+    aiPoll(pulling);
+  } catch (e) {
+    aiPoll(false);
+    el.innerHTML = `<span class="mini">Couldn't read the AI status — ${esc(e.message || e)}. This panel needs the admin token.</span>`;
+  }
+}
+async function aiEnable(){
+  aiMsg("Turning on private AI…");
+  try {
+    const r = await apiPost("/v1/ai/enable", {tier: "auto"});
+    aiMsg(r.message || "Private AI is turning on.");
+    aiPoll(true); checkAI();
+  } catch (e) { aiMsg("Couldn't turn on AI: " + (e.message || e), true); }
+}
+async function aiCloud(){
+  const key = (document.getElementById("aikey").value || "").trim();
+  if (!key) { aiMsg("Paste your z.ai API key first.", true); return; }
+  try {
+    const r = await apiPost("/v1/ai/cloud", {api_key: key});
+    document.getElementById("aikey").value = "";
+    aiMsg((r.message || "Cloud answers are on.") + " ⚠ " + (r.warning || ""));
+    checkAI();
+  } catch (e) { aiMsg("Couldn't switch to the cloud: " + (e.message || e), true); }
+}
+async function aiLocal(){
+  try {
+    const r = await apiPost("/v1/ai/local", {tier: "auto"});
+    aiMsg(r.message || "Answers stay on this machine again.");
+    checkAI();
+  } catch (e) { aiMsg("Couldn't switch back: " + (e.message || e), true); }
 }
 // System namespaces (Centauri's own bookkeeping) group separately so a
 // new developer's actual data isn't buried under blueprint:* facts.
@@ -1814,7 +1904,27 @@ function openWhy(tab){
     <div class="tourbox"><b>📡 Live</b> — ▶ Watch (top right) streams every new fact the moment it commits.</div>
     <div class="tourbox"><b>🧩 Schemas</b> — optional guardrails: define fields, types, ranges; bad data
       gets rejected with a clear message. Versioned, so updating never breaks old facts.</div>
-    <p class="mini">New here? The <b>❓ Learn</b> button runs the 2-minute hands-on tour.</p>`;
+    <div class="tourbox"><b>📊 Reports</b> — type aggregates straight into the query bar:
+      <code>GROUP BY</code>/<code>HAVING</code> with COUNT, AVG, MIN/MAX, MEDIAN, STDDEV,
+      COUNT(DISTINCT …), LISTAGG, plus ORDER BY/LIMIT/OFFSET — and they respect time travel.</div>
+    <div class="tourbox"><b>🔍 Search &amp; AI</b> — <code>SEARCH '…'</code> is ranked full-text (BM25,
+      hybrid with vectors via SIMILAR TO); <code>ASK '…'</code> answers from your data with citations;
+      the query bar takes plain English (✨ Helper); 📎 <b>Vision</b> turns images/PDFs into facts.
+      The 🤖 <b>AI card</b> on the home screen switches it all on — private/local by default.</div>
+    <div class="tourbox"><b>⚙ Procedures</b> — CePL logic stored in the database (versioned,
+      step-traced): define under ⚙ Procedures, run with <code>RUN name WITH arg=value</code>.</div>
+    <div class="tourbox"><b>📐 Data shape</b> — <code>SHAPE</code> (clusters/loops/seasonality),
+      <code>DRIFT</code> (regime change), <code>CONSISTENCY</code> (do a subject's systems agree),
+      <code>CYCLES IN CAUSES</code> (lineage integrity).</div>
+    <div class="tourbox"><b>🏗 Genesis</b> — the “Build my database” button: describe a scenario in
+      plain words, or paste SQL CREATE TABLEs, and it builds schemas, procedures and queries.</div>
+    <div class="tourbox"><b>📜 SQL &amp; scripts</b> — the query bar accepts lean SQL SELECTs
+      (transpiled to CeQL) and a SQL*Plus-style script mode (📜); BI tools can connect over the
+      Postgres wire (<code>-pg-addr</code>).</div>
+    <div class="tourbox"><b>🛡 Safety</b> — <code>SNAPSHOT</code> / <code>ROLLBACK</code> /
+      <code>DIFF</code> undo by appending, never erasing; the hash chain makes history tamper-evident
+      (<code>centauri verify</code>).</div>
+    <p class="mini">New here? The <b>❓ Tour</b> button walks every capability hands-on, in a few minutes.</p>`;
   else body = `
     <div class="tourbox"><b>REST API</b> — everything this dashboard does is plain JSON over HTTP:
     <pre>curl "localhost:7771/v1/context?subject=toy:robot"
@@ -1822,7 +1932,8 @@ curl "localhost:7771/v1/asof?subject=toy:robot&at=2026-03-15"
 curl -X POST localhost:7771/v1/append -d '{"events":[{"subject":"toy:robot",
   "facet":"source","type":"OBSERVED","value":{"price_cents":500},
   "provenance":"HUMAN_ENTRY","confidence":1,"source_system":"curl"}]}'</pre></div>
-    <div class="tourbox"><b>Python SDK</b> — <code>sdk/python</code> in the repo, zero dependencies:
+    <div class="tourbox"><b>SDKs</b> — Python (<code>sdk/python</code>, zero dependencies),
+      plus Go (<code>sdk/go</code>) and JavaScript (<code>sdk/js</code>):
     <pre>from centauri import Centauri
 db = Centauri()                  # or Centauri.launch()
 db.add("toy:robot", {"price_cents": 500})
@@ -1830,8 +1941,14 @@ db.at("toy:robot", "2026-03-01") # time travel
 db.pump("prices.csv")            # bulk load
 for e in db.watch(): ...         # live stream</pre></div>
     <div class="tourbox"><b>AI agents (MCP)</b> — run <code>centauri mcp -data centauri.log</code> as an
-      MCP stdio server (e.g. in Claude Desktop) and agents get 16 tools: context, time travel,
-      causal trace, wedge scan, similarity search, append, enrich…</div>
+      MCP stdio server (e.g. in Claude Desktop) and agents get 20 tools: context, time travel,
+      causal trace, wedge scan, similarity search, append, enrich, CeQL, procedures, Genesis…</div>
+    <div class="tourbox"><b>SQL &amp; BI</b> — <code>POST /v1/sql</code> runs lean read-only SQL
+      SELECTs (transpiled to CeQL); start the server with <code>-pg-addr :5432</code> and
+      psql/JDBC/BI tools talk to Centauri over the Postgres wire.</div>
+    <div class="tourbox"><b>CDC</b> — <code>GET /v1/changes?from=…</code> pages committed facts by log
+      offset (ack a slot with <code>POST /v1/changes/ack</code>) — feed warehouses and pipelines
+      without polling queries.</div>
     <div class="tourbox"><b>Replication</b> — <code>centauri follow -primary http://host:7771</code>
       creates a live read-only replica (port :7772) by shipping the log.</div>`;
   modal(tabs + body + `<div class="btnrow"><span class="spacer"></span>
@@ -2206,24 +2323,113 @@ const TOUR = [
     },
   },
   {
+    title: `⏰ Time travel — and <b>beliefs</b>`,
+    body: `
+      <div class="tourbox">⏰ Every fact keeps its time, so the query bar (<b>CeQL›</b>, top of the
+        main panel) can answer about any moment:<br>
+        <code>HISTORY OF my-things:bike</code> — every fact ever, nothing erased.<br>
+        <code>FACTS OF my-things:bike AS OF 5 minutes ago</code> — the bike before your repaint
+        <span class="mini">(natural time works: YESTERDAY, 10 DAYS AGO, '2026-03-15', 'yesterday 2pm CST')</span>.</div>
+      <div class="tourbox">🕰 The audit superpower is <b>AS KNOWN AT</b>: not “what was true then” but
+        “what did we <i>believe</i> then”. Load 🎲 <b>Demo data</b> (top bar), then try:<br>
+        <code>FACTS OF patient:1024 FACET labs AS OF YESTERDAY AS KNOWN AT 6 DAYS AGO</code><br>
+        <span class="mini">— the lab value before the correction arrived, so past decisions are judged
+        on what was actually known at the time.</span></div>`,
+    btn: "Next: why? →",
+  },
+  {
+    title: `🔗 <b>Why</b> — causes, conflicts, wedges`,
+    body: `
+      <div class="tourbox">❓ Facts carry their causes. Click <b>why?</b> on any History row, or ask in
+        CeQL (demo data): <code>FACTS OF encounter:5567 WHY DEPTH 2</code> traces a readmission back to
+        the medication change behind it. <code>WHY &lt;event-id&gt;</code> and
+        <code>EFFECTS &lt;event-id&gt;</code> walk the chain in either direction.</div>
+      <div class="tourbox">⚡ <code>DISAGREE ON price_cents</code> — subjects whose systems report
+        different values (the claim Centauri trusts most gets ✓).<br>
+        ⚠️ <code>PENDING register OLDER THAN 1 DAYS</code> — changes distributed but never applied
+        (“wedges”). The home screen runs both scans for you. Mistakes? <code>CORRECT</code> writes a
+        typed correction and <code>RETIRE</code> ends a fact — history always stays.</div>`,
+    btn: "Next: reports →",
+  },
+  {
+    title: `📊 <b>Reports</b> — GROUP BY over living history`,
+    body: `
+      <div class="tourbox">📊 CeQL aggregates like SQL (demo data):<br>
+        <code>FACTS department, COUNT(*), AVG(price_cents) OF sku:*/store:* GROUP BY department</code><br>
+        COUNT / AVG / MIN / MAX / MEDIAN / STDDEV / LISTAGG / COUNT(DISTINCT …), plus
+        <code>HAVING</code> and <code>ORDER BY … LIMIT … OFFSET …</code>.</div>
+      <div class="tourbox mini">Because every fact keeps its time, add <code>AS OF '2026-03-15'</code>
+        and the entire report time-travels.</div>`,
+    btn: "Next: search & AI →",
+  },
+  {
+    title: `🔍 <b>Search & AI</b> — ask in plain English`,
+    body: `
+      <div class="tourbox">🔎 <code>SEARCH 'hairline crack' OF incident:*</code> — ranked full-text
+        search (BM25), blendable with vector <code>SIMILAR TO</code> for hybrid semantic search.
+        Quick filter: <code>FACTS OF * WHERE any MATCHES 'leak'</code>.</div>
+      <div class="tourbox">💬 <code>ASK 'which prices were corrected?'</code> answers from <i>your</i>
+        facts, with citations. The query bar itself also takes plain English — ✨ <b>Helper</b> turns it
+        into CeQL instantly, no AI required. 📎 <b>Vision</b> turns images &amp; PDFs into searchable facts.</div>
+      <div class="tourbox mini">🤖 The <b>AI card</b> on the home screen switches this on:
+        “Turn on private AI” keeps everything on this machine. The optional GLM-5.2 cloud boost is
+        smarter but sends questions + matching data to z.ai — off unless you turn it on.</div>`,
+    btn: "Next: automation →",
+  },
+  {
+    title: `📡 <b>Live & automation</b>`,
+    body: `
+      <div class="tourbox">📡 ▶ <b>Watch</b> (top right) streams every fact the instant it commits.
+        In CeQL, <code>WATCH ALL FACET register TYPE DISTRIBUTED</code> is a standing query —
+        filters turn the stream into a trigger.</div>
+      <div class="tourbox">⚙ <b>Procedures</b> — store CePL logic inside the database, versioned and
+        step-traced: define one under ⚙ <b>Procedures</b> (top bar), then
+        <code>RUN reprice WITH item='toy:robot', pct=90</code>.</div>`,
+    btn: "Next: data shape →",
+  },
+  {
+    title: `📐 The <b>shape</b> of your data`,
+    body: `
+      <div class="tourbox">📐 <code>SHAPE OF sku:*/store:* ON price_cents</code> — clusters and loops in
+        a value cloud (topology, not just averages). On a single subject, add <code>WINDOW 12</code> to
+        detect periodicity and seasonality.</div>
+      <div class="tourbox">📉 <code>DRIFT OF sku:*/store:* ON price_cents BUCKETS 6</code> spots regime
+        change over time. <code>CONSISTENCY OF sku:WIDGET-007 ON price_cents</code> scores whether a
+        subject's systems agree. <code>CYCLES IN CAUSES</code> is the lineage integrity alarm.</div>`,
+    btn: "Next: safety →",
+  },
+  {
+    title: `🛡 <b>Safe</b> by construction`,
+    body: `
+      <div class="tourbox">🔗 Every committed fact is hash-chained to the previous one — tampering with
+        history is detectable (<code>centauri verify</code>). Undo is honest too:
+        <code>SNAPSHOT 'before-import'</code>, later <code>ROLLBACK TO SNAPSHOT 'before-import'</code>,
+        with <code>DIFF OF toy:* BETWEEN '2026-03-01' AND '2026-03-15'</code> to preview — rollbacks
+        append reverting facts, nothing is erased.</div>
+      <div class="tourbox">🧩 <b>Schemas</b> reject bad data with a clear message (versioned, so old
+        facts never break). Regulated data? Legal holds and retention policies exist too (admin/CLI).</div>`,
+    btn: "Almost done →",
+  },
+  {
     title: `You know <b>Centauri</b> now`,
     body: `
       <div class="tourbox">🧭 From here, explore:<br><br>
-        ⏰ <b>Time travel</b> — on any subject, set “effective at” and press Go.<br>
-        📈 <b>Timeline</b> — appears automatically once a number changes twice.<br>
-        ❓ <b>why?</b> — every fact in History can explain its cause.<br>
-        📡 <b>▶ Watch</b> — see facts stream in live (top right).<br>
-        🧩 <b>Schemas</b> — make the database reject bad data for you.<br>
-        🗄 <b>Environments</b> — the dropdown up top switches databases; the
-           seeded retail demo is still there.</div>
-      <div class="tourbox mini">For coders: everything you just did is also three lines of
-        Python (<code>sdk/python</code>), a REST API, and an MCP server for AI agents.
-        But you never need to leave this screen.</div>`,
+        🏗 <b>Build my database</b> — the Genesis Engine: describe your business in plain words
+           (or paste SQL CREATE TABLEs) and it builds schemas, procedures and queries.<br>
+        🛰 <b>Studio</b> — the AI-first IDE: object explorer, editor, causal graph, time travel.<br>
+        🎲 <b>Demo data</b> — retail, healthcare, education &amp; construction, with suggested queries.<br>
+        📘 <b>CeQL Book</b> (<a href="/ceql" target="_blank">/ceql</a>) — the full textbook, with
+           Oracle / MongoDB / KSQL translations.<br>
+        📜 The query bar also speaks lean <b>SQL</b> (SELECT → CeQL) and a script mode.<br>
+        🗄 <b>Environments</b> — the dropdown up top switches databases.</div>
+      <div class="tourbox mini">For coders: everything you just did is also a REST API, Python/Go/JS
+        SDKs (<code>sdk/</code>), a Postgres wire port for BI tools, CDC at <code>/v1/changes</code>,
+        and an MCP server with 20 tools for AI agents. But you never need to leave this screen.</div>`,
     btn: "Start exploring ✓",
     action: async () => {
       localStorage.setItem("centauri_seen", "1");
       closeModal();
-      if (SUBJECTS.length || DB) select("my-things:bike");
+      if (SUBJECTS.includes("my-things:bike")) select("my-things:bike");
       return null;
     },
   },

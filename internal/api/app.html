@@ -48,7 +48,7 @@
 <body>
 <header>
   <h1>Your private <span class="a">AI</span></h1>
-  <p>Add your stuff, then ask in plain English. Everything stays on this computer.</p>
+  <p>Add your stuff, then ask in plain English — answers come from your own data, with receipts.<br>It never forgets: every change is kept, so you can ask about the past and see why things changed.</p>
 </header>
 
 <div class="wrap">
@@ -61,7 +61,7 @@
   <!-- ASK -->
   <section id="paneAsk" class="card ask">
     <h2>Ask a question</h2>
-    <p class="hint">For example: “Which notes mention Acme?” or “Summarize what I added about pricing.”</p>
+    <p class="hint">For example: “Which notes mention Acme?” or “Summarize what I added about pricing.” Old versions are kept too, so “what did the Acme terms used to say?” also works.</p>
     <input type="text" id="q" placeholder="Ask anything about your data…" onkeydown="if(event.key==='Enter')doAsk()">
     <button class="go" id="askBtn" onclick="doAsk()">Ask</button>
     <div id="answer"></div>
@@ -89,7 +89,8 @@
   </section>
 
   <footer>
-    Powered by Centauri · <a href="/">advanced dashboard</a> · <a href="/studio">Studio</a> · nothing leaves this machine
+    Powered by Centauri · <a href="/">advanced dashboard</a> · <a href="/studio">Studio</a> · private by default —
+    your data leaves this machine only if you enable the optional cloud boost on the dashboard
   </footer>
 </div>
 

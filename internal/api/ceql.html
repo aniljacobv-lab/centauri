@@ -141,7 +141,9 @@ is just the newest layer of an ever-growing history.</p>
 <p><b>Subject patterns</b> use <code>*</code>:
 <code>item:*/store:4001</code> = every item in store 4001. <b>Projection</b> is
 optional — omit it (or use <code>*</code>) for full facts, or list fields:</p>
-<pre><code><span class="kw">FACTS</span> subject, price_cents, trust <span class="kw">OF</span> item:*/store:4001 <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10</code></pre>
+<pre><code><span class="kw">FACTS</span> subject, price_cents, trust <span class="kw">OF</span> item:*/store:4001 <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10
+<span class="cm">-- page 2: OFFSET skips rows (project rank for stable row numbers)</span>
+<span class="kw">FACTS</span> rank, subject, price_cents <span class="kw">OF</span> item:*/store:4001 <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10 <span class="kw">OFFSET</span> 10</code></pre>
 <p><b>WHERE</b> sees both your value fields (<code>price_cents</code>,
 <code>color</code>…) and the built-in metadata:</p>
 <table>
@@ -228,9 +230,11 @@ question a graph database can ask about <em>references</em>, but here it's about
 <span class="kw">RETIRE</span> toy:robot                          <span class="cm">-- supersedes with {retired: true}</span></code></pre>
 <div class="box warn"><b>There is no DELETE, on purpose.</b> An immutable
 database can't pretend the past didn't happen. <code>RETIRE</code> marks the
-current fact as no longer applicable — but history stays auditable. (For legal
-PII erasure, crypto-erasure is the planned v0.3 mechanism — that destroys a
-decryption key, not history.)</div>
+current fact as no longer applicable — but history stays auditable. (For legal erasure:
+<code>centauri retention</code> bulk-RETIREs matching facts, with legal holds that exempt
+subjects; the segment layer ships an AES-GCM crypto-erasure primitive for sealed payloads —
+destroy the key, not history. End-to-end per-subject encryption of the live log is still
+on the roadmap.)</div>
 
 <h2 id="txn">7½. Reversible transactions — SNAPSHOT, ROLLBACK, DIFF</h2>
 <p>Because nothing is ever erased, "rollback" here means something no SQL
@@ -273,6 +277,12 @@ facet <i>as known last Tuesday</i>” is just
 <code>APPROX_COUNT_DISTINCT(region)</code> uses HyperLogLog — fixed ~16&nbsp;KB of
 memory and ≈0.8% error regardless of cardinality, the technique OLAP engines use
 to count uniques over billions of rows.</div>
+<p>The Oracle trio, same names: <code>MEDIAN</code> (the robust middle value),
+<code>STDDEV</code> (population standard deviation), <code>LISTAGG</code> (each group's
+distinct values as one sorted, comma-separated string):</p>
+<pre><code><span class="kw">FACTS MEDIAN</span>(price_cents) <span class="kw">OF</span> item:*/store:4001
+<span class="kw">FACTS AVG</span>(price_cents), <span class="kw">STDDEV</span>(price_cents) <span class="kw">OF</span> item:*/store:4001
+<span class="kw">FACTS</span> facet, <span class="kw">LISTAGG</span>(kind) <span class="kw">OF</span> item:*/store:4001 <span class="kw">GROUP BY</span> facet</code></pre>
 <p>Ranked lists: project the built-in <code>rank</code> column —</p>
 <pre><code><span class="kw">FACTS</span> rank, subject, price_cents <span class="kw">OF</span> item:*/store:4001
   <span class="kw">ORDER BY</span> price_cents <span class="kw">DESC LIMIT</span> 10</code></pre>
@@ -334,6 +344,11 @@ and <b>causal centrality</b> (how connected the fact is in the WHY graph). Keywo
 stays dominant; these mostly settle near-ties. Every hit returns its signal breakdown
 (<code>relevance</code>, <code>recency</code>, <code>trust</code>, <code>centrality</code>) so the
 ranking is explainable, not a black box.</p>
+<p><b>Query embedding.</b> With a local embedder registered (the dashboard AI panel's
+one-click setup, or any <code>model:embed</code>-style config fact), <code>SEARCH</code> also
+embeds the <em>query text itself</em> and blends vector similarity into the ranking — so it
+finds matches by meaning even with no shared keywords, no <code>SIMILAR TO</code> reference
+event needed. Without an embedder it is pure BM25 keyword search; either way it never errors.</p>
 
 <h2 id="ask-stmt">11⅞. The self-learning assistant — ASK</h2>
 <p>Centauri can be its own knowledge base. Q&amp;A live as ordinary facts
@@ -355,6 +370,12 @@ database forever after. The gateway and the memory are the same system.</p>
 special endpoint. Because the knowledge is just facts, it's versioned and
 bi-temporal: you can ask what the assistant <i>would have answered</i> last month
 with <code>FACTS OF kb:* AS KNOWN AT …</code>.</div>
+<p><b>Grounded answers (RAG).</b> With a chat model registered, a question the knowledge base
+can't answer doesn't stop at the gap fact: <code>ASK</code> retrieves your most relevant facts
+(hybrid BM25 + vector search), has the model answer <em>using only those</em>, and returns
+<code>grounded: true</code> plus <code>sources</code> — the event ids it used, so every answer
+is checkable. Without a chat model, ASK answers only from <code>kb:*</code> facts and logs
+gaps, as above.</p>
 
 <h2 id="enrich">11.95. AI inside the query — ENRICH</h2>
 <p>Run a model over matching events from the query itself, and store the result
@@ -382,6 +403,23 @@ bolt on a pipeline; here a model result is just another superseding, audit-stamp
 fact. <code>kind</code> is <code>embedding</code> (stored as a vector) or
 <code>chat</code> (stored as text under <code>AS</code>). It runs server-side, so it
 also works straight from an agent over MCP.</div>
+<div class="box"><b>Secrets stay out of the log.</b> A model config fact never carries a key:
+<code>auth_env='OPENAI_KEY'</code> names an environment variable, and
+<code>auth_file='/path/to/key'</code> names a file to read it from (the dashboard's cloud
+opt-in writes a mode-0600 key file next to the data file). Either way the log stores only the
+<em>reference</em>; the secret is read at call time and never echoed back.</div>
+<div class="box"><b>Zero-setup local AI.</b> You don't have to hand-register models:
+<code>centauri desktop</code>, the dashboard's AI panel, or <code>POST /v1/ai/enable</code>
+provisions a local trio via Ollama, sized to the machine — chat <code>gemma3:4b</code> (small,
+~8&nbsp;GB RAM) / <code>qwen3:14b</code> (balanced) / <code>glm-4.7-flash</code> (max, 24&nbsp;GB+
+GPU; a 30B MoE, MIT-licensed, 200K context), embedders <code>nomic-embed-text</code> /
+<code>bge-m3</code>, and a <code>gemma3</code> vision model. With local AI enabled, new facts
+<b>auto-embed</b> in the background, so <code>SIMILAR</code> and hybrid <code>SEARCH</code>
+light up without ever running ENRICH by hand. Optional cloud boost: <code>POST /v1/ai/cloud</code>
+with a <a href="https://z.ai">z.ai</a> key switches chat to <b>GLM-5.2</b> — honest notes: it
+sends prompts off-machine and costs money, and GLM-5.2 <em>cannot</em> run locally (its weights
+are 200+&nbsp;GB); <code>POST /v1/ai/local</code> switches back, and <code>GET /v1/ai/status</code>
+reports where answers are computed at any time.</div>
 
 <h2 id="ops">12. Operations</h2>
 <pre><code><span class="kw">PROFILE OF</span> item:*                <span class="cm">-- what does my data look like? fields, types,</span>
@@ -449,8 +487,10 @@ data describes has changed shape. All bi-temporal — add <span class="kw">AS OF
 paste it into Studio (anything starting with <code>SELECT</code> is auto-routed) or POST it to
 <code>/v1/sql</code>. It transpiles to CeQL and supports <code>WHERE</code> / <code>GROUP BY</code> /
 <code>HAVING</code> / <code>ORDER BY</code> / <code>LIMIT</code>, plus <code>AS OF</code> and SQL:2011
-<code>FOR SYSTEM_TIME AS OF</code>. It is a familiar door, not a SQL wire protocol (no JDBC/ODBC),
-and writes still use CeQL. <code>FROM name</code> means the <code>name:*</code> namespace;
+<code>FOR SYSTEM_TIME AS OF</code>. Need a real socket? Start the server with <code>-pg-addr :5432</code> and the same
+read-only subset is also served over the <b>PostgreSQL wire protocol</b> (simple + extended,
+so psql, JDBC/ODBC and BI tools connect directly; every column comes back as text).
+Writes still use CeQL. <code>FROM name</code> means the <code>name:*</code> namespace;
 <code>FROM facts</code> means all subjects.<br>
 <code style="color:var(--dim)">SELECT category, AVG(price_cents) FROM sku GROUP BY category HAVING COUNT(*) &gt; 3</code>
 </p>
@@ -472,7 +512,7 @@ and writes still use CeQL. <code>FROM name</code> means the <code>name:*</code> 
 <tr><td><code>JOIN</code></td><td><code>CONTEXT FOR subj</code> (everything about one subject) or <code>WHY</code> (the causal join)</td><td>cross-subject analytical joins: export or v0.4</td></tr>
 <tr><td><code>CREATE VIEW</code></td><td>save the CeQL text; or a <code>WATCH</code> for live views</td><td>—</td></tr>
 <tr><td><code>CREATE TRIGGER</code></td><td><code>WATCH</code> + an agent acting on the stream</td><td>triggers become subscribers</td></tr>
-<tr><td><code>GRANT</code></td><td>server token; roles come with v0.3 auth</td><td>honest gap</td></tr>
+<tr><td><code>GRANT</code></td><td>admin, read-only, and prefix-scoped tokens with per-field masking (<code>POST /v1/acl</code>)</td><td>full SQL-style named roles remain a gap</td></tr>
 <tr><td>temporal <code>AS OF SYSTEM TIME</code> (SQL:2011)</td><td><code>AS OF / AS KNOWN AT</code></td><td>CeQL has both clocks, not one</td></tr>
 </table>
 <h3>Oracle — the full catalogue</h3>
@@ -551,11 +591,11 @@ Centauri's two clocks.</p>
 <tr><td><code>JSONB</code></td><td>✓</td><td>fact values are JSON natively; fields query directly in WHERE</td></tr>
 <tr><td><code>pgvector</code></td><td>✓</td><td><code>SIMILAR TO</code> over embedding enrichments</td></tr>
 <tr><td><code>LISTEN / NOTIFY</code></td><td>✓</td><td><code>WATCH</code> — with filters, and the notifications are full facts</td></tr>
-<tr><td><code>tsvector / tsquery</code> full-text</td><td>✓ <span style="color:var(--dim)">(basic)</span></td><td><code>WHERE any MATCHES 'penny'</code> — case-insensitive scan, no index yet (honest: no stemming/ranking)</td></tr>
+<tr><td><code>tsvector / tsquery</code> full-text</td><td>✓</td><td><code>SEARCH 'penny' OF item:*</code> — BM25-ranked, hybrid with vectors, bi-temporal; <code>MATCHES</code> for plain substring scans (honest: no stemming)</td></tr>
 <tr><td><code>pg_dump / pg_restore</code></td><td>✓</td><td><code>centauri backup -data x.log -to backup.log</code> — consistent snapshot, chain-verified; restore = point the server at the file</td></tr>
 <tr><td>logical replication</td><td>✓</td><td><code>centauri follow</code> — byte-exact log shipping with integrity chain</td></tr>
 <tr><td>extensions (PostGIS, etc.)</td><td>⚙</td><td>the extension surface is MCP + the SDK; spatial is an honest gap</td></tr>
-<tr><td><code>CREATE ROLE / GRANT</code></td><td>±</td><td>two tiers today (admin token, read-only token); full roles are v0.4</td></tr>
+<tr><td><code>CREATE ROLE / GRANT</code></td><td>±</td><td>admin + read-only tokens, plus prefix-scoped tokens with field masking; full named roles still open</td></tr>
 <tr><td>window functions, CTEs</td><td>±</td><td>rank/aggregates/HAVING native; frames and CTEs client-side</td></tr>
 </table>
 
@@ -648,9 +688,11 @@ HTTP; Grok, Mistral, Together, Groq, OpenRouter and local runners (Ollama, LM St
 vLLM, llama.cpp) are all OpenAI-compatible, so only the <code>base_url</code> differs.</div>
 
 <h2 id="grammar">15. Grammar reference (EBNF-ish)</h2>
-<pre><code>statement   = facts | history | subjects | put | correct | retire | pending
-            | disagree | why | effects | similar | context | stats
-            | schemas | schema | define | watch | explain ;
+<pre><code>statement   = facts | history | subjects | profile | put | correct | retire
+            | pending | disagree | why | effects | match | similar | search
+            | ask | enrich | context | snapshot | rollback | diff | shape
+            | consistency | cycles | drift | stats | schemas | schema
+            | define | watch | run | explain ;
 facts       = "FACTS" [proj] "OF" pattern tail ;
 history     = "HISTORY" "OF" pattern tail ;
 tail        = { "FACET" name | "AS" "OF" time | "AS" "KNOWN" "AT" time
@@ -673,11 +715,32 @@ context     = "CONTEXT" "FOR" subject ["AS" "KNOWN" "AT" time] ["LIMIT" int] ;
 define      = "DEFINE" "SCHEMA" id "(" fielddef {"," fielddef} ")" ["TITLE" str] ;
 fielddef    = name type ["REQUIRED"] ["MIN" num] ["MAX" num] ["UNIT" str] ;
 watch       = "WATCH" ("ALL" | subject) { "FACET" name | "TYPE" name } ;
-explain     = "EXPLAIN" statement ;
+match       = "MATCH" pattern ("CAUSES" | "CAUSED" "BY") pattern
+              ["VIA" name] ["DEPTH" int] ["LIMIT" int] ;
+search      = "SEARCH" str "OF" pattern ["SIMILAR" "TO" event_id ["ALPHA" num]]
+              ["AS" "KNOWN" "AT" time] ["LIMIT" int] ;
+ask         = "ASK" str ;
+enrich      = "ENRICH" pattern ["FACET" name] "USING" name
+              ["ON" name] ["AS" name] ["LIMIT" int] ;
+snapshot    = "SNAPSHOT" str ;
+rollback    = "ROLLBACK" ["TO" "LAST"] | "ROLLBACK" "TO" "SNAPSHOT" str
+            | "ROLLBACK" ["OF" pattern] "TO" time ;
+diff        = "DIFF" ["OF" pattern] "BETWEEN" time "AND" time ;
+shape       = "SHAPE" "OF" pattern "ON" (name {"," name} | "EMBEDDING")
+              ["METRIC" name] ["WINDOW" int ["STRIDE" int]]
+              ["MAXDIM" int] ["SCALE" int] ["RAW"] ;
+consistency = "CONSISTENCY" "OF" subject "ON" name ["EPS" num] ;
+cycles      = "CYCLES" ["IN" "CAUSES" ["OF" subject]] ;
+drift       = "DRIFT" "OF" pattern "ON" name ["BUCKETS" int] ;
+run         = "RUN" name ["WITH" name "=" value {"," name "=" value}] ;
+profile     = "PROFILE" "OF" pattern ["AS" "OF" time] ["AS" "KNOWN" "AT" time] ;
+explain     = "EXPLAIN" ["ANALYZE"] statement ;
 expr        = and { "OR" and } ;     and = unary { "AND" unary } ;
 unary       = "NOT" unary | "(" expr ")" | comparison ;
 comparison  = name ( ("="|"!="|"&gt;"|"&gt;="|"&lt;"|"&lt;=") value
-                   | "IN" "(" value {"," value} ")" | "LIKE" str ) ;
+                   | "IN" "(" value {"," value} ")" | "LIKE" str
+                   | "MATCHES" str )
+            | "EXISTS" name ;
 time        = "'date'" | "'rfc3339'" | unixmicro | "NOW" | "NOW-"n("d"|"h"|"m") ;
 pattern     = subject with optional "*" wildcards ;</code></pre>
 
@@ -703,22 +766,46 @@ the data.</div>
   <span class="kw">RETURN</span> duty
 <span class="kw">END</span></code></pre>
 <p>Define it once (<code>POST /v1/proc</code>, <code>db.define_procedure(...)</code>,
-or the <code>centauri_define_procedure</code> MCP tool), then call it from anywhere —
-including the query bar:</p>
+or the <code>centauri_define_procedure</code> MCP tool), then call it from anywhere:
+the query bar (<span class="kw">RUN</span>), <code>POST /v1/proc/run
+{"name":"duty_estimate","args":{"item":"100001","units":3}}</code>, the Python SDK's
+<code>db.run_procedure(...)</code>, or the procedure's auto-generated MCP tool. Every
+run returns the value <em>plus a step-by-step trace</em>.</p>
 <pre><code><span class="kw">RUN</span> duty_estimate <span class="kw">WITH</span> item=<span class="lit">'100001'</span>, units=3</code></pre>
 <div class="box"><b>Procedures are agent tools.</b> Every stored procedure is also
 auto-exposed over MCP as its own typed tool — <code>proc_duty_estimate(item, units)</code> —
 so an agent sees a curated, parameterized operation instead of raw query access.
 Pair that with a <a href="#ops">scoped token</a> and you've defined a safe,
 production-ready surface for an agent: named tools, fixed logic, prefix-limited reach.</div>
-<p><b>The steps:</b> <code>LET x = &lt;CeQL query&gt;</code> binds results
-(<code>FIRST</code> takes the first fact as a record: <code>x.price_cents</code>,
-<code>x.confidence</code>…); <code>LET y = &lt;arithmetic&gt;</code> computes
-(<code>+ - * / ( )</code>, comparisons, <code>AND/OR</code>);
-<code>WHEN cond: action</code> guards (<code>IS MISSING / IS PRESENT</code>);
-<code>PUT/CORRECT/RETIRE</code> write (with <code>${var}</code> holes);
-<code>RETURN</code> and <code>FAIL 'msg'</code> finish. No loops, no nesting —
-that's the point. Heavier logic belongs in Python (the SDK) or an agent.</p>
+<h3>The complete statement set</h3>
+<table>
+<tr><th>Statement</th><th>Form</th><th>Notes</th></tr>
+<tr><td><code>PROCEDURE</code></td><td><code>PROCEDURE name(p1, p2) … END</code></td><td>the header declares the parameters; every call must supply them all</td></tr>
+<tr><td><code>LET</code> (query)</td><td><code>LET x = FIRST FACTS OF hts:${item} FACET assess</code></td><td>binds a CeQL read. <code>FIRST</code> takes the first fact as a record (<code>x.price_cents</code>, <code>x.trust</code>, <code>x.effective</code>…); without it, x is the whole result list</td></tr>
+<tr><td><code>LET</code> (expression)</td><td><code>LET duty = cost.av_cost * units * rate.comp_rate</code></td><td>arithmetic <code>+ - * / ( )</code>, comparisons, <code>AND/OR</code> over params and bound variables</td></tr>
+<tr><td><code>WHEN</code></td><td><code>WHEN rate IS MISSING: FAIL 'no rate for ${item}'</code></td><td>a guard: <code>IS MISSING / IS PRESENT</code>, comparisons, <code>AND/OR</code>; the action after the colon is any other step. Guards stay flat — no WHEN inside WHEN</td></tr>
+<tr><td><code>PUT / CORRECT / RETIRE</code></td><td><code>PUT duty:${item} SET duty_amt=${duty} REF 'proc:x'</code></td><td>any CeQL write, with <code>${var}</code> holes filled under the safety rules below</td></tr>
+<tr><td><code>FAIL</code></td><td><code>FAIL 'message with ${var}'</code></td><td>abort the run with an error (the message is plain text, not re-parsed CeQL)</td></tr>
+<tr><td><code>RETURN</code></td><td><code>RETURN duty</code></td><td>finish, optionally with a value — returned alongside the full trace</td></tr>
+</table>
+<p>No loops, no nesting — that's the point. Heavier logic belongs in Python (the SDK)
+or an agent.</p>
+
+<h3 id="cepl-safety">Substitution safety — how ${holes} are filled</h3>
+<p>A procedure's query templates are <em>re-parsed as CeQL after substitution</em>, so splicing
+raw strings would let an argument like <code>x' , retired=true</code> reshape the generated
+statement — textual injection, in the very feature pitched as confinement for scoped agents.
+So the renderer applies rules by where the hole sits:</p>
+<table>
+<tr><th>Hole</th><th>Rule</th></tr>
+<tr><td>numbers and booleans</td><td>always render bare</td></tr>
+<tr><td>a string that is itself one literal token (<code>"320"</code>, <code>"true"</code>)</td><td>splices bare, so <code>SET n=${n}</code> works when a number parameter arrives as a JSON string — safe because the value is provably a single CeQL token (a strict number: no exponents, hex, underscores, or leading <code>+</code>; or <code>true</code>/<code>false</code>)</td></tr>
+<tr><td>inside a quoted literal — <code>'… ${x} …'</code></td><td>spliced raw, but rejected if the value contains the surrounding quote character</td></tr>
+<tr><td>glued to a word — <code>hts:${item}</code></td><td>accepts only characters that stay inside one token: letters, digits, and <code>:/_-.@</code>. Never <code>*</code> — a spliced wildcard would silently widen a scoped read</td></tr>
+<tr><td>anywhere else</td><td>the string becomes a quoted CeQL literal. A value containing <em>both</em> quote characters is rejected outright — CeQL strings have no escapes, so it cannot be embedded in query text; send such values via the JSON AST instead</td></tr>
+</table>
+<p><code>FAIL</code> messages are the one exception: they are never re-parsed as CeQL, so their
+<code>${holes}</code> fill with the raw formatted value.</p>
 <div class="box">Three things PL/SQL never had: <b>procedures are facts</b>
 (<code>HISTORY OF proc:duty_estimate</code> shows every version ever deployed,
 and <code>AS KNOWN AT</code> tells you which version ran last March);

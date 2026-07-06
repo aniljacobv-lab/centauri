@@ -201,16 +201,20 @@
       <tr><td class="ora">Flashback Query (AS OF)</td><td>Read the past via undo (bounded)</td><td class="cen"><code>AS OF</code> over full history, unbounded; plus <code>AS KNOWN AT</code> (belief time) Oracle has no equivalent for</td></tr>
       <tr><td class="ora">Flashback Data Archive (Total Recall)</td><td>Long-term history (option)</td><td class="cen">The default design — complete bi-temporal history, free</td></tr>
       <tr><td class="ora">Data Guard / Active Data Guard</td><td>Standby replicas for HA/DR (option)</td><td class="cen">Log shipping + durable CDC slots + lease-based automatic failover, free</td></tr>
+      <tr><td class="ora">GoldenGate / Streams</td><td>Change data capture to downstream systems (separate product)</td><td class="cen">Built-in CDC: <code>/v1/changes</code> with durable, resumable replication slots + acks, free</td></tr>
+      <tr><td class="ora">Oracle Sharding</td><td>Horizontal partitioning across databases (option)</td><td class="cen"><code>serve -shards N</code> — subject-hash sharding across independent logs, ~N× write throughput; <b>honest limit:</b> cross-shard queries are restricted</td></tr>
       <tr><td class="ora">RAC (Real Application Clusters)</td><td>Shared-disk multi-node OLTP scale-out (option)</td><td class="cen"><b>No equivalent</b> — single-writer per log; sharding scales throughput across subjects; HA is active/standby, not RAC</td></tr>
       <tr><td class="ora">Multitenant (CDB/PDB)</td><td>Pluggable databases (option beyond a limit)</td><td class="cen">Named environments per server with snapshot cloning, free</td></tr>
       <tr><td class="ora">TDE (Advanced Security)</td><td>Transparent encryption at rest (option)</td><td class="cen">Per-segment AES-256-GCM + crypto-erasure, free</td></tr>
       <tr><td class="ora">VPD / row-level security</td><td>Fine-grained access (EE feature)</td><td class="cen">Scoped tokens by subject prefix + field masking, free</td></tr>
       <tr><td class="ora">Database Vault / FGA / Audit Vault</td><td>Separation of duties, auditing (options)</td><td class="cen">Enforced legal hold + a log where <em>every fact is the audit</em>, tamper-evident by default</td></tr>
+      <tr><td class="ora">ILM / retention policies + legal hold</td><td>Lifecycle management, retention, holds (options / Audit Vault)</td><td class="cen">Retention policies (dry-run by default, RETIRE-based — history kept) + enforced legal hold that blocks deletion of held subjects, free</td></tr>
       <tr><td class="ora">Blockchain / Immutable Tables</td><td>Tamper-evident table type (21c+)</td><td class="cen">The entire log is hash-chained + Merkle-rooted — not a special table type</td></tr>
       <tr><td class="ora">Advanced Compression / HCC</td><td>Compress data (option / Exadata)</td><td class="cen">Flate-compressed sealed segments, free</td></tr>
       <tr><td class="ora">Cost-based optimizer (CBO) + stats</td><td>Plan selection over rich SQL</td><td class="cen"><b>Partial</b> — zone-map pruning + secondary index + <code>EXPLAIN ANALYZE</code>; no full CBO (honest gap)</td></tr>
       <tr><td class="ora">SQL*Net / SQL</td><td>Wire protocol + full SQL</td><td class="cen">CeQL (native) + read-only SQL over the <b>PostgreSQL wire protocol</b> (psql/JDBC/BI)</td></tr>
       <tr><td class="ora">AWR / ASH / Diagnostics Pack</td><td>Performance telemetry (packs)</td><td class="cen">Prometheus <code>/metrics</code>, health probes, structured logs, free</td></tr>
+      <tr><td class="ora">Select AI / OCI Generative AI</td><td>NL-to-SQL and LLM features, via Oracle Cloud services</td><td class="cen">Local-first AI in the binary: NL→CeQL, RAG <code>ASK</code> with citations, hybrid BM25+vector search, vision extraction — models run on <em>your</em> hardware via Ollama (auto-provisioned tiers up to GLM-4.7-Flash); the optional GLM-5.2 cloud boost is off by default and labeled</td></tr>
     </table>
   </section>
 
@@ -258,6 +262,7 @@
       <li><b>High-concurrency multi-writer OLTP.</b> Centauri writes are single-writer per log (the hash chain is sequential by design). Oracle/RAC are built for thousands of concurrent writers and sub-millisecond transactions.</li>
       <li><b>Mature SQL + cost-based optimizer.</b> Decades of SQL surface, a sophisticated CBO, PL/SQL, and tooling. Centauri's SQL is a read-only subset over the wire; CeQL is the full surface.</li>
       <li><b>Scale-out clustering.</b> RAC's shared-disk, cache-fusion scale-out has no Centauri equivalent; Centauri scales reads/throughput by sharding and serves data beyond RAM, but it is not a clustered OLTP engine.</li>
+      <li><b>Key management &amp; security ecosystem.</b> Centauri has no Vault/KMS integration — crypto-erasure keys are managed by the engine itself. Oracle's TDE integrates with external key stores (OKV/HSM).</li>
       <li><b>Ecosystem &amp; hardening.</b> Thirty-plus years of drivers, certifications, DBA expertise, and battle-testing at extreme scale.</li>
     </ul>
     <p>So the recommendation is architectural, not partisan: keep Oracle (or free Postgres/SQLite) for transactional workloads; put Centauri beside it as the tamper-evident, bi-temporal, AI-queryable record of what happened and why — the part those engines don't do, without the option licenses.</p>

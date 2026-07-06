@@ -48,6 +48,14 @@ Two things most products keep separate, Centauri unifies in one file you control
 a **memory** that never forgets and can prove its own integrity, and a **mind**
 that reasons over that memory locally.
 
+And the mind is turnkey: `centauri desktop` detects your hardware, installs the
+local model runtime, and pulls a model tier sized to the machine — from an 8 GB
+laptop (gemma3:4b) to a 24 GB+ GPU running **GLM-4.7-Flash** (a 30B-MoE,
+MIT-licensed GLM with a 200K context). A five-minute private AI. The one
+exception to "nothing leaves the machine" is the optional **GLM-5.2 cloud
+boost** — off by default and explicitly labeled, because GLM-5.2 cannot run
+locally (its weights need 200+ GB).
+
 ---
 
 ## The slogans (ranked — pick one)
@@ -123,7 +131,9 @@ your perimeter — and every model answer is auditable. One binary, zero third-p
 runtime dependencies, no license to renew.
 
 ### For a small/medium business owner
-Put all your business's documents and data in one place, on your own computer or
+Run one command — `centauri desktop` — and you have a private AI in about five
+minutes: it checks your hardware, installs the AI runtime, and picks the right
+models by itself. Put all your business's documents and data in one place, on your own computer or
 server, and just ask it questions — "which invoices from Acme are over $10k?",
 "summarize last quarter's contracts" — in plain English. It reads your PDFs, finds
 what matters, and answers with the sources. No cloud subscription, no AI bill, no
@@ -150,14 +160,18 @@ and the model never phones home.
    third-party dependency; `ASK` = RAG with citations; `ENRICH` runs models inside
    queries; hybrid BM25 + vector `SEARCH`/`SIMILAR`; vision/document extraction;
    **auto-embed on ingest**; a **feedback loop** that re-ranks on your ratings; and
-   **tiered model presets** (`serve -ai`) that pick and pull the right models for
-   your hardware. Nothing leaves the machine.
+   **tiered model presets** (`centauri desktop` / `serve -ai`) that pick, install
+   and pull the right models for your hardware — small ~8 GB (gemma3:4b +
+   nomic-embed-text), balanced 12–16 GB GPU (qwen3:14b + bge-m3), max 24 GB+
+   (GLM-4.7-Flash + bge-m3 + gemma3:27b vision). Nothing leaves the machine —
+   except the optional, off-by-default GLM-5.2 cloud boost, which says so.
 
 3. **Enterprise-ready, standard protocols** — **PostgreSQL wire protocol** (simple
    + extended, so BI tools and JDBC connect for read-only SQL); **OIDC/JWT SSO**;
    row-level security + field masking; retention + enforced legal hold;
-   **automatic HA failover** (lease-based election with epoch fencing); Prometheus
-   metrics, health probes, structured logs, native TLS.
+   **automatic HA failover** (lease-based election with epoch fencing); CDC with
+   durable replication slots; admission control (rate limits, body caps);
+   Prometheus metrics, health probes, structured logs, native TLS.
 
 4. **Scales and stays fast** — compressed cold-tier segments with zone-map data
    skipping; a lazy index so data exceeds RAM; sharding and group commit for write
@@ -166,6 +180,7 @@ and the model never phones home.
 
 5. **You own it** — one self-contained binary, **zero third-party Go dependencies**
    (stdlib only), no cloud requirement, no license. Download one file and run.
+   Zero-dependency Python / Go / JS SDKs and a native MCP server for agents.
 
 ---
 
@@ -180,6 +195,11 @@ and the hash chain is sequential by design) or sub-millisecond transactional
 workloads. The Postgres wire protocol exposes **read-only** SQL; writes use CeQL.
 For OLTP, pair Centauri with a transactional store — and note that store can be
 free (Postgres/SQLite), so adopting Centauri never means buying another license.
+It is also not a replacement for your accounting system: it sits beside your
+operational tools as the memory and the AI, not the ledger of record for money.
+Other plainly-stated limits: no JOINs (causal MATCH/CONTEXT instead), sharding
+restricts cross-shard queries, no Vault/KMS integration, and GLM-5.2 is
+cloud-only.
 
 ---
 
