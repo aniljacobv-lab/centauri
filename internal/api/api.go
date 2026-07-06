@@ -16,7 +16,9 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,13 +29,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/proxima360/centauri/internal/architect"
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/demo"
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/oidc"
-	"github.com/proxima360/centauri/internal/proc"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/architect"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/demo"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/oidc"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // Options configures the HTTP server.
@@ -99,7 +101,10 @@ const ctxScope ctxKey = 2
 const ctxOIDCSubject ctxKey = 3
 
 // ctxRequestID carries the per-request correlation ID set by WithLogging.
-const ctxRequestID ctxKey = 3
+// It MUST stay distinct from every other ctxKey: it once shared the value 3
+// with ctxOIDCSubject, so verifyOIDC overwrote the correlation id with the
+// JWT subject and RequestID() returned the SSO subject.
+const ctxRequestID ctxKey = 4
 
 // aclPolicy restricts a token to CeQL over subjects within Prefixes; it may
 // write only if Write is set. Policies are stored as acl:<sha256(token)>
@@ -161,26 +166,49 @@ func (s *Server) lookupACL(st *store.Store, tok string) (aclPolicy, bool) {
 	return pol, true
 }
 
+// maskValues returns a copy of a value map with the masked fields redacted.
+func maskValues(v map[string]any, mask map[string]bool) map[string]any {
+	nv := make(map[string]any, len(v))
+	for k, val := range v {
+		if mask[k] {
+			nv[k] = "***"
+		} else {
+			nv[k] = val
+		}
+	}
+	return nv
+}
+
 // maskEvent returns a copy of e with the masked value fields redacted, leaving
 // the store's in-memory event untouched (events are shared pointers).
 func maskEvent(e *model.Event, mask map[string]bool) *model.Event {
+	if e == nil {
+		return nil
+	}
 	cp := *e
 	if e.Value != nil {
-		nv := make(map[string]any, len(e.Value))
-		for k, val := range e.Value {
-			if mask[k] {
-				nv[k] = "***"
-			} else {
-				nv[k] = val
-			}
-		}
-		cp.Value = nv
+		cp.Value = maskValues(e.Value, mask)
 	}
 	return &cp
 }
 
-// maskResult redacts masked fields from a query result in place. Events are
-// cloned (shared pointers); rows/hits are query-local so edited directly.
+// maskEvents clones-and-redacts a slice of shared event pointers.
+func maskEvents(evs []*model.Event, mask map[string]bool) []*model.Event {
+	if len(evs) == 0 {
+		return evs
+	}
+	out := make([]*model.Event, len(evs))
+	for i, e := range evs {
+		out[i] = maskEvent(e, mask)
+	}
+	return out
+}
+
+// maskResult redacts masked fields from a query result in place, covering
+// every ceql.Execute result kind that carries event values: events, rows,
+// search hits, similar hits, context bundles, and diff before/after maps.
+// Events are cloned (shared pointers); rows/hits/changes are query-local so
+// edited directly.
 func maskResult(res map[string]any, mask []string) {
 	if res == nil || len(mask) == 0 {
 		return
@@ -192,11 +220,7 @@ func maskResult(res map[string]any, mask []string) {
 	switch res["kind"] {
 	case "events":
 		if evs, ok := res["events"].([]*model.Event); ok {
-			out := make([]*model.Event, len(evs))
-			for i, e := range evs {
-				out[i] = maskEvent(e, m)
-			}
-			res["events"] = out
+			res["events"] = maskEvents(evs, m)
 		}
 	case "rows":
 		cols, _ := res["columns"].([]string)
@@ -216,6 +240,52 @@ func maskResult(res map[string]any, mask []string) {
 			for _, h := range hits {
 				if e, ok := h["event"].(*model.Event); ok {
 					h["event"] = maskEvent(e, m)
+				}
+			}
+		}
+	case "similar":
+		if hits, ok := res["hits"].([]store.SimilarHit); ok {
+			out := make([]store.SimilarHit, len(hits))
+			for i, h := range hits {
+				h.Event = maskEvent(h.Event, m)
+				out[i] = h
+			}
+			res["hits"] = out
+		}
+	case "context":
+		if b, ok := res["context"].(*store.ContextBundle); ok && b != nil {
+			cp := *b
+			cp.Facts = maskEvents(b.Facts, m)
+			cp.History = maskEvents(b.History, m)
+			cp.Pending = maskEvents(b.Pending, m)
+			if len(b.Disagreements) > 0 {
+				ds := make([]store.FieldDisagreement, len(b.Disagreements))
+				copy(ds, b.Disagreements)
+				for i := range ds {
+					if !m[ds[i].Field] {
+						continue
+					}
+					claims := make([]store.FieldClaim, len(ds[i].Claims))
+					copy(claims, ds[i].Claims)
+					for j := range claims {
+						claims[j].Value = "***"
+					}
+					ds[i].Claims = claims
+					ds[i].Resolved.Value = "***"
+				}
+				cp.Disagreements = ds
+			}
+			res["context"] = &cp
+		}
+	case "diff":
+		if rows, ok := res["changes"].([]map[string]any); ok {
+			for _, row := range rows {
+				for _, side := range []string{"before", "after"} {
+					// before/after are the store events' own value maps —
+					// clone, never edit in place.
+					if vm, ok := row[side].(map[string]any); ok && vm != nil {
+						row[side] = maskValues(vm, m)
+					}
 				}
 			}
 		}
@@ -273,6 +343,51 @@ type Server struct {
 	// static Options.ReadOnly. atomic so the election goroutine and request
 	// handlers can touch it without a lock.
 	dynRO atomic.Bool
+
+	// Auto-embed runs on a single background worker with a bounded queue —
+	// never one goroutine per append (a write burst would fan out unbounded
+	// goroutines that could touch the store after Close). Embedding is
+	// best-effort: when the queue is full, jobs are dropped and counted.
+	embedCh      chan embedJob
+	embedQuit    chan struct{} // closed by Close; stops the worker
+	embedDone    chan struct{} // closed by the worker on exit
+	embedDropped atomic.Int64
+	closeOnce    sync.Once
+}
+
+// embedJob is one best-effort background embedding task.
+type embedJob struct {
+	st     *store.Store
+	events []*model.Event
+}
+
+// embedWorker drains the auto-embed queue one job at a time until Close.
+func (s *Server) embedWorker() {
+	defer close(s.embedDone)
+	for {
+		select {
+		case <-s.embedQuit:
+			return
+		case job := <-s.embedCh:
+			ceql.AutoEmbed(job.st, job.events, time.Now().UnixMicro())
+		}
+	}
+}
+
+// queueAutoEmbed enqueues a background embedding job. Drop semantics: if the
+// queue (1024 jobs) is full or the server is shutting down, the job is
+// discarded — embedding is a retrievability convenience, never worth blocking
+// the write path for. Drops are counted and logged occasionally.
+func (s *Server) queueAutoEmbed(st *store.Store, evs []*model.Event) {
+	select {
+	case s.embedCh <- embedJob{st: st, events: evs}:
+	case <-s.embedQuit:
+	default:
+		if n := s.embedDropped.Add(1); n == 1 || n%1000 == 0 {
+			slog.Warn("auto-embed queue full; dropping best-effort embed job",
+				"dropped_total", n)
+		}
+	}
 }
 
 // SetReadOnly toggles runtime read-only mode (used by HA: read-only unless this
@@ -291,12 +406,23 @@ func New(st *store.Store) *Server { return NewWithOptions(st, Options{}) }
 
 // NewWithOptions creates a server with auth / read-only / multi-db behavior.
 func NewWithOptions(st *store.Store, opts Options) *Server {
-	return &Server{st: st, opts: opts, dbs: map[string]*store.Store{}}
+	s := &Server{st: st, opts: opts, dbs: map[string]*store.Store{},
+		embedCh:   make(chan embedJob, 1024),
+		embedQuit: make(chan struct{}),
+		embedDone: make(chan struct{}),
+	}
+	go s.embedWorker()
+	return s
 }
 
-// Close closes every named environment (the default store is owned by
-// the caller).
+// Close stops the background embed worker (waiting for any in-flight job, so
+// nothing touches a store after Close) and closes every named environment
+// (the default store is owned by the caller). Queued embed jobs are dropped.
 func (s *Server) Close() {
+	s.closeOnce.Do(func() {
+		close(s.embedQuit)
+		<-s.embedDone
+	})
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for name, st := range s.dbs {
@@ -336,6 +462,16 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/assets", s.write(s.handleAssetUpload))
 	mux.HandleFunc("GET /v1/assets/{sha}", s.handleAssetGet)
 	mux.HandleFunc("GET /v1/vision/status", s.handleVisionStatus)
+
+	// AI appliance control (the dashboard's AI panel). ALL of these are gated
+	// with s.write — including the GET — because they are admin surfaces:
+	// status reveals infrastructure details, and the POSTs reconfigure where
+	// answers are computed. Read-only and scoped tokens must not reach them
+	// (scoped tokens are already confined to /v1/query by auth).
+	mux.HandleFunc("GET /v1/ai/status", s.write(s.handleAIStatus))
+	mux.HandleFunc("POST /v1/ai/enable", s.write(s.handleAIEnable))
+	mux.HandleFunc("POST /v1/ai/cloud", s.write(s.handleAICloud))
+	mux.HandleFunc("POST /v1/ai/local", s.write(s.handleAILocal))
 
 	mux.HandleFunc("GET /v1/databases", s.handleListDBs)
 	mux.HandleFunc("GET /v1/integrity", s.handleIntegrity)
@@ -379,7 +515,7 @@ func (s *Server) Routes() http.Handler {
 	if s.opts.HAStatus != nil {
 		root.HandleFunc("GET /v1/ha", s.handleHA) // failover role/epoch/leader, no fact data
 	}
-	root.HandleFunc("GET /{$}", s.handleUI) // the dashboard
+	root.HandleFunc("GET /{$}", s.handleUI)        // the dashboard
 	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
 	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
 	root.HandleFunc("GET /app", s.handleApp)       // the simple layman UI (add + ask)
@@ -411,14 +547,26 @@ func (s *Server) perDBLimit(next http.Handler) http.Handler {
 	})
 }
 
+// queryTokenOK lists the streaming/tailing endpoints where ?token= is accepted
+// in place of the Authorization header (EventSource and other SSE clients
+// cannot set headers). Everywhere else the token must travel as a header so it
+// doesn't leak into access logs, referrers, and browser history.
+func queryTokenOK(p string) bool {
+	switch p {
+	case "/v1/watch", "/v1/changes", "/v1/log":
+		return true
+	}
+	return false
+}
+
 // auth enforces the bearer tokens on every route when configured: the
 // admin token grants everything, the read token grants reads only.
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.opts.Token != "" || s.opts.ReadToken != "" || s.opts.OIDC != nil {
 			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if got == "" {
-				got = r.URL.Query().Get("token") // SSE clients can't set headers
+			if got == "" && queryTokenOK(r.URL.Path) {
+				got = r.URL.Query().Get("token") // SSE/tailing clients can't set headers
 			}
 			switch {
 			case s.opts.Token != "" &&
@@ -439,9 +587,14 @@ func (s *Server) auth(next http.Handler) http.Handler {
 				// resolve the target database (?db=) and look the policy up there.
 				aclStore := s.st
 				if name := r.URL.Query().Get("db"); name != "" {
-					if rs, err := s.byName(name); err == nil {
-						aclStore = rs
+					rs, err := s.byName(name)
+					if err != nil {
+						// Never fall back to the default store's ACLs: a policy
+						// lookup in the wrong environment must be a hard error.
+						httpErr(w, http.StatusNotFound, err.Error())
+						return
 					}
+					aclStore = rs
 				}
 				if pol, ok := s.lookupACL(aclStore, got); ok {
 					if r.URL.Path != "/v1/query" {
@@ -509,6 +662,28 @@ func httpErr(w http.ResponseWriter, code int, msg string) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(map[string]string{"error": msg})
+}
+
+// maxJSONBody caps every JSON request body (asset uploads have their own,
+// larger cap in assets.go). Without a cap a hostile client can make the
+// decoder buffer an unbounded payload.
+const maxJSONBody = 8 << 20 // 8 MiB
+
+// decodeJSON decodes a size-capped JSON request body into dst. On failure it
+// writes 413 (body over the cap) or 400 (malformed JSON) and returns false.
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			httpErr(w, http.StatusRequestEntityTooLarge,
+				fmt.Sprintf("request body too large (max %d bytes)", tooBig.Limit))
+		} else {
+			httpErr(w, 400, err.Error())
+		}
+		return false
+	}
+	return true
 }
 
 // dbOr resolves the request's database or writes a 404 and returns nil.
@@ -600,8 +775,7 @@ func (s *Server) handleCreateDB(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 		From string `json:"from"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	name := strings.TrimSpace(body.Name)
@@ -627,51 +801,84 @@ func (s *Server) handleCreateDB(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	path := filepath.Join(dir, name+".log")
+	// Quick pre-checks under the lock, then do the (possibly long) log copy
+	// WITHOUT holding s.mu — a big clone must not block byName/auth for every
+	// other request. The name is re-checked under the lock before the rename.
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.dbs[name]; ok {
+	_, open := s.dbs[name]
+	s.mu.Unlock()
+	if open {
 		httpErr(w, 422, fmt.Sprintf("database %q already exists", name))
 		return
 	}
-	path := filepath.Join(dir, name+".log")
 	existed := false
 	if _, err := os.Stat(path); err == nil {
 		existed = true
 	}
+	var tmp string
 	if src != nil && !existed {
-		// Snapshot clone: ship the committed log byte-for-byte. The clone
-		// even shares the source's tamper-evidence chain head.
-		f, err := os.Create(path)
+		// Snapshot clone: ship the committed log byte-for-byte into a temp
+		// file (the source store serializes ReadLog internally), then rename
+		// into place under the lock. The clone even shares the source's
+		// tamper-evidence chain head.
+		f, err := os.CreateTemp(dir, name+".clone-*.tmp")
 		if err != nil {
 			httpErr(w, 500, err.Error())
 			return
+		}
+		tmp = f.Name()
+		fail := func(msg string) {
+			f.Close()
+			os.Remove(tmp)
+			httpErr(w, 500, msg)
 		}
 		var off int64
 		for {
 			chunk, err := src.ReadLog(off)
 			if err != nil {
-				f.Close()
-				os.Remove(path)
-				httpErr(w, 500, "clone: "+err.Error())
+				fail("clone: " + err.Error())
 				return
 			}
 			if len(chunk) == 0 {
 				break
 			}
 			if _, err := f.Write(chunk); err != nil {
-				f.Close()
-				os.Remove(path)
-				httpErr(w, 500, "clone: "+err.Error())
+				fail("clone: " + err.Error())
 				return
 			}
 			off += int64(len(chunk))
 		}
 		if err := f.Sync(); err != nil {
-			f.Close()
+			fail(err.Error())
+			return
+		}
+		if err := f.Close(); err != nil {
+			os.Remove(tmp)
 			httpErr(w, 500, err.Error())
 			return
 		}
-		f.Close()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.dbs[name]; ok { // re-check: created concurrently while we copied
+		if tmp != "" {
+			os.Remove(tmp)
+		}
+		httpErr(w, 422, fmt.Sprintf("database %q already exists", name))
+		return
+	}
+	if tmp != "" {
+		if _, err := os.Stat(path); err == nil { // log file appeared meanwhile
+			os.Remove(tmp)
+			httpErr(w, 422, fmt.Sprintf("database %q already exists", name))
+			return
+		}
+		if err := os.Rename(tmp, path); err != nil {
+			os.Remove(tmp)
+			httpErr(w, 500, err.Error())
+			return
+		}
 	}
 	st, err := store.OpenOptions(path, store.Options{Lock: true})
 	if err != nil {
@@ -831,8 +1038,7 @@ func (s *Server) handleAppend(w http.ResponseWriter, r *http.Request) {
 		Events []*model.Event     `json:"events"`
 		Links  []model.CausalLink `json:"links"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if err := st.Append(time.Now().UnixMicro(), body.Events, body.Links); err != nil {
@@ -840,8 +1046,7 @@ func (s *Server) handleAppend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ceql.AutoEmbedOnPut { // appliance mode: embed new facts in the background
-		evs := body.Events
-		go ceql.AutoEmbed(st, evs, time.Now().UnixMicro())
+		s.queueAutoEmbed(st, body.Events) // single bounded worker; drops when full
 	}
 	ids := make([]string, len(body.Events))
 	for i, e := range body.Events {
@@ -867,8 +1072,7 @@ func (s *Server) handleFeedback(w http.ResponseWriter, r *http.Request) {
 		Score float64 `json:"score"`
 		Note  string  `json:"note"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	id, err := ceql.Feedback(st, body.Event, body.Score, body.Note, time.Now().UnixMicro())
@@ -888,8 +1092,7 @@ func (s *Server) handleActivate(w http.ResponseWriter, r *http.Request) {
 		EventID string `json:"event_id"`
 		At      string `json:"at"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	at, err := parseWhen(body.At)
@@ -913,8 +1116,7 @@ func (s *Server) handleEnrich(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var en model.Enrichment
-	if err := json.NewDecoder(r.Body).Decode(&en); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &en) {
 		return
 	}
 	if en.CreatedAt == 0 {
@@ -933,8 +1135,7 @@ func (s *Server) handlePutSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var sc model.Schema
-	if err := json.NewDecoder(r.Body).Decode(&sc); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &sc) {
 		return
 	}
 	if err := st.PutSchema(time.Now().UnixMicro(), &sc); err != nil {
@@ -1149,8 +1350,7 @@ func (s *Server) handleSimilarPost(w http.ResponseWriter, r *http.Request) {
 		K        int       `json:"k"`
 		MinScore *float64  `json:"min_score"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if len(body.Vector) == 0 {
@@ -1258,8 +1458,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 			Q   string      `json:"q"`
 			AST *ceql.Query `json:"ast"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			httpErr(w, 400, err.Error())
+		if !decodeJSON(w, r, &body) {
 			return
 		}
 		switch {
@@ -1288,12 +1487,14 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Row-level security: a scoped token may only run statements confined to
-	// its allowed subject prefixes.
+	// its allowed subject prefixes — and its results get field-level masking.
+	var scopeMask []string
 	if pol, ok := r.Context().Value(ctxScope).(aclPolicy); ok {
 		if allowed, reason := scopeAllows(pol, q); !allowed {
 			httpErr(w, 403, "scoped token: "+reason)
 			return
 		}
+		scopeMask = pol.Mask
 	}
 	if q.Kind == ceql.KRun {
 		res, err := proc.RunStored(st, q.Subject, q.Set, now)
@@ -1319,6 +1520,7 @@ func (s *Server) handleQuery(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, 422, err.Error())
 		return
 	}
+	maskResult(result, scopeMask) // field-level masking for scoped tokens (no-op if none)
 	writeJSON(w, result)
 }
 
@@ -1338,8 +1540,7 @@ func (s *Server) handleSQL(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Q string `json:"q"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			httpErr(w, 400, err.Error())
+		if !decodeJSON(w, r, &body) {
 			return
 		}
 		sqlText = body.Q
@@ -1379,8 +1580,7 @@ func (s *Server) handleDefineProc(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Source string `json:"source"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	p, err := proc.Save(st, body.Source, time.Now().UnixMicro())
@@ -1403,8 +1603,7 @@ func (s *Server) handleRunProc(w http.ResponseWriter, r *http.Request) {
 		Name string         `json:"name"`
 		Args map[string]any `json:"args"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	res, err := proc.RunStored(st, body.Name, body.Args, time.Now().UnixMicro())
@@ -1423,8 +1622,7 @@ func (s *Server) handleAssist(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Text string `json:"text"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	now := time.Now().UnixMicro()
@@ -1465,8 +1663,7 @@ func generateBlueprint(body architectReq) (*architect.Blueprint, error) {
 // or the full blueprint preview once everything is answered.
 func (s *Server) handleArchitectPlan(w http.ResponseWriter, r *http.Request) {
 	var body architectReq
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if body.Answers == nil {
@@ -1512,8 +1709,7 @@ func (s *Server) handleArchitectPlan(w http.ResponseWriter, r *http.Request) {
 // handleArchitectApply creates the environment and builds everything.
 func (s *Server) handleArchitectApply(w http.ResponseWriter, r *http.Request) {
 	var body architectReq
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	bp, err := generateBlueprint(body)
@@ -1611,8 +1807,7 @@ func (s *Server) handleSlotAck(w http.ResponseWriter, r *http.Request) {
 		Slot   string `json:"slot"`
 		Cursor int64  `json:"cursor"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if body.Slot == "" {
@@ -1659,8 +1854,7 @@ func (s *Server) handleACL(w http.ResponseWriter, r *http.Request) {
 		Write    bool     `json:"write"`
 		Mask     []string `json:"mask"` // value fields to redact in this token's query results
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, 400, err.Error())
+	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if body.Token == "" || len(body.Prefixes) == 0 {

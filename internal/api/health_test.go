@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // The normal serve path must expose /livez, /readyz, and a Prometheus /metrics —

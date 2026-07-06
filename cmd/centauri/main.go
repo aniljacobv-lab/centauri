@@ -34,32 +34,27 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/proxima360/centauri/internal/ai"
-	"github.com/proxima360/centauri/internal/api"
-	"github.com/proxima360/centauri/internal/assistant"
-	"github.com/proxima360/centauri/internal/catalog"
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/demo"
-	"github.com/proxima360/centauri/internal/ha"
-	"github.com/proxima360/centauri/internal/mcp"
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/objstore"
-	"github.com/proxima360/centauri/internal/oidc"
-	"github.com/proxima360/centauri/internal/pgwire"
-	"github.com/proxima360/centauri/internal/retention"
-	"github.com/proxima360/centauri/internal/segment"
-	"github.com/proxima360/centauri/internal/shard"
-	"github.com/proxima360/centauri/internal/store"
-	"github.com/proxima360/centauri/internal/synth"
+	"github.com/aniljacobv-lab/centauri/internal/ai"
+	"github.com/aniljacobv-lab/centauri/internal/api"
+	"github.com/aniljacobv-lab/centauri/internal/assistant"
+	"github.com/aniljacobv-lab/centauri/internal/catalog"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/demo"
+	"github.com/aniljacobv-lab/centauri/internal/ha"
+	"github.com/aniljacobv-lab/centauri/internal/mcp"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/objstore"
+	"github.com/aniljacobv-lab/centauri/internal/oidc"
+	"github.com/aniljacobv-lab/centauri/internal/pgwire"
+	"github.com/aniljacobv-lab/centauri/internal/retention"
+	"github.com/aniljacobv-lab/centauri/internal/segment"
+	"github.com/aniljacobv-lab/centauri/internal/shard"
+	"github.com/aniljacobv-lab/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/synth"
 )
 
 // apiSrv lets the shutdown path close named environments opened at runtime.
 var apiSrv *api.Server
-
-// managedOllama is a local Ollama process that THIS Centauri started (because
-// it wasn't already running). We stop it on exit; an Ollama the user was
-// already running is never touched.
-var managedOllama *os.Process
 
 const banner = `
   ___  ____  _  _  ____  __    _  _  ____  __
@@ -539,9 +534,7 @@ func main() {
 			apiSrv.Close() // named environments
 		}
 		_ = st.Close()
-		if managedOllama != nil {
-			_ = managedOllama.Kill() // stop only the Ollama we started
-		}
+		ai.StopManaged() // stop only the Ollama we started
 		os.Exit(0)
 	}()
 
@@ -801,11 +794,6 @@ func syncPeer(st *store.Store, peer, token string, interval time.Duration) {
 }
 
 // follow polls the primary's log endpoint and ingests new bytes forever.
-// setupAI turns Centauri into a local-AI appliance: it resolves the requested
-// tier (auto = detect from system memory), registers the matching local models
-// (chat, embedder, vision) so ASK/SEARCH/ENRICH work without manual config, and
-// prints the `ollama pull` commands to fetch the weights. Models run in the local
-// Ollama server Centauri manages — no cloud, no per-token cost.
 // aiConsent decides whether to set up local AI, asking the user at most once. It
 // proceeds silently when AI is already configured (a prior "yes"), when -ai-yes is
 // given, or when there's no interactive terminal (unattended/turnkey). Otherwise
@@ -838,148 +826,23 @@ func aiConsent(st *store.Store, dataPath string, autoYes bool) bool {
 	return true
 }
 
-// setupAI makes Centauri a turnkey local-AI appliance: it picks the right model
-// tier for this machine, registers the models, turns on auto-embed, and — in the
-// background, so startup is instant — installs the model runtime (Ollama) if it's
-// missing, starts it, and pulls the models. The average user does nothing: they
-// run Centauri and the private AI provisions itself. `manage` lets the runtime be
-// auto-installed/started (the desktop/turnkey path); when false we only guide.
+// setupAI makes Centauri a turnkey local-AI appliance: ai.Setup picks the right
+// model tier for this machine, registers the models, turns on auto-embed, and —
+// in the background, so startup is instant — installs the model runtime (Ollama)
+// if it's missing, starts it, and pulls the models (see internal/ai/provision.go;
+// progress is also available as a snapshot via ai.Status()). The average user
+// does nothing: they run Centauri and the private AI provisions itself. `manage`
+// lets the runtime be auto-installed/started (the desktop/turnkey path); when
+// false we only guide.
 func setupAI(st *store.Store, tierFlag string, manage bool) {
-	var tier ai.Tier
-	if tierFlag == "auto" {
-		tier = ai.DetectTier(availableMemGB())
-	} else if t, ok := ai.ParseTier(tierFlag); ok {
-		tier = t
-	} else {
-		log.Printf("ai: unknown tier %q (use off|auto|small|balanced|max) — skipping", tierFlag)
+	p, err := ai.Setup(st, tierFlag, manage, time.Now().UnixMicro())
+	if err != nil {
+		log.Printf("ai: %v — skipping", err)
 		return
 	}
-	p := ai.PresetFor(tier)
-	if _, err := ai.Register(st, p, time.Now().UnixMicro()); err != nil {
-		log.Printf("ai: model registration failed: %v", err)
-		return
-	}
-	ceql.AutoEmbedOnPut = true // new facts embed themselves in the background → instantly askable
 	fmt.Printf("ai appliance: tier=%s  chat=%s  embed=%s  vision=%s\n     %s\n",
-		tier, p.Chat.Model, p.Embed.Model, p.Vision.Model, p.Note)
+		p.Tier, p.Chat.Model, p.Embed.Model, p.Vision.Model, p.Note)
 	fmt.Println("     setting up your private AI in the background — no action needed.")
-	go func() {
-		if ensureRuntime(manage) {
-			provisionModels(p)
-		}
-	}()
-}
-
-// ensureRuntime makes the local model server (Ollama) installed and running. When
-// manage is true it auto-installs (OS package manager) and starts it, tracking
-// the process so we stop only the one we started. Returns true when Ollama is
-// reachable. Best-effort and non-fatal: Centauri serves regardless.
-func ensureRuntime(manage bool) bool {
-	if _, err := exec.LookPath("ollama"); err != nil {
-		if manage {
-			fmt.Println("ai: installing the local model runtime (Ollama)…")
-			installOllama()
-		}
-		if _, err := exec.LookPath("ollama"); err != nil {
-			fmt.Println("ai: install Ollama from https://ollama.com/download, then restart — AI lights up automatically.")
-			return false
-		}
-	}
-	if ollamaUp() {
-		return true
-	}
-	if !manage {
-		fmt.Println("ai: start the model runtime with 'ollama serve' — AI lights up automatically.")
-		return false
-	}
-	if c := exec.Command("ollama", "serve"); c.Start() == nil {
-		managedOllama = c.Process // stop only the Ollama we started (see exit handler)
-	}
-	for i := 0; i < 30 && !ollamaUp(); i++ {
-		time.Sleep(500 * time.Millisecond)
-	}
-	return ollamaUp()
-}
-
-// provisionModels pulls the tier's models if they aren't already present (a large
-// one-time download), streaming progress so the user sees it.
-func provisionModels(p ai.Preset) {
-	for _, m := range uniqueModels(p) {
-		if modelPulled(m) {
-			continue
-		}
-		fmt.Printf("ai: downloading model %s (one-time; safe to keep using Centauri meanwhile)…\n", m)
-		_ = runStream("ollama", "pull", m)
-	}
-	fmt.Println("ai: your private AI is ready — ASK and SEARCH now run on local models, nothing leaves this machine.")
-}
-
-// uniqueModels lists the preset's distinct model tags (chat/embed/vision may share one).
-func uniqueModels(p ai.Preset) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, m := range p.Models() {
-		if m.Model == "" || seen[m.Model] {
-			continue
-		}
-		seen[m.Model] = true
-		out = append(out, m.Model)
-	}
-	return out
-}
-
-// installOllama installs the model runtime via the OS package manager where we
-// can do it non-interactively; otherwise it points at the one-line installer. We
-// never pipe curl|sh automatically.
-func installOllama() {
-	switch runtime.GOOS {
-	case "windows":
-		_ = runStream("winget", "install", "-e", "--id", "Ollama.Ollama", "--silent", "--accept-package-agreements", "--accept-source-agreements")
-	case "darwin":
-		if _, err := exec.LookPath("brew"); err == nil {
-			_ = runStream("brew", "install", "ollama")
-		} else {
-			fmt.Println("ai: install Homebrew (https://brew.sh) then 'brew install ollama', or get Ollama from https://ollama.com/download")
-		}
-	default: // linux
-		fmt.Println("ai: install Ollama with:  curl -fsSL https://ollama.com/install.sh | sh")
-	}
-}
-
-// availableMemGB best-effort returns total system memory in GB across Linux,
-// macOS and Windows; 0 when unknown, which DetectTier treats as the small tier
-// so the appliance starts safely on any machine.
-func availableMemGB() int {
-	switch runtime.GOOS {
-	case "darwin":
-		if out, err := exec.Command("sysctl", "-n", "hw.memsize").Output(); err == nil {
-			if n, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64); err == nil {
-				return int(n / (1024 * 1024 * 1024))
-			}
-		}
-	case "windows":
-		out, err := exec.Command("powershell", "-NoProfile", "-Command",
-			"(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory").Output()
-		if err == nil {
-			if n, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64); err == nil {
-				return int(n / (1024 * 1024 * 1024))
-			}
-		}
-	default: // linux
-		if b, err := os.ReadFile("/proc/meminfo"); err == nil {
-			for _, line := range strings.Split(string(b), "\n") {
-				if strings.HasPrefix(line, "MemTotal:") {
-					f := strings.Fields(line) // "MemTotal: 16384000 kB"
-					if len(f) >= 2 {
-						if kb, err := strconv.Atoi(f[1]); err == nil {
-							return kb / (1024 * 1024)
-						}
-					}
-				}
-			}
-		}
-	}
-	return 0
 }
 
 // startHA wires lease-based leader election into a running server: the elected
@@ -1916,12 +1779,21 @@ func resultToPg(res map[string]any) pgwire.Result {
 }
 
 // listenMaybeTLS serves over HTTPS when both a cert and key are given (native
-// TLS, no reverse proxy required), otherwise plain HTTP.
+// TLS, no reverse proxy required), otherwise plain HTTP. The server sets
+// header/idle timeouts so a slowloris client can't pin connections forever;
+// WriteTimeout stays 0 on purpose — /v1/watch and /v1/changes are long-lived
+// streams that must never be cut off mid-flight.
 func listenMaybeTLS(addr, cert, key string, h http.Handler) error {
-	if cert != "" && key != "" {
-		return http.ListenAndServeTLS(addr, cert, key, h)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           h,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
 	}
-	return http.ListenAndServe(addr, h)
+	if cert != "" && key != "" {
+		return srv.ListenAndServeTLS(cert, key)
+	}
+	return srv.ListenAndServe()
 }
 
 func authNote(token string) string {
@@ -1961,23 +1833,13 @@ func syncedFolderNote(p string) string {
 	return ""
 }
 
-// ollamaUp reports whether a local Ollama is already answering on its port.
-func ollamaUp() bool {
-	resp, err := (&http.Client{Timeout: 500 * time.Millisecond}).Get("http://localhost:11434")
-	if err != nil {
-		return false
-	}
-	_ = resp.Body.Close()
-	return true
-}
-
 // ensureOllama makes a local Ollama available for vision, the integrated-package
 // way: if one is already running we use it as-is (and return nil, so we never
 // stop someone else's). If not, and the binary is installed, we start
 // `ollama serve` as a child and return its process so the caller can stop it on
 // exit. If Ollama isn't installed we just point the user at setup.
 func ensureOllama() *os.Process {
-	if ollamaUp() {
+	if ai.OllamaUp() {
 		fmt.Println("vision: using the Ollama already running on :11434.")
 		return nil
 	}
@@ -1990,15 +1852,6 @@ func ensureOllama() *os.Process {
 	// and is ready well before the first ENRICH.
 	fmt.Println("vision: started a local Ollama — it will stop when you close Centauri.")
 	return cmd.Process
-}
-
-// runStream runs a command, echoing it and streaming its output, so the user
-// sees exactly what's happening during setup.
-func runStream(name string, args ...string) error {
-	fmt.Printf("  $ %s %s\n", name, strings.Join(args, " "))
-	c := exec.Command(name, args...)
-	c.Stdout, c.Stderr = os.Stdout, os.Stderr
-	return c.Run()
 }
 
 // runSetupVision readies a local vision stack: a multimodal model server
@@ -2026,28 +1879,28 @@ func runSetupVision(install bool) {
 		switch goos {
 		case "windows":
 			if !have("ollama") {
-				_ = runStream("winget", "install", "-e", "--id", "Ollama.Ollama", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+				_ = ai.RunStream("winget", "install", "-e", "--id", "Ollama.Ollama", "--silent", "--accept-package-agreements", "--accept-source-agreements")
 			}
 			if rasteriser() == "" {
 				// ImageMagick can't decode PDFs without Ghostscript, so install both.
-				_ = runStream("winget", "install", "-e", "--id", "ImageMagick.ImageMagick", "--silent", "--accept-package-agreements", "--accept-source-agreements")
-				_ = runStream("winget", "install", "-e", "--id", "ArtifexSoftware.GhostScript", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+				_ = ai.RunStream("winget", "install", "-e", "--id", "ImageMagick.ImageMagick", "--silent", "--accept-package-agreements", "--accept-source-agreements")
+				_ = ai.RunStream("winget", "install", "-e", "--id", "ArtifexSoftware.GhostScript", "--silent", "--accept-package-agreements", "--accept-source-agreements")
 				fmt.Println("  (after install, open a NEW terminal so PATH updates take effect)")
 			}
 		case "darwin":
 			if have("brew") {
 				if !have("ollama") {
-					_ = runStream("brew", "install", "ollama")
+					_ = ai.RunStream("brew", "install", "ollama")
 				}
 				if rasteriser() == "" {
-					_ = runStream("brew", "install", "poppler")
+					_ = ai.RunStream("brew", "install", "poppler")
 				}
 			} else {
 				fmt.Println("  Homebrew not found — install it from https://brew.sh, then re-run.")
 			}
 		default: // linux
 			if rasteriser() == "" && have("apt-get") {
-				_ = runStream("sudo", "apt-get", "install", "-y", "poppler-utils")
+				_ = ai.RunStream("sudo", "apt-get", "install", "-y", "poppler-utils")
 			}
 			if !have("ollama") {
 				fmt.Println("  Install Ollama:  curl -fsSL https://ollama.com/install.sh | sh")
@@ -2062,9 +1915,9 @@ func runSetupVision(install bool) {
 	if have("ollama") {
 		if install {
 			fmt.Println("Ollama found — pulling models (large one-time download; safe to leave running):")
-			_ = runStream("ollama", "pull", "llava")
-			_ = runStream("ollama", "pull", "nomic-embed-text")
-		} else if modelPulled("llava") {
+			_ = ai.RunStream("ollama", "pull", "llava")
+			_ = ai.RunStream("ollama", "pull", "nomic-embed-text")
+		} else if ai.ModelPulled("llava") {
 			fmt.Println("Ollama found; the 'llava' model is present.")
 		} else {
 			fmt.Println("Ollama found, but the 'llava' model isn't pulled yet.")
@@ -2101,7 +1954,7 @@ func runSetupVision(install bool) {
 	fmt.Println("  2) open  📎 Vision  →  click 'Register model:vision'")
 	fmt.Println("  3) Upload an image/PDF  →  Run ENRICH  →  SEARCH it")
 
-	ready := have("ollama") && modelPulled("llava") && rasteriser() != ""
+	ready := have("ollama") && ai.ModelPulled("llava") && rasteriser() != ""
 	if !ready {
 		if install {
 			// winget/brew just put new tools on PATH that THIS process can't
@@ -2114,16 +1967,4 @@ func runSetupVision(install bool) {
 			os.Exit(1)
 		}
 	}
-}
-
-// modelPulled reports whether an Ollama model has been downloaded.
-func modelPulled(name string) bool {
-	if _, err := exec.LookPath("ollama"); err != nil {
-		return false
-	}
-	out, err := exec.Command("ollama", "list").Output()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(out), name)
 }

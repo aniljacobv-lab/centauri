@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 const maxAssetBytes = 64 << 20 // 64 MiB upload cap

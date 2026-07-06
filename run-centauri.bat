@@ -2,19 +2,22 @@
 REM ============================================================
 REM  Centauri launcher - double-click to run
 REM
-REM    run-centauri.bat            start Centauri (desktop) + open the dashboard
+REM    run-centauri.bat            start Centauri (desktop) + open the app
 REM    run-centauri.bat seed       fill the database with sample data
 REM    run-centauri.bat build      rebuild centauri.exe only
 REM    run-centauri.bat stop       stop a running Centauri server
+REM    run-centauri.bat vision     (re)run the local AI / Vision setup by hand
 REM
-REM  Uses the 'desktop' command: your data lives in your Windows profile
-REM  (%APPDATA%\Centauri), the same place for both running and seeding, and
-REM  the dashboard opens itself. Set DATA below to use a different folder
-REM  (e.g. a OneDrive folder) - Centauri will note the single-writer caveat.
+REM  Plain English: double-clicking this file starts your own private AI.
+REM  A black window opens (that's the engine - keep it open) and the app
+REM  appears in your browser. On the very first run Centauri offers to set
+REM  up local AI for you: it installs anything missing (Ollama) and
+REM  downloads the models once - that download can take a few minutes.
 REM
-REM  On launch it also offers (with your permission) to set up local AI
-REM  "Vision" - installing only the missing pieces (Ollama + a PDF renderer)
-REM  and downloading the models. Already-installed tools are skipped.
+REM  Your data lives in your Windows profile (%APPDATA%\Centauri), the same
+REM  place for both running and seeding. Set DATA below to use a different
+REM  folder (e.g. a OneDrive folder) - Centauri will note the single-writer
+REM  caveat. Nothing you put in ever leaves this computer.
 REM ============================================================
 setlocal
 cd /d "%~dp0"
@@ -22,11 +25,14 @@ cd /d "%~dp0"
 set DATA=%APPDATA%\Centauri\centauri.log
 set PORT=7771
 
-if /i "%~1"=="seed"  goto seed
-if /i "%~1"=="build" goto build
-if /i "%~1"=="stop"  goto stop
+if /i "%~1"=="seed"   goto seed
+if /i "%~1"=="build"  goto build
+if /i "%~1"=="stop"   goto stop
+if /i "%~1"=="vision" goto vision
 
 REM ---------- default: (re)build if Go is available, then run desktop ----------
+REM (The release zip and the installer ship a ready-made centauri.exe, so
+REM  most people skip straight past this build step.)
 where go >nul 2>nul
 if %errorlevel%==0 (
   echo Building centauri.exe ...
@@ -43,26 +49,11 @@ if %errorlevel%==0 (
 if not exist centauri.exe (
   echo.
   echo *** centauri.exe not found and Go is not installed. ***
-  echo Install Go from https://go.dev/dl/ and run this again.
+  echo Either use the Windows installer / release zip - they include the exe -
+  echo or install Go from https://go.dev/dl/ and run this again.
   pause
   exit /b 1
 )
-
-REM ---------- one-click: check local AI "Vision" prerequisites ----------
-REM 'setup vision' (detect mode) exits non-zero if Ollama, the models, or a PDF
-REM renderer are missing. It only installs what's absent; installed pieces are
-REM skipped. Goto labels (not a parenthesised block) keep set /p working.
-centauri.exe setup vision >nul 2>nul
-if not errorlevel 1 goto vision_done
-echo.
-echo  Optional: local AI "Vision" lets Centauri read images and PDFs.
-echo  It needs Ollama + a PDF renderer (models are a one-time ~5 GB download).
-echo  Already-installed pieces are skipped. Setup opens in its OWN window so the
-echo  dashboard starts right away no matter what you choose.
-choice /c YN /t 20 /d N /m "  Set up Vision now (Y) or skip for now (N, auto in 20s)"
-if errorlevel 2 goto vision_done
-start "Centauri Vision setup" cmd /k centauri.exe setup vision -install
-:vision_done
 
 REM ---------- stop any server already using the port ----------
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENING"') do (
@@ -71,12 +62,20 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENI
 )
 
 echo.
-echo  Starting Centauri - the dashboard will open in your browser.
+echo  Starting Centauri - the app will open in your browser.
 echo  Your data: %DATA%
-echo  Press Ctrl+C in this window to stop.
+echo  Keep this window open while you use Centauri. Press Ctrl+C to stop.
 echo.
-REM 'desktop' opens the browser itself and prints the URLs + vision setup hint.
+REM 'desktop' does the rest itself: opens the browser, asks once about local
+REM AI setup (installs Ollama + downloads models with your OK), and manages
+REM Ollama for you. Run "run-centauri.bat vision" later for PDF/image reading.
 centauri.exe desktop -data "%DATA%" -addr :%PORT%
+if errorlevel 1 (
+  echo.
+  echo *** Centauri stopped with an error - read the messages above. ***
+  echo *** This window stays open so you can see what happened.      ***
+  pause
+)
 goto :eof
 
 :seed
@@ -104,5 +103,15 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENI
   taskkill /PID %%p /F
 )
 echo Done.
+pause
+goto :eof
+
+:vision
+REM Local AI "Vision" lets Centauri read images and PDFs. `centauri desktop`
+REM already sets up the chat/search models; this adds/verifies the PDF
+REM renderer and vision model. Only missing pieces are installed.
+if not exist centauri.exe call "%~f0" build
+echo Running local AI / Vision setup (installs only what's missing)...
+centauri.exe setup vision -install
 pause
 goto :eof

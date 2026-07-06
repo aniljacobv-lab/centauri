@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // The lazy-archive dashboard: a self-contained HTML page (storage inspector,

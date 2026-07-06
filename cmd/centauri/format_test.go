@@ -5,17 +5,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/model"
 )
 
 func sampleEvents() []*model.Event {
 	return []*model.Event{
 		{Subject: "item:1", Facet: "source", Type: model.Observed,
-			Value: map[string]any{"price_cents": float64(500), "kind": "PEN"},
+			Value:      map[string]any{"price_cents": float64(500), "kind": "PEN"},
 			Confidence: 1, Provenance: model.SystemFeed,
 			EffectiveTime: 1000, RecordedTime: 1000, EventID: "e1"},
 		{Subject: "item:2", Facet: "shelf", Type: model.Correction,
-			Value: map[string]any{"price_cents": float64(750)},
+			Value:      map[string]any{"price_cents": float64(750)},
 			Confidence: 0.8, Provenance: model.HumanEntry,
 			EffectiveTime: 2000, RecordedTime: 2000, EventID: "e2"},
 	}

@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/shard"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/shard"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 func TestShardRoutes(t *testing.T) {

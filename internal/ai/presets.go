@@ -14,8 +14,8 @@ package ai
 import (
 	"fmt"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // ollamaChat / ollamaEmbed are the OpenAI-compatible endpoints Ollama exposes;
@@ -57,17 +57,20 @@ func (p Preset) Models() []ModelSpec { return []ModelSpec{p.Chat, p.Embed, p.Vis
 
 // PresetFor returns the recommended local models for a tier (defaults to small
 // for an unknown tier — safe everywhere). Model choices reflect the June 2026
-// local-model landscape: Qwen3 (Apache-2.0, strong all-round) for chat, Gemma 3
-// (multimodal) for vision, BGE-M3 / nomic-embed-text for retrieval.
+// local-model landscape: GLM-4.7-Flash (MIT, 30B-total/3B-active MoE, 200K
+// context, ~19GB at q4 — the strongest open model in the 30B class, excellent
+// agentic/coding) for max-tier chat, Qwen3 (Apache-2.0, strong all-round) for
+// balanced chat, Gemma 3 (multimodal) for vision, BGE-M3 / nomic-embed-text
+// for retrieval.
 func PresetFor(t Tier) Preset {
 	switch t {
 	case TierMax:
 		return Preset{
 			Tier:   TierMax,
-			Chat:   ModelSpec{"chat", "chat", "qwen3:32b", ollamaChat},
+			Chat:   ModelSpec{"chat", "chat", "glm-4.7-flash", ollamaChat},
 			Embed:  ModelSpec{"embed", "embedding", "bge-m3", ollamaEmbed},
 			Vision: ModelSpec{"vision", "vision", "gemma3:27b", ollamaChat},
-			Note:   "24GB+ GPU: near-frontier quality, fully local.",
+			Note:   "24GB+ GPU: GLM-4.7-Flash (30B MoE, MIT) — near-frontier chat/agentic quality, fully local.",
 		}
 	case TierBalanced:
 		return Preset{

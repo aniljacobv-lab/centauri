@@ -53,10 +53,13 @@ you install it and restart.
 |---|---|---|---|---|
 | `small` | ~8 GB RAM, CPU-ok (laptop / small server) | `gemma3:4b` | `nomic-embed-text` | `gemma3:4b` |
 | `balanced` | 12–16 GB GPU workstation | `qwen3:14b` | `bge-m3` | `gemma3:12b` |
-| `max` | 24 GB+ GPU (RTX 4090 / well-specced Mac) | `qwen3:32b` | `bge-m3` | `gemma3:27b` |
+| `max` | 24 GB+ GPU (RTX 4090 / well-specced Mac) | `glm-4.7-flash` | `bge-m3` | `gemma3:27b` |
 
 `small` makes "any small business" credible — it runs on a laptop with no GPU.
-`max` is near-frontier quality, still fully local.
+`max` runs **GLM-4.7-Flash** (MIT license, 30B-total/3B-active MoE, 200K context,
+~19 GB at q4) — the strongest open model in the 30B class as of mid-2026, with
+excellent agentic/coding behaviour — still fully local. It doesn't fit 16 GB
+machines, which is why `balanced` and `small` stay on Qwen3/Gemma 3.
 
 ## The model evaluation: which model for which Centauri job
 
@@ -66,20 +69,22 @@ reflect the June 2026 local-model landscape.
 | Centauri job | Recommended model(s) | Why |
 |---|---|---|
 | Embeddings / retrieval (the RAG core) | **nomic-embed-text** (137M, ~274 MB, runs on CPU) as the default; **BGE-M3** for multilingual / hybrid dense+sparse retrieval | In RAG, retrieval quality matters more than LLM size — a good embedder plus clean chunking beats a giant model with poor retrieval. nomic is the most-pulled local embedder; BGE-M3 leads multilingual. |
-| `ASK` / RAG answers, summarization | **Qwen3** (Apache-2.0, strong all-round, 100+ languages) | Best overall local family for quality, sizing options, and a permissive commercial license. |
+| `ASK` / RAG answers, summarization | **GLM-4.7-Flash** (MIT, 30B MoE / 3B active) on 24 GB+ hardware; **Qwen3** (Apache-2.0, strong all-round, 100+ languages) below that | GLM-4.7-Flash leads the open 30B class for chat/agentic/coding quality; Qwen3 remains the best family with sizes that fit smaller machines. Both carry permissive commercial licenses. |
 | `ENRICH` vision / document extraction (invoices, PDFs) | **Gemma 3** (4B+ are multimodal, 140+ languages, 128K context) | Strong multimodal quality even at small sizes — Gemma 3 4B "punches above its weight." |
 | NL→CeQL translation, classify/tag on ingest | **Gemma 3 4B** or **Phi-4-mini (3.8B)** | Cheap and fast; Centauri's deterministic rules run first anyway, so the model only handles the long tail. |
-| Heavy reasoning / query optimization | the largest you can run (**Qwen3 32B**) | Reasoning scales with size; use only when the cheaper model isn't enough. |
+| Heavy reasoning / query optimization | the largest you can run (**GLM-4.7-Flash**) | Reasoning scales with size (and MoE gives 30B-class quality at 3B-active speed); use only when the cheaper model isn't enough. |
 
 Approximate VRAM (Q4 quantization): 3–4B ≈ 3 GB, 8B ≈ 6 GB, 12–14B ≈ 10 GB,
-32B ≈ 20–22 GB.
+GLM-4.7-Flash (30B MoE) ≈ 19 GB, dense 32B ≈ 20–22 GB.
 
-Other models — including **Z.ai's GLM** family (GLM-5.2 ships open-weight on
-Ollama, alongside smaller GLM-4.5-Air / GLM-4.7-Flash) and DeepSeek, Llama, Phi,
-Mistral — run locally too: Centauri talks to whatever Ollama loads. The presets
-default to **Qwen3** and **Gemma 3** because they fit common 8–24 GB hardware
-(GLM-5.2 is 744B params and needs a 256 GB-class machine); to use GLM, register it
-as a model fact: `PUT model:chat FACET config SET endpoint='http://localhost:11434/v1/chat/completions', kind='chat', model='glm-5.2'`. Model lineups change monthly — the
+Other models — including the rest of **Z.ai's GLM** family (GLM-5.2 ships
+open-weight on Ollama, alongside GLM-4.5-Air) and DeepSeek, Llama, Phi,
+Mistral — run locally too: Centauri talks to whatever Ollama loads. The `max`
+preset uses **GLM-4.7-Flash** because at ~19 GB it actually fits a 24 GB GPU;
+the bigger GLMs don't fit small-business hardware (GLM-5.2 is 744B params and
+needs a 256 GB-class machine), and the smaller tiers stay on **Qwen3** and
+**Gemma 3**, which fit 8–16 GB. To use any other model, register it as a model
+fact: `PUT model:chat FACET config SET endpoint='http://localhost:11434/v1/chat/completions', kind='chat', model='glm-5.2'`. Model lineups change monthly — the
 tier table is config, not a contract; edit `internal/ai/presets.go` to track new
 releases.
 

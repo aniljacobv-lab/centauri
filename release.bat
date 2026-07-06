@@ -3,8 +3,9 @@ REM ============================================================
 REM  Centauri release - ONE command does everything:
 REM    1. cross-compiles all 6 platforms
 REM    2. builds the Windows installer (.exe)
-REM    3. generates SHA-256 checksums
-REM    4. creates the GitHub release and uploads every file
+REM    3. packs the Windows portable zip (exe + launcher + guides)
+REM    4. generates SHA-256 checksums
+REM    5. creates the GitHub release and uploads every file
 REM
 REM    release.bat            (uses v0.3.0)
 REM    release.bat v0.4.0     (any tag)
@@ -23,7 +24,7 @@ set VERNUM=%VERSION:v=%
 if exist dist rmdir /s /q dist
 mkdir dist
 
-echo === 1/4  build all platforms ==================================
+echo === 1/5  build all platforms ==================================
 call :build windows amd64 .exe
 call :build windows arm64 .exe
 call :build linux   amd64
@@ -32,7 +33,7 @@ call :build darwin  amd64
 call :build darwin  arm64
 
 echo.
-echo === 2/4  Windows installer ====================================
+echo === 2/5  Windows installer ====================================
 set "ISCC="
 if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not defined ISCC if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"
@@ -46,11 +47,26 @@ if defined ISCC (
 )
 
 echo.
-echo === 3/4  checksums ============================================
+echo === 3/5  Windows portable zip =================================
+REM Everything a non-technical user needs in one folder: the exe (named
+REM centauri.exe so run-centauri.bat finds it), the launcher, the README,
+REM and the plain-English quickstart.
+mkdir dist\zip
+copy /Y dist\centauri-windows-amd64.exe dist\zip\centauri.exe >nul
+copy /Y run-centauri.bat dist\zip\ >nul
+copy /Y README.md dist\zip\ >nul
+copy /Y docs\quickstart.md dist\zip\QUICKSTART.md >nul
+powershell -Command "Compress-Archive -Path dist\zip\* -DestinationPath dist\centauri-windows-amd64.zip -Force"
+if errorlevel 1 goto :failed
+rmdir /s /q dist\zip
+echo   built dist\centauri-windows-amd64.zip
+
+echo.
+echo === 4/5  checksums ============================================
 powershell -Command "Get-ChildItem dist\centauri-* | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content dist\SHA256SUMS.txt"
 
 echo.
-echo === 4/4  publish GitHub release ===============================
+echo === 5/5  publish GitHub release ===============================
 where gh >nul 2>nul
 if errorlevel 1 (
   echo   *** GitHub CLI ^(gh^) not found - release NOT published.

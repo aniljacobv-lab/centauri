@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 func TestLazyRoutes(t *testing.T) {

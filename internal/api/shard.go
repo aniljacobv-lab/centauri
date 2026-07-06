@@ -19,10 +19,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/proxima360/centauri/internal/ceql"
-	"github.com/proxima360/centauri/internal/model"
-	"github.com/proxima360/centauri/internal/shard"
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/ceql"
+	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/shard"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // ShardRoutes returns the mux for a shard.Set. readToken (if set) gates /v1/*.
@@ -41,8 +41,7 @@ func ShardRoutes(set *shard.Set, readToken string) http.Handler {
 			Events []*model.Event     `json:"events"`
 			Links  []model.CausalLink `json:"links"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		if !decodeJSON(w, r, &body) {
 			return
 		}
 		if err := set.Append(time.Now().UnixMicro(), body.Events, body.Links); err != nil {
@@ -119,8 +118,7 @@ func ShardRoutes(set *shard.Set, readToken string) http.Handler {
 			var body struct {
 				Q string `json:"q"`
 			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+			if !decodeJSON(w, r, &body) {
 				return
 			}
 			text = body.Q

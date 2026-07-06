@@ -6,7 +6,7 @@ func TestPresetForMapping(t *testing.T) {
 	cases := map[Tier]struct{ chat, embed, vision string }{
 		TierSmall:    {"gemma3:4b", "nomic-embed-text", "gemma3:4b"},
 		TierBalanced: {"qwen3:14b", "bge-m3", "gemma3:12b"},
-		TierMax:      {"qwen3:32b", "bge-m3", "gemma3:27b"},
+		TierMax:      {"glm-4.7-flash", "bge-m3", "gemma3:27b"},
 	}
 	for tier, want := range cases {
 		p := PresetFor(tier)

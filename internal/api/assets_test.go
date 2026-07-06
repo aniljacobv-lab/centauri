@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/proxima360/centauri/internal/store"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // An uploaded image must become a content-addressed blob + an asset fact, and
