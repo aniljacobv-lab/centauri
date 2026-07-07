@@ -333,6 +333,33 @@ func AvailableMemGB() int {
 // is the point. The switch is an ordinary append — the previous (local) config
 // stays in history, and RegisterLocalChat can switch back the same way. authFile
 // names a file holding the API key, so the secret itself never enters the log.
+// CloudProvider is one turnkey hosted-chat option for the dashboard's AI
+// panel. All speak the OpenAI-compatible chat/completions shape that Infer
+// sends. The list is data, not a limitation — any other OpenAI-compatible
+// server (vLLM, LocalAI, an Ollama box on the LAN, a gateway) works through
+// the "custom" path with a user-supplied endpoint + model, with or without
+// a key. Local Ollama never needs a key.
+type CloudProvider struct {
+	ID           string `json:"id"`
+	Label        string `json:"label"`
+	Endpoint     string `json:"endpoint"`
+	DefaultModel string `json:"default_model"`
+	KeyHint      string `json:"key_hint"`
+}
+
+// CloudProviders lists the built-in one-click providers, each with its own
+// key (stored in its own 0600 file next to the data — never in the log).
+func CloudProviders() []CloudProvider {
+	return []CloudProvider{
+		{ID: "zai", Label: "z.ai — GLM-5.2", Endpoint: "https://api.z.ai/api/paas/v4/chat/completions",
+			DefaultModel: "glm-5.2", KeyHint: "z.ai API key"},
+		{ID: "openai", Label: "OpenAI — GPT-5.5", Endpoint: "https://api.openai.com/v1/chat/completions",
+			DefaultModel: "gpt-5.5", KeyHint: "OpenAI API key"},
+		{ID: "anthropic", Label: "Anthropic — Claude", Endpoint: "https://api.anthropic.com/v1/chat/completions",
+			DefaultModel: "claude-sonnet-5", KeyHint: "Anthropic API key"},
+	}
+}
+
 func RegisterCloudChat(st *store.Store, endpoint, chatModel, authFile string, now int64) error {
 	if endpoint == "" || chatModel == "" {
 		return fmt.Errorf("cloud chat needs both an endpoint and a model")

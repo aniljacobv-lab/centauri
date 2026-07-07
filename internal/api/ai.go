@@ -19,13 +19,23 @@ import (
 	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
-// zaiEndpoint / zaiChatModel are the one cloud option Centauri offers as a
-// turnkey "boost": z.ai's OpenAI-compatible API serving GLM-5.2.
-const (
-	zaiEndpoint  = "https://api.z.ai/api/paas/v4/chat/completions"
-	zaiChatModel = "glm-5.2"
-	cloudKeyFile = "zai.key" // written next to the data file, mode 0600
-)
+// Cloud/chat providers come from ai.CloudProviders() (z.ai, OpenAI,
+// Anthropic — all OpenAI-compatible), plus a "custom" escape hatch for any
+// OpenAI-compatible server the user runs themselves (a LAN Ollama box,
+// vLLM, LocalAI, a gateway). Each provider's key lives in its own 0600
+// file next to the data file ("<provider>.key"); custom servers may be
+// keyless — local Ollama never needs a key at all.
+func providerByID(id string) (ai.CloudProvider, bool) {
+	for _, p := range ai.CloudProviders() {
+		if p.ID == id {
+			return p, true
+		}
+	}
+	return ai.CloudProvider{}, false
+}
+
+// keyFileName is the per-provider key file next to the data file.
+func keyFileName(provider string) string { return provider + ".key" }
 
 // activeChat summarises the store's current model:chat config for the status
 // endpoint: where answers are computed ("local", "cloud", or "none"), with
@@ -78,11 +88,28 @@ func (s *Server) handleAIStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	chat, keyPresent := activeChat(st)
+	// Per-provider key presence lets the panel show which AIs are ready to
+	// switch to. Only booleans leave the server — never key material.
+	provs := []map[string]any{}
+	dir := s.dataDir()
+	for _, p := range ai.CloudProviders() {
+		has := false
+		if dir != "" {
+			if b, err := os.ReadFile(filepath.Join(dir, keyFileName(p.ID))); err == nil && len(strings.TrimSpace(string(b))) > 0 {
+				has = true
+			}
+		}
+		provs = append(provs, map[string]any{
+			"id": p.ID, "label": p.Label, "model": p.DefaultModel,
+			"key_hint": p.KeyHint, "key_present": has,
+		})
+	}
 	writeJSON(w, map[string]any{
 		"provision":         ai.Status(),
 		"runtime_up":        ai.OllamaUp(),
 		"active_chat":       chat,
 		"cloud_key_present": keyPresent,
+		"providers":         provs,
 	})
 }
 
@@ -121,46 +148,89 @@ func (s *Server) handleAIEnable(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAICloud opts in to the hosted GLM-5.2 "cloud boost": the API key is
-// written to a 0600 file next to the data file and the model:chat config fact
-// references that PATH (auth_file) — the key itself never enters the log and
-// is never echoed back.
-// POST /v1/ai/cloud {"api_key":"..."}.
+// handleAICloud points chat at another AI: a built-in provider (z.ai,
+// OpenAI, Anthropic — each with its OWN key, stored in its own 0600 file
+// next to the data file) or any custom OpenAI-compatible server (endpoint +
+// model; key optional, e.g. a keyless Ollama on another machine). The
+// model:chat config fact references the key file PATH (auth_file) — the key
+// itself never enters the log and is never echoed back.
+// POST /v1/ai/cloud {"provider":"zai|openai|anthropic|custom",
+//
+//	"api_key":"...", "model":"...", "endpoint":"..."}.
 func (s *Server) handleAICloud(w http.ResponseWriter, r *http.Request) {
 	st := s.dbOr(w, r)
 	if st == nil {
 		return
 	}
 	var body struct {
-		APIKey string `json:"api_key"`
+		Provider string `json:"provider"`
+		APIKey   string `json:"api_key"`
+		Model    string `json:"model"`
+		Endpoint string `json:"endpoint"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
 	}
+	provider := strings.TrimSpace(body.Provider)
+	if provider == "" {
+		provider = "zai" // the original one-click boost stays the default
+	}
 	key := strings.TrimSpace(body.APIKey)
-	if key == "" {
-		httpErr(w, 400, "an api_key is required — paste your z.ai API key")
-		return
+	endpoint, model := strings.TrimSpace(body.Endpoint), strings.TrimSpace(body.Model)
+	var label string
+	switch {
+	case provider == "custom":
+		if endpoint == "" || model == "" {
+			httpErr(w, 400, "a custom AI needs both an endpoint URL and a model name (any OpenAI-compatible server works; a key is optional)")
+			return
+		}
+		u, err := url.Parse(endpoint)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			httpErr(w, 400, "the endpoint must be a full http(s) URL, e.g. http://192.168.1.20:11434/v1/chat/completions")
+			return
+		}
+		label = "your server (" + u.Host + ")"
+	default:
+		p, ok := providerByID(provider)
+		if !ok {
+			httpErr(w, 400, "unknown provider "+provider+" — use zai, openai, anthropic, or custom")
+			return
+		}
+		if key == "" {
+			httpErr(w, 400, "an api_key is required — paste your "+p.KeyHint)
+			return
+		}
+		endpoint, label = p.Endpoint, p.Label
+		if model == "" {
+			model = p.DefaultModel
+		}
 	}
-	dir := s.dataDir()
-	if dir == "" {
-		httpErr(w, 400, "cloud setup needs a data directory: this server runs without a data file, so there is nowhere safe to keep the key")
-		return
+	keyPath := ""
+	if key != "" {
+		dir := s.dataDir()
+		if dir == "" {
+			httpErr(w, 400, "keyed setup needs a data directory: this server runs without a data file, so there is nowhere safe to keep the key")
+			return
+		}
+		keyPath = filepath.Join(dir, keyFileName(provider))
+		if err := os.WriteFile(keyPath, []byte(key), 0o600); err != nil {
+			httpErr(w, 500, "could not save the key file: "+err.Error())
+			return
+		}
 	}
-	keyPath := filepath.Join(dir, cloudKeyFile)
-	if err := os.WriteFile(keyPath, []byte(key), 0o600); err != nil {
-		httpErr(w, 500, "could not save the key file: "+err.Error())
-		return
-	}
-	if err := ai.RegisterCloudChat(st, zaiEndpoint, zaiChatModel, keyPath, time.Now().UnixMicro()); err != nil {
+	if err := ai.RegisterCloudChat(st, endpoint, model, keyPath, time.Now().UnixMicro()); err != nil {
 		httpErr(w, 422, err.Error())
 		return
 	}
+	warning := "answers now use " + label + " — your questions and retrieved context leave this machine"
+	if provider == "custom" && localEndpoint(endpoint) {
+		warning = "answers now use " + label + " on this machine"
+	}
 	writeJSON(w, map[string]any{
 		"where":   "cloud",
-		"model":   zaiChatModel,
-		"message": "Done — questions are now answered by GLM-5.2 in the cloud. Use [Back to private/local] any time to switch back.",
-		"warning": "answers now use z.ai's cloud — your questions and retrieved context leave this machine",
+		"model":   model,
+		"message": "Done — questions are now answered by " + model + " (" + label + "). Use [Back to private/local] any time to switch back.",
+		"warning": warning,
 	})
 }
 

@@ -259,3 +259,67 @@ func TestAIEndpointsAdminOnly(t *testing.T) {
 		t.Errorf("admin POST local = %d, want 200", code)
 	}
 }
+
+// TestAICloudProviders: each provider gets its own key file; custom servers
+// may be keyless; unknown providers are rejected; status lists providers.
+func TestAICloudProviders(t *testing.T) {
+	_, ts, dir := newAITestServer(t, Options{})
+
+	// OpenAI provider: own key file, provider endpoint + default model.
+	code, body := aiDo(t, "POST", ts.URL+"/v1/ai/cloud", "", `{"provider":"openai","api_key":"sk-test-1"}`)
+	if code != 200 || !strings.Contains(body, "gpt-5.5") {
+		t.Fatalf("openai switch = %d %s, want 200 + default model gpt-5.5", code, body)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "openai.key")); err != nil || string(b) != "sk-test-1" {
+		t.Fatalf("openai.key = %q, %v", b, err)
+	}
+
+	// Anthropic with a model override: key lands in its OWN file and the
+	// openai key is untouched (per-provider keys).
+	if code, body := aiDo(t, "POST", ts.URL+"/v1/ai/cloud", "", `{"provider":"anthropic","api_key":"ak-test-2","model":"claude-haiku-4-5"}`); code != 200 {
+		t.Fatalf("anthropic switch = %d: %s", code, body)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "anthropic.key")); string(b) != "ak-test-2" {
+		t.Fatalf("anthropic.key = %q", b)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "openai.key")); string(b) != "sk-test-1" {
+		t.Fatalf("openai.key overwritten: %q", b)
+	}
+
+	// Custom keyless server (e.g. Ollama on another machine): no key needed.
+	code, body = aiDo(t, "POST", ts.URL+"/v1/ai/cloud", "",
+		`{"provider":"custom","endpoint":"http://192.168.1.20:11434/v1/chat/completions","model":"glm-4.7-flash"}`)
+	if code != 200 || !strings.Contains(body, "glm-4.7-flash") {
+		t.Fatalf("custom keyless switch = %d: %s", code, body)
+	}
+
+	// Rejections: custom without endpoint, unknown provider, keyed provider
+	// without a key.
+	for _, bad := range []string{
+		`{"provider":"custom","model":"m"}`,
+		`{"provider":"nope","api_key":"k"}`,
+		`{"provider":"openai"}`,
+	} {
+		if code, body := aiDo(t, "POST", ts.URL+"/v1/ai/cloud", "", bad); code != 400 {
+			t.Fatalf("bad body %s = %d, want 400: %s", bad, code, body)
+		}
+	}
+
+	// Status lists all built-in providers with per-provider key state.
+	_, body = aiDo(t, "GET", ts.URL+"/v1/ai/status", "", "")
+	var st map[string]any
+	if err := json.Unmarshal([]byte(body), &st); err != nil {
+		t.Fatal(err)
+	}
+	provs, _ := st["providers"].([]any)
+	seen := map[string]bool{}
+	for _, p := range provs {
+		m, _ := p.(map[string]any)
+		id, _ := m["id"].(string)
+		has, _ := m["key_present"].(bool)
+		seen[id] = has
+	}
+	if !seen["openai"] || !seen["anthropic"] || seen["zai"] {
+		t.Fatalf("per-provider key state wrong (want openai+anthropic true, zai false): %v", seen)
+	}
+}

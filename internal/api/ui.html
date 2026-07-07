@@ -266,13 +266,27 @@
                   title="If you tried the cloud, this brings answers back onto this machine">Back to private/local</button>
         </div>
         <details style="margin-top:10px">
-          <summary class="mini" style="cursor:pointer">Optional: cloud boost (smarter answers, uses the internet)</summary>
+          <summary class="mini" style="cursor:pointer">Optional: use a different AI (cloud, or your own server)</summary>
           <p class="mini" style="margin:8px 0 6px;color:var(--warn)">
-            Sends your questions and matching data to z.ai's servers. Costs money
-            (their pricing). Off unless you turn it on.</p>
+            Cloud providers receive your questions and matching data, and charge for
+            use (their pricing). Off unless you turn it on. Each provider keeps its
+            own key. "Your own server" can be keyless — e.g. Ollama on another
+            machine; the private AI on THIS machine never needs a key.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input id="aikey" type="password" placeholder="paste your z.ai API key" style="flex:1;min-width:180px">
-            <button onclick="aiCloud()">Use GLM-5.2 cloud</button>
+            <select id="aiprov" onchange="aiProvChange()">
+              <option value="zai">z.ai — GLM-5.2</option>
+              <option value="openai">OpenAI — GPT-5.5</option>
+              <option value="anthropic">Anthropic — Claude</option>
+              <option value="custom">Your own server (any OpenAI-compatible)</option>
+            </select>
+            <input id="aikey" type="password" placeholder="paste your z.ai API key" style="flex:1;min-width:160px">
+          </div>
+          <div id="aicustom" style="display:none;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <input id="aiendpoint" placeholder="endpoint, e.g. http://192.168.1.20:11434/v1/chat/completions" style="flex:2;min-width:220px">
+            <input id="aimodel" placeholder="model, e.g. glm-4.7-flash" style="flex:1;min-width:120px">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button onclick="aiCloud()" id="aicloudbtn">Switch to this AI</button>
           </div>
         </details>
         <div id="aimsg" class="mini" style="margin-top:8px"></div>
@@ -697,15 +711,34 @@ async function aiEnable(){
     aiPoll(true); checkAI();
   } catch (e) { aiMsg("Couldn't turn on AI: " + (e.message || e), true); }
 }
+// Per-provider key hints; each provider's key is stored separately on the
+// server, so switching providers never overwrites another provider's key.
+const AI_PROVIDERS = {
+  zai:       {hint: "paste your z.ai API key"},
+  openai:    {hint: "paste your OpenAI API key"},
+  anthropic: {hint: "paste your Anthropic API key"},
+  custom:    {hint: "API key (leave empty for keyless servers like Ollama)"},
+};
+function aiProvChange(){
+  const prov = document.getElementById("aiprov").value;
+  document.getElementById("aikey").placeholder = (AI_PROVIDERS[prov] || {}).hint || "API key";
+  document.getElementById("aicustom").style.display = prov === "custom" ? "flex" : "none";
+}
 async function aiCloud(){
+  const prov = document.getElementById("aiprov").value;
   const key = (document.getElementById("aikey").value || "").trim();
-  if (!key) { aiMsg("Paste your z.ai API key first.", true); return; }
+  const body = {provider: prov, api_key: key};
+  if (prov === "custom") {
+    body.endpoint = (document.getElementById("aiendpoint").value || "").trim();
+    body.model = (document.getElementById("aimodel").value || "").trim();
+    if (!body.endpoint || !body.model) { aiMsg("Give the server's endpoint URL and a model name (a key is optional).", true); return; }
+  } else if (!key) { aiMsg("Paste the provider's API key first.", true); return; }
   try {
-    const r = await apiPost("/v1/ai/cloud", {api_key: key});
+    const r = await apiPost("/v1/ai/cloud", body);
     document.getElementById("aikey").value = "";
-    aiMsg((r.message || "Cloud answers are on.") + " ⚠ " + (r.warning || ""));
+    aiMsg((r.message || "Switched.") + " ⚠ " + (r.warning || ""));
     checkAI();
-  } catch (e) { aiMsg("Couldn't switch to the cloud: " + (e.message || e), true); }
+  } catch (e) { aiMsg("Couldn't switch: " + (e.message || e), true); }
 }
 async function aiLocal(){
   try {

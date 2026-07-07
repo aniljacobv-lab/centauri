@@ -86,7 +86,7 @@ output is re-parsed before it's offered, so a suggestion is never invalid CeQL.
 |------|--------------|
 | `GET /v1/ai/status` | provisioning progress, whether the runtime is up, and **where chat answers are computed** (local / cloud / none) |
 | `POST /v1/ai/enable {"tier":"auto\|small\|balanced\|max"}` | turn on fully-local AI; models download once, in the background |
-| `POST /v1/ai/cloud {"api_key":"..."}` | opt in to the GLM-5.2 cloud boost (see warning below) |
+| `POST /v1/ai/cloud {"provider":"zai\|openai\|anthropic\|custom", "api_key":"...", "model":"...", "endpoint":"..."}` | switch chat to another AI: z.ai (GLM-5.2), OpenAI (GPT-5.5), Anthropic (Claude) — each with its own key, stored in its own file — or any custom OpenAI-compatible server (key optional; a LAN Ollama box works keyless). Default provider: `zai`. See warning below |
 | `POST /v1/ai/local {"tier":"auto"}` | switch back to local — the reversible off-switch |
 
 All four are admin-token-only.
@@ -116,7 +116,9 @@ Model kinds: `chat`, `embedding`, `vision`.
 
 ## The GLM-5.2 cloud boost — read before pasting a key
 
-Pasting a [Z.ai](https://z.ai) API key (AI panel or `POST /v1/ai/cloud`)
+The local AI (Ollama on this machine) never needs an API key. Hosted
+providers each keep their own key — pasting a new provider's key never
+disturbs another's. Pasting a provider API key (AI panel or `POST /v1/ai/cloud`)
 switches chat to **GLM-5.2**, a much stronger model. Be clear about the trade:
 
 - **Your prompts (and retrieved facts) leave your machine** and are processed
