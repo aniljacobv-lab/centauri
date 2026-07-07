@@ -556,7 +556,9 @@ func queryTokenOK(p string) bool {
 	case "/v1/watch", "/v1/changes", "/v1/log":
 		return true
 	}
-	return false
+	// Asset downloads are fetched via direct <img>/<a> links, which cannot
+	// set an Authorization header either.
+	return strings.HasPrefix(p, "/v1/assets/")
 }
 
 // auth enforces the bearer tokens on every route when configured: the

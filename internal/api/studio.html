@@ -364,13 +364,27 @@ END
 <script>
 "use strict";
 let TOKEN = localStorage.getItem("centauri_token") || "";
+// Bearer-header auth on every API call; ?token= only where headers are
+// impossible (see resourceQS for <img> links).
+const _fetch = window.fetch.bind(window);
+window.fetch = (url, opts) => {
+  if (TOKEN && typeof url === "string" && url.startsWith("/v1/")) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers, {"Authorization": "Bearer " + TOKEN});
+  }
+  return _fetch(url, opts);
+};
+function resourceQS(extra){
+  const q = new URLSearchParams(qs(extra).replace(/^\?/, ""));
+  if (TOKEN) q.set("token", TOKEN);
+  const s = q.toString(); return s ? "?"+s : "";
+}
 let DB = localStorage.getItem("centauri_db") || "";
 let SUBJECTS = [], SCHEMAS = [], SELECTED = null, OPEN = {}, LASTGRID = null, INSPTAB = "facts", ASOF = "";
 
 function qs(extra){
   const q = new URLSearchParams();
   for (const k in (extra||{})) if (extra[k]!=="" && extra[k]!=null) q.set(k, extra[k]);
-  if (TOKEN) q.set("token", TOKEN);
   if (DB) q.set("db", DB);
   const s = q.toString(); return s ? "?"+s : "";
 }
@@ -857,7 +871,7 @@ async function uploadAsset(){
     // preview images inline
     if(r.kind==="image" && r.sha256){
       document.getElementById("visionpreview").innerHTML =
-        `<img src="/v1/assets/${esc(r.sha256)}${qs()}" style="max-width:100%;max-height:240px;border:1px solid var(--faint);border-radius:6px">`;
+        `<img src="/v1/assets/${esc(r.sha256)}${resourceQS()}" style="max-width:100%;max-height:240px;border:1px solid var(--faint);border-radius:6px">`;
     } else { document.getElementById("visionpreview").innerHTML=""; }
     await boot(); // refresh subject list
     toast("Stored "+(r.subject||"asset"));

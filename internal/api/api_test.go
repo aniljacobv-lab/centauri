@@ -108,6 +108,14 @@ func TestQueryParamTokenOnlyOnStreams(t *testing.T) {
 	if c := get("/v1/log?from=0&token=wrong", ""); c != 401 {
 		t.Fatalf("wrong ?token= on /v1/log = %d, want 401", c)
 	}
+	// Asset downloads are direct <img>/<a> links — headers are impossible, so
+	// the query token must authenticate (404 = authed but no such blob).
+	if c := get("/v1/assets/deadbeef?token=tok", ""); c != 404 {
+		t.Fatalf("?token= on /v1/assets/{sha} = %d, want 404 (authenticated)", c)
+	}
+	if c := get("/v1/assets/deadbeef?token=wrong", ""); c != 401 {
+		t.Fatalf("wrong ?token= on /v1/assets/{sha} = %d, want 401", c)
+	}
 }
 
 // During scoped-token auth a ?db= that fails to resolve must reject the

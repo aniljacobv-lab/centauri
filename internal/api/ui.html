@@ -294,6 +294,23 @@
 <script>
 "use strict";
 let TOKEN = localStorage.getItem("centauri_token") || "";
+// Auth travels as a Bearer header on every API call (the ?token= query form
+// is only accepted on streaming/resource endpoints where headers are
+// impossible: EventSource, <img> links). This wrapper covers every fetch.
+const _fetch = window.fetch.bind(window);
+window.fetch = (url, opts) => {
+  if (TOKEN && typeof url === "string" && url.startsWith("/v1/")) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers, {"Authorization": "Bearer " + TOKEN});
+  }
+  return _fetch(url, opts);
+};
+// streamQS: query string WITH the token, for URLs that cannot send headers.
+function streamQS(params){
+  const q = new URLSearchParams(qsFor(params));
+  if (TOKEN) q.set("token", TOKEN);
+  return q.toString();
+}
 let DB = localStorage.getItem("centauri_db") || "";
 let SUBJECTS = [], SELECTED = null, ES = null;
 // Which namespace groups the user has expanded. Persisted so the tree does NOT
@@ -307,7 +324,6 @@ function qsFor(params){
   for (const k in (params || {})) {
     if (params[k] !== "" && params[k] != null) q.set(k, params[k]);
   }
-  if (TOKEN) q.set("token", TOKEN);
   if (DB) q.set("db", DB);
   return q.toString();
 }
@@ -487,7 +503,7 @@ async function uploadAsset(){
       note.textContent = msg;
     }
     const pv=document.getElementById("visionpreview");
-    if(pv && r.kind==="image" && r.sha256){ const q2=qsFor({}); pv.innerHTML = `<img src="/v1/assets/${esc(r.sha256)}${q2?"?"+q2:""}" style="max-width:100%;max-height:240px;border-radius:6px">`; }
+    if(pv && r.kind==="image" && r.sha256){ const q2=streamQS({}); pv.innerHTML = `<img src="/v1/assets/${esc(r.sha256)}${q2?"?"+q2:""}" style="max-width:100%;max-height:240px;border-radius:6px">`; }
     else if(pv){ pv.innerHTML=""; }
     boot();
     toast("Stored "+(r.subject||"asset"));
@@ -933,7 +949,7 @@ if (localStorage.getItem("centauri_feed") === "min") {
 function toggleLive(){
   const btn = document.getElementById("livebtn");
   if (ES) { ES.close(); ES = null; btn.textContent = "▶ Watch"; btn.className = "primary"; return; }
-  const qs = qsFor({});
+  const qs = streamQS({});
   ES = new EventSource("/v1/watch" + (qs ? "?" + qs : ""));
   btn.textContent = "■ Stop"; btn.className = "";
   const feed = document.getElementById("feed");
@@ -1127,7 +1143,6 @@ async function loadCatalog(){
   if (CATALOG.length) return;
   try {
     const q = new URLSearchParams();
-    if (TOKEN) q.set("token", TOKEN);
     q.set("db", "ceql-catalog");
     const r = await handle(await fetch("/v1/query?" + q.toString(), {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -1696,7 +1711,7 @@ function renderQueryResult(r, out, meta){
            <div class="mini">streaming ${r.subject ? "subject " + esc(r.subject) : "all subjects"}
            ${r.facet ? ", facet " + esc(r.facet) : ""}${r.type ? ", type " + esc(r.type) : ""}</div>`;
       if (ES) toggleLive();
-      const qs = qsFor({subject: r.subject, facet: r.facet, type: r.type});
+      const qs = streamQS({subject: r.subject, facet: r.facet, type: r.type});
       ES = new EventSource("/v1/watch" + (qs ? "?" + qs : ""));
       document.getElementById("livebtn").textContent = "■ Stop";
       document.getElementById("livebtn").className = "";
@@ -1964,7 +1979,6 @@ for e in db.watch(): ...         # live stream</pre></div>
 const REPO = "https://github.com/aniljacobv-lab/centauri";
 async function catalogFetch(method, path, body){
   const q = new URLSearchParams();
-  if (TOKEN) q.set("token", TOKEN);
   q.set("db", "ceql-catalog");
   return handle(await fetch(path + "?" + q.toString(), {
     method, headers: {"Content-Type": "application/json"},
