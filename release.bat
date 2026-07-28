@@ -54,6 +54,12 @@ REM and the plain-English quickstart.
 mkdir dist\zip
 copy /Y dist\centauri-windows-amd64.exe dist\zip\centauri.exe >nul
 copy /Y run-centauri.bat dist\zip\ >nul
+copy /Y start-db.bat dist\zip\ >nul
+copy /Y start-ai.bat dist\zip\ >nul
+copy /Y start-all.bat dist\zip\ >nul
+copy /Y open-studio.bat dist\zip\ >nul
+copy /Y open-dashboard.bat dist\zip\ >nul
+copy /Y stop-centauri.bat dist\zip\ >nul
 copy /Y README.md dist\zip\ >nul
 copy /Y docs\quickstart.md dist\zip\QUICKSTART.md >nul
 powershell -Command "Compress-Archive -Path dist\zip\* -DestinationPath dist\centauri-windows-amd64.zip -Force"
