@@ -43,6 +43,13 @@ UninstallDisplayIcon={app}\centauri.exe
 Source: "..\dist\centauri-windows-amd64.exe"; DestDir: "{app}"; DestName: "centauri.exe"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\quickstart.md"; DestDir: "{app}"; DestName: "QUICKSTART.md"; Flags: ignoreversion
+Source: "..\start-db.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\start-ai.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\start-all.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\open-studio.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\open-dashboard.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\stop-centauri.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\run-centauri.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; The shortcut runs `centauri desktop`: data goes to %APPDATA%\Centauri,
