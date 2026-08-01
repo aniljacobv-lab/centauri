@@ -122,6 +122,16 @@ Be clear-eyed about the trade:
 
 Remove the key in the same panel to go back to fully local at any time.
 
+## Prefer separate switches?
+
+One file does everything, but each piece also has its own double-clickable file:
+
+- `start-all.bat` — everything: database + AI + browser (same as run-centauri.bat)
+- `start-db.bat` — just the database (dashboard, Studio and API — no AI)
+- `start-ai.bat` — switch the private local AI on for a running database (no API key needed — the local AI never uses one)
+- `open-dashboard.bat` / `open-studio.bat` — open that screen (starts the engine first if needed)
+- `stop-centauri.bat` — stop the engine
+
 ## If something goes wrong
 
 **The browser didn't open.** Open it yourself and go to
