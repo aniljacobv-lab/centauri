@@ -101,6 +101,14 @@ powershell -NoProfile -Command "$j=[pscustomobject]@{built=(Get-Date).ToUniversa
 git add -A
 git commit -m "%MSG%"
 if errorlevel 1 echo   nothing to commit - working tree clean
+REM The repo's sync workflow (sync.yml) pushes copy-sync commits to main after
+REM our pushes - rebase on top of anything the bot (or CI) added so the push
+REM is always a fast-forward. Conflicts abort safely and stop the deploy.
+git pull --rebase origin main
+if errorlevel 1 (
+  echo   *** pull --rebase hit a conflict - resolve it, then run:  git push
+  goto :failed
+)
 git push
 if errorlevel 1 goto :failed
 echo   pushed - CI, code review, perf review, website + Render all fire automatically
