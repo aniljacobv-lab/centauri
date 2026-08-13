@@ -46,8 +46,10 @@ Source: "..\docs\quickstart.md"; DestDir: "{app}"; DestName: "QUICKSTART.md"; Fl
 Source: "..\start-db.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\start-ai.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\start-all.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\start-gateway.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\open-studio.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\open-dashboard.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\open-console.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\stop-centauri.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\run-centauri.bat"; DestDir: "{app}"; Flags: ignoreversion
 

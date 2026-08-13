@@ -129,7 +129,9 @@ One file does everything, but each piece also has its own double-clickable file:
 - `start-all.bat` — everything: database + AI + browser (same as run-centauri.bat)
 - `start-db.bat` — just the database (dashboard, Studio and API — no AI)
 - `start-ai.bat` — switch the private local AI on for a running database (no API key needed — the local AI never uses one)
+- `start-gateway.bat` — the API gateway on port 8080 (proxy, dashboard and Console all on that one port)
 - `open-dashboard.bat` / `open-studio.bat` — open that screen (starts the engine first if needed)
+- `open-console.bat` — open the Console: one screen that shows everything your Centauri can do — and where you mint API keys in the browser
 - `stop-centauri.bat` — stop the engine
 
 ## If something goes wrong

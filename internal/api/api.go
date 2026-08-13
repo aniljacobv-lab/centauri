@@ -495,7 +495,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/changes/ack", s.write(s.handleSlotAck))
 	mux.HandleFunc("GET /v1/slots", s.handleSlots)
 	mux.HandleFunc("POST /v1/acl", s.write(s.handleACL))
-	mux.HandleFunc("POST /v1/feedback", s.write(s.handleFeedback)) // rate a source → re-ranks future retrieval
+	mux.HandleFunc("POST /v1/gateway/keys", s.write(s.handleGatewayKeyMint)) // mint a gateway API key; secret returned once
+	mux.HandleFunc("POST /v1/feedback", s.write(s.handleFeedback))           // rate a source → re-ranks future retrieval
 	mux.HandleFunc("POST /v1/query", s.handleQuery)
 	mux.HandleFunc("GET /v1/query", s.handleQuery)
 	mux.HandleFunc("POST /v1/sql", s.handleSQL) // lean read-only SQL SELECT → CeQL
@@ -515,10 +516,11 @@ func (s *Server) Routes() http.Handler {
 	if s.opts.HAStatus != nil {
 		root.HandleFunc("GET /v1/ha", s.handleHA) // failover role/epoch/leader, no fact data
 	}
-	root.HandleFunc("GET /{$}", s.handleUI)        // the dashboard
-	root.HandleFunc("GET /ceql", s.handleCeqlBook) // the CeQL textbook
-	root.HandleFunc("GET /studio", s.handleStudio) // the AI-first IDE
-	root.HandleFunc("GET /app", s.handleApp)       // the simple layman UI (add + ask)
+	root.HandleFunc("GET /{$}", s.handleUI)          // the dashboard
+	root.HandleFunc("GET /ceql", s.handleCeqlBook)   // the CeQL textbook
+	root.HandleFunc("GET /studio", s.handleStudio)   // the AI-first IDE
+	root.HandleFunc("GET /app", s.handleApp)         // the simple layman UI (add + ask)
+	root.HandleFunc("GET /console", s.handleConsole) // the product-suite console
 	// Admission control on the hot path: per-tenant fairness (inner) + a global
 	// concurrency/timeout ceiling (outer), both skipping streaming/health.
 	return WithLimitsExcept(s.perDBLimit(root), s.opts.MaxConcurrent, s.opts.RequestTimeout, limitExempt)

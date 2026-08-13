@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri Console — one home for the whole suite</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121826; --panel2:#0e1420; --line:#1f2a3d;
+    --text:#dbe4f3; --dim:#7e8ca3; --accent:#5eb0ff; --accent2:#9a7bff;
+    --good:#46d39a; --warn:#ffb454; --bad:#ff6b81; --mono:ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;min-height:100vh}
+  header{display:flex;align-items:center;gap:10px;padding:12px 22px;
+         border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;letter-spacing:.5px}
+  header h1 b{color:var(--accent)}
+  header .tag{color:var(--dim);font-size:12px;font-weight:400}
+  .hright{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input,select,button{background:var(--panel);color:var(--text);border:1px solid var(--line);
+        border-radius:8px;padding:6px 10px;font-size:13px;outline:none;font-family:inherit}
+  input:focus,select:focus{border-color:var(--accent)}
+  button{cursor:pointer} button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:600}
+  button.ghost{background:transparent}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  #tokenbox{display:none;gap:8px;align-items:center;padding:10px 22px;
+            border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+  main{max-width:1180px;margin:0 auto;padding:20px 22px 60px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+  .tile h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:1px;
+           color:var(--text);display:flex;align-items:center;gap:8px}
+  .tile .blurb{color:var(--dim);font-size:12.5px}
+  .tile .stat{font-family:var(--mono);font-size:12.5px;min-height:18px}
+  .tile .acts{margin-top:auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#3a4457;flex:none}
+  .dot.good{background:var(--good);box-shadow:0 0 6px rgba(70,211,154,.6)}
+  .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+  .mini{font-size:11.5px;color:var(--dim)}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;
+      font-family:var(--mono);font-size:12px;overflow:auto;margin:6px 0 0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+         padding:16px 18px;margin-top:20px}
+  .panel h2{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:10px}
+  .panel h3{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th{color:var(--dim);text-align:left;font-weight:500;padding:5px 10px 5px 0;
+     border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:5px 10px 5px 0;border-bottom:1px solid var(--line);font-family:var(--mono);
+     vertical-align:top;word-break:break-word}
+  tr.retired td{text-decoration:line-through;color:var(--dim)}
+  tr.retired td .mini{text-decoration:none}
+  .formrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  #mintout{display:none;margin-top:10px;padding:12px;border:1px solid var(--warn);
+           border-radius:8px;background:rgba(255,180,84,.07)}
+  #mintout input{width:100%;font-family:var(--mono);font-size:12px;margin:6px 0}
+  .spark{font-family:var(--mono);letter-spacing:1px;color:var(--accent)}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:none;
+         background:var(--panel);border:1px solid var(--accent);border-radius:8px;
+         padding:8px 16px;font-size:13px;z-index:9}
+  #toast.err{border-color:var(--bad);color:var(--bad)}
+  .x{margin-left:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1><b>CENTAURI</b> Console <span class="tag">the whole suite, one page · environment: <span id="envname">default</span></span></h1>
+  <div class="hright">
+    <button class="ghost" onclick="toggleToken()" title="Set the API token — shared with the dashboard, entered once">🔑 Token</button>
+    <a href="/" title="The advanced dashboard">Dashboard</a>
+  </div>
+</header>
+<div id="tokenbox">
+  <input id="token" type="password" placeholder="API token" size="24">
+  <button class="primary" onclick="saveToken()">Unlock</button>
+  <span class="mini">Stored only in this browser — the same token the dashboard uses, so you authenticate once.</span>
+</div>
+<main>
+  <div class="grid">
+
+    <div class="tile" id="tile-gateway">
+      <h3><span class="dot" id="dot-gw"></span>API Gateway</h3>
+      <div class="blurb">Routes, keys and rate limits are bi-temporal facts — your gateway config time-travels and nothing is ever erased.</div>
+      <div class="stat" id="gw-stats">—</div>
+      <div class="acts">
+        <a href="/">Open dashboard</a>
+        <button class="ghost" onclick="toggleLaunch()">How to launch</button>
+      </div>
+      <pre id="gw-launch" style="display:none">centauri gateway -data gateway.log -addr :8080 -admin-inline
+:: or on Windows: start-gateway.bat</pre>
+    </div>
+
+    <div class="tile" id="tile-llm">
+      <h3><span class="dot" id="dot-llm"></span>AI Gateway</h3>
+      <div class="blurb">OpenAI-compatible LLM routes with provider failover, pinned models, and per-key token metering.</div>
+      <div class="stat" id="llm-stats">—</div>
+      <div class="acts">
+        <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md#llm-gateway-recipe" target="_blank" rel="noopener">LLM recipe (docs)</a>
+        <button class="ghost" onclick="openPanel('usage')">Token spend</button>
+      </div>
+    </div>
+
+    <div class="tile" id="tile-ai">
+      <h3><span class="dot" id="dot-ai"></span>Private AI</h3>
+      <div class="blurb">Ask your data questions in plain English — answered locally by default; you choose where answers are computed.</div>
+      <div class="stat" id="ai-stats">—</div>
+      <div class="acts"><a href="/" title="The AI panel lives on the dashboard">Open dashboard AI panel</a></div>
+    </div>
+
+    <div class="tile" id="tile-events">
+      <h3><span class="dot" id="dot-ev"></span>Events &amp; Live</h3>
+      <div class="blurb">Every fact knows when it became true and when you learned it. Append-only, tamper-evident.</div>
+      <div class="stat" id="ev-stats">—</div>
+      <div class="acts"><a href="/" title="Press ▶ Watch on the dashboard to stream commits live">Watch live</a></div>
+    </div>
+
+    <div class="tile" id="tile-identity">
+      <h3><span class="dot" id="dot-id"></span>Identity &amp; Keys</h3>
+      <div class="blurb">Gateway API keys and prefix-scoped database tokens. Only hashes are stored — a leaked log leaks no secrets.</div>
+      <div class="stat" id="id-stats">—</div>
+      <div class="acts"><button class="primary" onclick="openPanel('keys')">Keys &amp; Access</button></div>
+    </div>
+
+    <div class="tile" id="tile-usage">
+      <h3><span class="dot" id="dot-use"></span>Usage &amp; Metering</h3>
+      <div class="blurb">Every gateway call is an audit fact: requests, latency, errors, and LLM token spend — per key, forever queryable.</div>
+      <div class="stat" id="use-stats">—</div>
+      <div class="acts"><button class="primary" onclick="openPanel('usage')">Open usage</button></div>
+    </div>
+
+    <div class="tile" id="tile-obs">
+      <h3><span class="dot" id="dot-live"></span>Observability</h3>
+      <div class="blurb">Liveness, readiness and Prometheus metrics — plain HTTP, no token needed, ready for probes and scrapers.</div>
+      <div class="stat"><span class="dot" id="dot-livez"></span> /livez <span id="livez-txt" class="mini">…</span>
+        &nbsp; <span class="dot" id="dot-readyz"></span> /readyz <span id="readyz-txt" class="mini">…</span></div>
+      <div class="acts"><a href="/metrics" target="_blank" rel="noopener">/metrics</a></div>
+    </div>
+
+    <div class="tile" id="tile-learn">
+      <h3><span class="dot good"></span>Learn</h3>
+      <div class="blurb">The CeQL textbook, the AI-first Studio IDE, and the simple no-jargon app.</div>
+      <div class="stat"></div>
+      <div class="acts">
+        <a href="/ceql" target="_blank" rel="noopener">📘 CeQL book</a>
+        <a href="/studio" target="_blank" rel="noopener">🛰 Studio</a>
+        <a href="/app" target="_blank" rel="noopener">🙂 Simple app</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="panel" id="panel-keys" style="display:none">
+    <h2>🔑 Keys &amp; Access <button class="ghost x" onclick="closePanels()">✕ close</button></h2>
+    <div class="mini">Gateway API keys are <code>gwkey:&lt;sha256&gt;</code> config facts. Revoking retires the fact —
+      the key stops working, its history stays.</div>
+    <h3>Gateway API keys</h3>
+    <div id="keytable" class="mini">Loading…</div>
+    <h3>Mint a new key</h3>
+    <div class="formrow">
+      <input id="mint-name" placeholder="name (e.g. ci-bot) — required" size="22">
+      <input id="mint-rate" placeholder="rate/min (optional)" size="14" inputmode="numeric">
+      <input id="mint-routes" placeholder="route prefixes, comma-separated (optional — empty = all)" size="38">
+      <button class="primary" onclick="mintKey()">Mint key</button>
+    </div>
+    <div id="mintout"></div>
+    <h3>Scoped database tokens (read-only list)</h3>
+    <div class="mini">Prefix-scoped tokens for row-level security — registered via <code>POST /v1/acl</code>;
+      see the <a href="/ceql#ops" target="_blank" rel="noopener">CeQL book, Operations</a>. Only hashes are stored,
+      so the console can list policies but never the tokens themselves.</div>
+    <div id="acltable" class="mini" style="margin-top:6px">Loading…</div>
+  </section>
+
+  <section class="panel" id="panel-usage" style="display:none">
+    <h2>📈 Usage &amp; Metering <button class="ghost x" onclick="closePanels()">✕ close</button></h2>
+    <div class="formrow">
+      <label class="mini">Route</label>
+      <select id="useroute"><option value="all">all routes</option></select>
+      <button onclick="loadUsage()">Refresh</button>
+      <span class="mini">Reads the audit log (<code>HISTORY OF gw:&lt;route&gt;</code>), newest 2000 requests.</span>
+    </div>
+    <div id="usebody" class="mini" style="margin-top:10px">Loading…</div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+"use strict";
+// Same keys the dashboard uses — authenticate once, everywhere.
+let TOKEN = localStorage.getItem("centauri_token") || "";
+let DB = localStorage.getItem("centauri_db") || "";
+
+// ---- helpers (same discipline as ui.html) ----
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+// jsAttr embeds a value as a JS string INSIDE an HTML attribute safely.
+function jsAttr(s){ return esc(JSON.stringify(String(s))); }
+function loadJSON(key){
+  try { const v = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function fmtUS(us){ if (!us) return "—"; return new Date(us/1000).toISOString().replace("T"," ").slice(0,16) + "Z"; }
+function toast(msg, err){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 3600);
+}
+function dot(id, cls){ const d = document.getElementById(id); if (d) d.className = "dot" + (cls ? " " + cls : ""); }
+function qs(){ return DB ? "?db=" + encodeURIComponent(DB) : ""; }
+
+// One fetch wrapper: Bearer token on every API call; 401 opens the token box.
+async function api(path, body){
+  const opts = { headers: {} };
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  if (body !== undefined){
+    opts.method = "POST";
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const resp = await fetch(path + qs(), opts);
+  if (resp.status === 401){ showToken(); throw new Error("token required — click 🔑 Token"); }
+  let data = {};
+  try { data = await resp.json(); } catch { /* non-JSON error body */ }
+  if (!resp.ok) throw new Error(data.error || (resp.status + " " + resp.statusText));
+  return data;
+}
+function ceql(q){ return api("/v1/query", {q: q}); }
+
+function showToken(){ document.getElementById("tokenbox").style.display = "flex"; }
+function toggleToken(){
+  const b = document.getElementById("tokenbox");
+  b.style.display = (b.style.display === "flex") ? "none" : "flex";
+}
+function saveToken(){
+  TOKEN = document.getElementById("token").value.trim();
+  localStorage.setItem("centauri_token", TOKEN);
+  document.getElementById("tokenbox").style.display = "none";
+  boot();
+}
+function toggleLaunch(){
+  const p = document.getElementById("gw-launch");
+  p.style.display = (p.style.display === "block") ? "none" : "block";
+}
+function openPanel(which){
+  document.getElementById("panel-keys").style.display = (which === "keys") ? "block" : "none";
+  document.getElementById("panel-usage").style.display = (which === "usage") ? "block" : "none";
+  if (which === "keys") loadKeysPanel();
+  if (which === "usage") loadUsage();
+  document.getElementById("panel-" + which).scrollIntoView({behavior: "smooth"});
+}
+function closePanels(){
+  document.getElementById("panel-keys").style.display = "none";
+  document.getElementById("panel-usage").style.display = "none";
+}
+
+// ---- gateway + AI-gateway tiles ----
+let ROUTES = []; // {name, llm, retired, providers, prefix}
+async function loadRoutes(){
+  const gwEl = document.getElementById("gw-stats"), llmEl = document.getElementById("llm-stats");
+  try {
+    const res = await ceql("FACTS OF route:* FACET config");
+    ROUTES = (res.events || []).map(e => {
+      const v = e.value || {};
+      return { name: e.subject.slice("route:".length), llm: !!v.llm, retired: !!v.retired,
+               providers: Array.isArray(v.providers) ? v.providers.length : 0, prefix: v.prefix || "" };
+    });
+    const live = ROUTES.filter(r => !r.retired);
+    const llm = live.filter(r => r.llm), plain = live.filter(r => !r.llm);
+    dot("dot-gw", live.length ? "good" : "");
+    gwEl.innerHTML = live.length
+      ? `<b>${live.length}</b> active route${live.length === 1 ? "" : "s"} — ${plain.length} plain, ${llm.length} LLM`
+      : `No routes yet — this database has gateway superpowers waiting.`;
+    const provs = llm.reduce((n, r) => n + r.providers, 0);
+    dot("dot-llm", llm.length ? "good" : "");
+    llmEl.innerHTML = llm.length
+      ? `<b>${llm.length}</b> LLM route${llm.length === 1 ? "" : "s"}, <b>${provs}</b> provider${provs === 1 ? "" : "s"} (failover in order)`
+      : `No LLM routes yet — see the recipe.`;
+    const sel = document.getElementById("useroute");
+    sel.innerHTML = `<option value="all">all routes</option>` +
+      ROUTES.map(r => `<option value="${esc(r.name)}">${esc(r.name)}${r.retired ? " (retired)" : ""}</option>`).join("");
+  } catch (e) {
+    dot("dot-gw", "bad"); dot("dot-llm", "");
+    gwEl.textContent = "Couldn't read route facts — " + (e.message || e);
+    llmEl.textContent = "—";
+  }
+}
+
+// ---- private AI tile ----
+async function loadAI(){
+  const el = document.getElementById("ai-stats");
+  try {
+    const st = await api("/v1/ai/status");
+    const chat = st.active_chat || {};
+    const models = ((st.provision || {}).models || []);
+    const pulled = models.filter(m => m.pulled).length;
+    dot("dot-ai", st.runtime_up ? "good" : (chat.where === "cloud" ? "warn" : ""));
+    const where = chat.where === "none" ? "not configured" :
+      `answers computed <b>${esc(chat.where)}</b>${chat.model ? " · " + esc(chat.model) : ""}`;
+    el.innerHTML = `runtime ${st.runtime_up ? "up" : "down"} · ${pulled}/${models.length || 0} model${models.length === 1 ? "" : "s"} pulled · ${where}`;
+  } catch (e) {
+    dot("dot-ai", "");
+    el.textContent = /read-only|forbidden|403/i.test(String(e.message || e))
+      ? "admin token needed to view AI status" : ("— " + (e.message || e));
+  }
+}
+
+// ---- events tile ----
+async function loadStats(){
+  const el = document.getElementById("ev-stats");
+  try {
+    const st = await api("/v1/stats");
+    dot("dot-ev", st.events > 0 ? "good" : "");
+    el.innerHTML = `<b>${st.events}</b> events · <b>${st.subjects}</b> subjects · ${st.pending} pending`;
+  } catch (e) { dot("dot-ev", "bad"); el.textContent = "— " + (e.message || e); }
+}
+
+// ---- identity tile ----
+async function loadIdentity(){
+  const el = document.getElementById("id-stats");
+  try {
+    const keys = await ceql("FACTS OF gwkey:* FACET config");
+    const acls = await ceql("FACTS OF acl:* FACET policy");
+    const active = (keys.events || []).filter(e => !(e.value || {}).retired).length;
+    const nacl = (acls.events || []).length;
+    dot("dot-id", (active + nacl) ? "good" : "");
+    el.innerHTML = `<b>${active}</b> active gateway key${active === 1 ? "" : "s"} · <b>${nacl}</b> scoped token${nacl === 1 ? "" : "s"}`;
+  } catch (e) { dot("dot-id", "bad"); el.textContent = "— " + (e.message || e); }
+}
+
+// ---- observability tile (open endpoints, plain fetch) ----
+async function probe(path, dotId, txtId){
+  try {
+    const r = await fetch(path);
+    dot(dotId, r.ok ? "good" : "bad");
+    document.getElementById(txtId).textContent = r.ok ? "ok" : ("HTTP " + r.status);
+    return r.ok;
+  } catch { dot(dotId, "bad"); document.getElementById(txtId).textContent = "unreachable"; return false; }
+}
+async function loadHealth(){
+  const a = await probe("/livez", "dot-livez", "livez-txt");
+  const b = await probe("/readyz", "dot-readyz", "readyz-txt");
+  dot("dot-live", a && b ? "good" : "bad");
+}
+
+// ---- keys & access panel ----
+let KEYS = {}; // hash -> {name, rate, routes, retired, created}
+async function loadKeysPanel(){
+  const kt = document.getElementById("keytable"), at = document.getElementById("acltable");
+  try {
+    const res = await ceql("FACTS OF gwkey:* FACET config");
+    KEYS = {};
+    const rows = (res.events || []).map(e => {
+      const v = e.value || {}, hash = e.subject.slice("gwkey:".length);
+      const k = { name: v.name || "", rate: v.rate_per_min || 0,
+                  routes: Array.isArray(v.routes) ? v.routes.filter(x => typeof x === "string") : [],
+                  retired: !!v.retired, created: e.effective_time };
+      KEYS[hash] = k;
+      return { hash, ...k };
+    }).sort((a, b) => (a.retired - b.retired) || (b.created - a.created));
+    kt.innerHTML = rows.length ? `<table>
+      <tr><th>name</th><th>hash</th><th>rate/min</th><th>routes</th><th>created</th><th></th></tr>` +
+      rows.map(r => `<tr class="${r.retired ? "retired" : ""}">
+        <td>${esc(r.name || "(unnamed)")}</td>
+        <td title="${esc(r.hash)}">${esc(r.hash.slice(0, 12))}…</td>
+        <td>${r.rate ? esc(String(r.rate)) : "<span class='mini'>route default</span>"}</td>
+        <td>${r.routes.length ? esc(r.routes.join(", ")) : "<span class='mini'>all</span>"}</td>
+        <td>${esc(fmtUS(r.created))}</td>
+        <td>${r.retired ? "<span class='mini'>revoked</span>" :
+          `<button class="ghost" onclick='limitKey(${jsAttr(r.hash)})'>Limit</button>
+           <button class="ghost danger" onclick='revokeKey(${jsAttr(r.hash)})'>Revoke</button>`}</td>
+      </tr>`).join("") + `</table>`
+      : `No gateway keys yet — mint one below. Keys work the moment a gateway serves this database.`;
+  } catch (e) { kt.textContent = "Couldn't read keys — " + (e.message || e); }
+  try {
+    const res = await ceql("FACTS OF acl:* FACET policy");
+    const rows = (res.events || []);
+    at.innerHTML = rows.length ? `<table>
+      <tr><th>subject (token hash)</th><th>prefixes</th><th>write</th><th>masked fields</th></tr>` +
+      rows.map(e => { const v = e.value || {};
+        const pre = Array.isArray(v.prefixes) ? v.prefixes.join(", ") : "";
+        const mask = Array.isArray(v.mask) ? v.mask.join(", ") : "";
+        return `<tr><td title="${esc(e.subject)}">${esc(e.subject.slice(0, 16))}…</td>
+          <td>${esc(pre)}</td><td>${v.write ? "yes" : "no"}</td><td>${mask ? esc(mask) : "<span class='mini'>none</span>"}</td></tr>`;
+      }).join("") + `</table>`
+      : `No scoped tokens registered.`;
+  } catch (e) { at.textContent = "Couldn't read ACL facts — " + (e.message || e); }
+}
+
+// A key's config fact is superseded WHOLE (newest fact wins), so rate changes
+// and revocations re-append the full value — name and routes survive. Same
+// append-only discipline as CORRECT/RETIRE, done via /v1/append to keep the
+// routes array (CeQL SET takes scalars only).
+function keyCorrection(hash, patch){
+  const k = KEYS[hash] || {};
+  const value = { name: k.name || "" };
+  if (k.routes && k.routes.length) value.routes = k.routes;
+  if (k.rate) value.rate_per_min = k.rate;
+  Object.assign(value, patch);
+  return api("/v1/append", { events: [{
+    subject: "gwkey:" + hash, facet: "config", type: "CORRECTION",
+    value: value, provenance: "HUMAN_ENTRY", confidence: 1, source_system: "GATEWAY-CONSOLE",
+  }]});
+}
+async function limitKey(hash){
+  const k = KEYS[hash] || {};
+  const raw = prompt(`Requests per minute for "${k.name || hash.slice(0, 12)}" (0 = route default):`, k.rate || 0);
+  if (raw === null) return;
+  const n = parseInt(raw, 10);
+  if (isNaN(n) || n < 0) { toast("Give a number ≥ 0", true); return; }
+  try {
+    await keyCorrection(hash, { rate_per_min: n });
+    toast("Rate limit set to " + (n || "route default"));
+    loadKeysPanel(); loadIdentity();
+  } catch (e) { toast(e.message || String(e), true); }
+}
+async function revokeKey(hash){
+  const k = KEYS[hash] || {};
+  if (!confirm(`Revoke key "${k.name || hash.slice(0, 12)}"? Calls with it will be refused. Its history stays queryable forever.`)) return;
+  try {
+    await keyCorrection(hash, { retired: true });
+    toast("Key revoked");
+    loadKeysPanel(); loadIdentity();
+  } catch (e) { toast(e.message || String(e), true); }
+}
+async function mintKey(){
+  const name = document.getElementById("mint-name").value.trim();
+  if (!name) { toast("A name is required — audit facts record it as the caller", true); return; }
+  const rate = parseInt(document.getElementById("mint-rate").value, 10);
+  const routes = document.getElementById("mint-routes").value.split(",").map(s => s.trim()).filter(Boolean);
+  const body = { name: name };
+  if (!isNaN(rate) && rate > 0) body.rate_per_min = rate;
+  if (routes.length) body.routes = routes;
+  try {
+    const res = await api("/v1/gateway/keys", body);
+    const out = document.getElementById("mintout");
+    out.style.display = "block";
+    out.innerHTML = `<b>⚠ Copy this key now — it is shown ONCE and never stored.</b>
+      <input readonly value="${esc(res.key)}" onclick="this.select()">
+      <div class="mini">${esc(res.subject)} — only the SHA-256 hash lives in the log.
+        <button class="ghost" onclick='copyKey(${jsAttr(res.key)})'>Copy</button></div>`;
+    document.getElementById("mint-name").value = "";
+    document.getElementById("mint-rate").value = "";
+    document.getElementById("mint-routes").value = "";
+    loadKeysPanel(); loadIdentity();
+  } catch (e) { toast(e.message || String(e), true); }
+}
+function copyKey(k){
+  navigator.clipboard.writeText(k).then(() => toast("Key copied"), () => toast("Copy failed — select it manually", true));
+}
+
+// ---- usage & metering panel ----
+const USAGE_CAP = 2000;
+function sparkline(times){
+  if (times.length < 2) return "";
+  const lo = Math.min(...times), hi = Math.max(...times);
+  if (hi <= lo) return "";
+  const buckets = new Array(40).fill(0), blocks = "▁▂▃▄▅▆▇█";
+  for (const t of times) buckets[Math.min(39, Math.floor((t - lo) / (hi - lo) * 40))]++;
+  const max = Math.max(...buckets);
+  const line = buckets.map(n => n ? blocks[Math.min(7, Math.floor(n / max * 8))] : "·").join("");
+  return `<div class="spark" title="requests over time, oldest → newest">${line}</div>
+    <div class="mini">${esc(fmtUS(lo))} → ${esc(fmtUS(hi))}</div>`;
+}
+async function loadUsage(){
+  const el = document.getElementById("usebody");
+  const sel = document.getElementById("useroute").value || "all";
+  const names = sel === "all" ? ROUTES.map(r => r.name) : [sel];
+  if (!names.length) {
+    el.innerHTML = "No routes configured yet — add one, then calls through the gateway appear here.";
+    document.getElementById("use-stats").textContent = "no routes yet";
+    return;
+  }
+  el.textContent = "Loading…";
+  let events = [];
+  try {
+    for (const n of names) {
+      const res = await ceql(`HISTORY OF gw:${n} FACET gateway ORDER BY recorded_time DESC LIMIT ${USAGE_CAP}`);
+      for (const e of (res.events || [])) events.push({ route: n, t: e.recorded_time, v: e.value || {} });
+    }
+  } catch (e) { el.textContent = "Couldn't read the audit log — " + (e.message || e); return; }
+  events.sort((a, b) => b.t - a.t);
+  if (events.length > USAGE_CAP) events = events.slice(0, USAGE_CAP); // client-side cap
+  if (!events.length) {
+    el.innerHTML = "No traffic yet — calls made through the gateway appear here.";
+    if (sel === "all") document.getElementById("use-stats").textContent = "no traffic yet";
+    return;
+  }
+  const ms = events.map(e => Number(e.v.ms) || 0).sort((a, b) => a - b);
+  const errors = events.filter(e => Number(e.v.status) >= 400).length;
+  const avg = ms.reduce((a, b) => a + b, 0) / ms.length;
+  const p95 = ms[Math.max(0, Math.ceil(ms.length * 0.95) - 1)];
+  const perKey = {};
+  let ptok = 0, ctok = 0;
+  for (const e of events) {
+    const k = e.v.key || "(no key)";
+    const row = perKey[k] || (perKey[k] = { req: 0, err: 0, pt: 0, ct: 0 });
+    row.req++;
+    if (Number(e.v.status) >= 400) row.err++;
+    row.pt += Number(e.v.prompt_tokens) || 0;
+    row.ct += Number(e.v.completion_tokens) || 0;
+    ptok += Number(e.v.prompt_tokens) || 0;
+    ctok += Number(e.v.completion_tokens) || 0;
+  }
+  const cap = events.length === USAGE_CAP ? ` <span class="mini">(newest ${USAGE_CAP} shown)</span>` : "";
+  el.innerHTML = `
+    <table style="max-width:640px">
+      <tr><th>requests</th><th>errors (≥400)</th><th>avg ms</th><th>p95 ms</th><th>LLM tokens (prompt / completion)</th></tr>
+      <tr><td>${events.length}${cap}</td><td>${errors} (${(errors / events.length * 100).toFixed(1)}%)</td>
+          <td>${avg.toFixed(1)}</td><td>${p95}</td><td>${ptok} / ${ctok}</td></tr>
+    </table>
+    ${sparkline(events.map(e => e.t))}
+    <h3>Per key — the metering table</h3>
+    <table style="max-width:640px">
+      <tr><th>key</th><th>requests</th><th>errors</th><th>prompt tokens</th><th>completion tokens</th></tr>
+      ${Object.keys(perKey).sort((a, b) => perKey[b].req - perKey[a].req).map(k => {
+        const r = perKey[k];
+        return `<tr><td>${esc(k)}</td><td>${r.req}</td><td>${r.err}</td><td>${r.pt}</td><td>${r.ct}</td></tr>`;
+      }).join("")}
+    </table>`;
+  if (sel === "all") {
+    dot("dot-use", "good");
+    document.getElementById("use-stats").innerHTML =
+      `<b>${events.length}</b> requests${cap} · ${errors} errors · ${ptok + ctok} LLM tokens`;
+  }
+}
+
+// ---- boot ----
+function boot(){
+  document.getElementById("envname").textContent = DB || "default";
+  loadHealth();
+  loadStats();
+  loadAI();
+  loadIdentity();
+  loadRoutes().then(loadUsage);
+}
+boot();
+</script>
+</body>
+</html>

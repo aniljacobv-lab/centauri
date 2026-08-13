@@ -1,0 +1,10 @@
+# Line-ending policy — keeps gofmt and git from fighting on Windows.
+# Go source must be LF (gofmt enforces it); batch files must be CRLF
+# (cmd.exe misparses LF in some constructs). Everything else: LF in the
+# repo, as-is in the working tree.
+* text=auto eol=lf
+*.go text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.exe binary
+*.zip binary

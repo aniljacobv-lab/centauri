@@ -42,6 +42,11 @@ PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000',
 centauri gateway -data gateway.log -newkey ci-bot
 ```
 
+Prefer the browser? The **Console** (`/console` → **Keys & Access**) mints keys
+live over `POST /v1/gateway/keys` — no need to stop the gateway. `-newkey` stays
+as the offline/CLI path; it takes the writer lock, so run it before starting the
+gateway (or stop it first).
+
 ```
 # 4. Call through the gateway (the key travels as a bearer token):
 curl -H 'Authorization: Bearer <the printed key>' http://localhost:8080/api/health
@@ -70,9 +75,11 @@ A route is the current fact of subject `route:<name>`, facet `config`:
 
 ## Key facts
 
-`-newkey <name>` appends the current fact of subject `gwkey:<sha256-of-key>`,
-facet `config`. **The plaintext key is printed once and never stored** — the
-log holds only the hash, so a leaked log file does not leak keys.
+A key is the current fact of subject `gwkey:<sha256-of-key>`, facet `config`.
+Mint one live in the **Console** (`/console` → Keys & Access) while the gateway
+runs, or offline with `-newkey <name>`. **The plaintext key is shown once and
+never stored** — the log holds only the hash, so a leaked log file does not
+leak keys.
 
 | field          | type   | meaning                                                                 |
 |----------------|--------|-------------------------------------------------------------------------|
@@ -163,15 +170,17 @@ Demo flow on the deployed URL:
 
 1. Open `https://centauri-gateway-<id>.onrender.com/` — that's the dashboard
    (paste the service's `CENTAURI_TOKEN` once; the Gateway card is on the
-   home screen).
+   home screen). Or start at `/console` — the suite view, with every
+   capability of the deployment on one screen.
 2. Add a route live in the query bar — no restart:
    `PUT route:api FACET config SET prefix='/api/', upstream='https://your-backend', auth='none', rate_per_min=60`
 3. Call `https://…onrender.com/api/...` and watch it proxy; then show the
    receipts: `HISTORY OF gw:api FACET gateway` and the time-travel closer:
    `FACTS OF route:api FACET config AS OF 5 minutes ago`.
 
-Keyed routes on Render: `-newkey` needs the writer lock, so instead store a
-key you choose yourself — compute its SHA-256 (PowerShell:
+Keyed routes on Render: mint the key in the **Console** (`/console` → Keys &
+Access) — it works over the live admin API, so the writer lock is no obstacle.
+Or store a key you choose yourself — compute its SHA-256 (PowerShell:
 `Get-FileHash -InputStream ([IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes("my-secret"))) -Algorithm SHA256`)
 and `PUT gwkey:<hash> FACET config SET name='demo'` in the dashboard. Callers
 then send `Authorization: Bearer my-secret`.
