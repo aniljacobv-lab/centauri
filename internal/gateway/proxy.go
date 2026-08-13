@@ -49,6 +49,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	rt := snap.match(r.URL.Path)
 	if rt == nil {
+		if g.Fallback != nil { // -admin-inline: dashboard on the same port
+			g.Fallback.ServeHTTP(w, r)
+			return
+		}
 		g.met.observe("_unmatched", http.StatusNotFound, sinceMS(start))
 		jsonError(w, http.StatusNotFound, "no route matches "+r.URL.Path)
 		return

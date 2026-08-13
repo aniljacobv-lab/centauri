@@ -13,3 +13,19 @@ services:
       name: centauri-data
       mountPath: /data
       sizeGB: 1
+
+  # The API gateway with a perfect memory — single port: proxied routes win,
+  # everything else serves the admin dashboard (token-gated). Demo-ready.
+  - type: web
+    name: centauri-gateway
+    runtime: docker
+    plan: starter
+    healthCheckPath: /livez
+    dockerCommand: gateway -data /data/gateway.log -addr :7771 -admin-inline
+    envVars:
+      - key: CENTAURI_TOKEN
+        generateValue: true   # admin dashboard token; find it in the dashboard
+    disk:
+      name: centauri-gateway-data
+      mountPath: /data
+      sizeGB: 1

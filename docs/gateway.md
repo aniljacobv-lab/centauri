@@ -149,6 +149,33 @@ queries skip stale facts, but the log file does not shrink (append-only is the
 point, and the hash chain stays intact). If audit volume is the problem, set
 `audit: 'none'` on hot routes — those requests are simply not recorded.
 
+## Demo it on Render (single port)
+
+Render exposes one port per service, so use `-admin-inline`: proxied routes
+win, and any path that matches no route serves the admin dashboard instead.
+
+The repo's `render.yaml` already defines the service (`centauri-gateway`,
+Docker, disk-backed, `CENTAURI_TOKEN` auto-generated). In the Render
+dashboard: **Blueprints → your repo → Sync** (or New → Blueprint if starting
+fresh), and the gateway deploys next to the database service.
+
+Demo flow on the deployed URL:
+
+1. Open `https://centauri-gateway-<id>.onrender.com/` — that's the dashboard
+   (paste the service's `CENTAURI_TOKEN` once; the Gateway card is on the
+   home screen).
+2. Add a route live in the query bar — no restart:
+   `PUT route:api FACET config SET prefix='/api/', upstream='https://your-backend', auth='none', rate_per_min=60`
+3. Call `https://…onrender.com/api/...` and watch it proxy; then show the
+   receipts: `HISTORY OF gw:api FACET gateway` and the time-travel closer:
+   `FACTS OF route:api FACET config AS OF 5 minutes ago`.
+
+Keyed routes on Render: `-newkey` needs the writer lock, so instead store a
+key you choose yourself — compute its SHA-256 (PowerShell:
+`Get-FileHash -InputStream ([IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes("my-secret"))) -Algorithm SHA256`)
+and `PUT gwkey:<hash> FACET config SET name='demo'` in the dashboard. Callers
+then send `Authorization: Bearer my-secret`.
+
 ## Metrics
 
 - The dashboard's **Gateway** card (admin plane, home screen) lists routes and

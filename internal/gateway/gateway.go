@@ -3,6 +3,7 @@ package gateway
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +21,11 @@ import (
 // single writer goroutine (dropped, and counted, when the buffer is full).
 type Gateway struct {
 	st *store.Store
+
+	// Fallback, when set, handles requests that match no route instead of a
+	// 404 — used by `-admin-inline` to serve the admin dashboard/API on the
+	// same listener (single-port deploys like Render). Routes always win.
+	Fallback http.Handler
 
 	mu    sync.RWMutex
 	snap  *snapshot

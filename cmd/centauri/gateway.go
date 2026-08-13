@@ -28,6 +28,7 @@ func runGatewayCmd(args []string) {
 	data := fs.String("data", "gateway.log", "control-plane log (routes, keys, audit)")
 	addr := fs.String("addr", ":8080", "proxy listen address")
 	admin := fs.String("admin", "", "also serve the standard dashboard/API on this address over the same store (e.g. :7771)")
+	adminInline := fs.Bool("admin-inline", false, "serve the dashboard/API on the PROXY port for anything no route matches — single-port deploys (Render etc.); routes always win")
 	token := fs.String("token", os.Getenv("CENTAURI_TOKEN"), "bearer token required on the admin API (empty = open)")
 	readToken := fs.String("read-token", os.Getenv("CENTAURI_READ_TOKEN"), "second admin token granting read-only access")
 	tlsCert := fs.String("tls-cert", "", "PEM certificate for HTTPS on the proxy listener (with -tls-key)")
@@ -109,8 +110,16 @@ func runGatewayCmd(args []string) {
 			log.Fatal(listenMaybeTLS(*admin, "", "", api.WithLogging(adminSrv.Routes(), logger)))
 		}()
 		fmt.Printf("admin dashboard: http://localhost%s%s\n", *admin, authNote(*token))
-	} else {
-		fmt.Println("admin dashboard: off — add -admin :7771 to manage routes in the browser")
+	} else if !*adminInline {
+		fmt.Println("admin dashboard: off — add -admin :7771 (or -admin-inline) to manage routes in the browser")
+	}
+	if *adminInline {
+		if adminSrv == nil {
+			adminSrv = api.NewWithOptions(st, api.Options{Token: *token, ReadToken: *readToken, DataPath: *data})
+		}
+		logger := api.SetupLogger("text", "info")
+		gw.Fallback = api.WithLogging(adminSrv.Routes(), logger)
+		fmt.Printf("admin dashboard: inline on the proxy port — any path no route matches%s\n", authNote(*token))
 	}
 	fmt.Println("\nadd a route (CeQL, in the admin console/shell — applies live, no restart):")
 	fmt.Printf("  %s\n", gateway.ExampleRoutePut)
