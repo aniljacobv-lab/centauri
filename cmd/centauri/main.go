@@ -70,6 +70,11 @@ func main() {
 		usage()
 	}
 	cmd := os.Args[1]
+	if cmd == "gateway" {
+		// The gateway owns its flag set (different defaults: gateway.log, :8080).
+		runGatewayCmd(os.Args[2:])
+		return
+	}
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	data := fs.String("data", "centauri.log", "path to the append-only log")
 	addr := fs.String("addr", ":7771", "listen address (serve; optional for follow)")
@@ -1446,6 +1451,7 @@ func usage() {
 Commands
   desktop  one-click start: data in your profile, dashboard opens in your browser
   serve    HTTP/JSON API — writes, queries, SSE watch, log shipping
+  gateway  reverse proxy: routes/keys/audit live in a Centauri store (bi-temporal)
   mcp      Model Context Protocol server on stdio (connect AI agents)
   shell    interactive CeQL REPL (psql-style; \h for meta commands)
   seed     populate with synthetic price-change demo data

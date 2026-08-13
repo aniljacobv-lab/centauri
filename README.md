@@ -33,6 +33,8 @@ Two audiences, one binary.
 
 Plus: **CeQL** (time, cause, and trust as syntax — with aggregates, BM25 + hybrid vector `SEARCH`, topology operators, `EXPLAIN ANALYZE`, and a plain-English helper), **CePL** stored procedures (versioned facts, self-tracing, injection-safe substitution), reversible transactions (`SNAPSHOT`/`ROLLBACK`/`DIFF`), a lean read-only SQL door (`/v1/sql`, plus an optional Postgres wire listener via `-pg-addr` for psql/JDBC/BI tools), scoped tokens with field masking, retention with legal holds, tablespace archives (with S3 offload), CDC, HA failover, sharded write scaling — and the **Genesis Engine**: describe your scenario in plain language and Centauri interviews you and builds the entire database, then stores that conversation as facts so the database forever remembers *why it exists*.
 
+And an **API gateway with a perfect memory** — `centauri gateway` turns any Centauri log into a reverse proxy whose routes, API keys, and request audit are plain facts: config time-travels with `AS OF`, the audit trail is tamper-evident, and optional LLM routing gets provider failover with token accounting. See [docs/gateway.md](docs/gateway.md).
+
 **For small businesses** — a turnkey private AI appliance: install, double-click, and a local model trio (chat, embeddings, vision — sized to your machine, from `gemma3:4b` up to `glm-4.7-flash`) sets itself up via Ollama. Ask in plain English; answers cite the facts they came from; new facts auto-embed so search-by-meaning just works; nothing leaves your computer and there is no per-token bill.
 
 **What Centauri is NOT** (honesty is policy):

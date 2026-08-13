@@ -291,6 +291,10 @@
         </details>
         <div id="aimsg" class="mini" style="margin-top:8px"></div>
       </div>
+      <div class="card" style="text-align:left" id="gwcard">
+        <h3>🛡 Gateway <span class="mini">— the API gateway with a perfect memory</span></h3>
+        <div id="gwbody" class="mini" style="line-height:1.7">checking…</div>
+      </div>
     </div>
     <div id="detail" style="display:none"></div>
   </div>
@@ -641,7 +645,7 @@ async function boot(){
         .map(k => `<span class="chip">${k} <b>${st[k] ?? 0}</b></span>`).join("");
     SUBJECTS = await api("/v1/subjects");
     renderSubjects();
-    loadWedges(); loadDisagreements();
+    loadWedges(); loadDisagreements(); loadGateway();
     loadCatalog();
     checkVision(); checkAI();
   } catch (e) { console.warn(e); }
@@ -812,6 +816,80 @@ async function loadDisagreements(){
                 <span class="mini">${esc(vals)}</span></div>`;
       }).join("") + (keys.length > 15 ? `<div class="mini">…and ${keys.length-15} more</div>` : "");
   } catch (e) { /* ignore */ }
+}
+
+// ---------------- gateway card ----------------
+// `centauri gateway` keeps its whole control plane in this database: routes
+// are route:* "config" facts, request audit is gw:* "gateway" facts. This
+// card is read-only over the existing /v1/query — no gateway-specific API.
+async function loadGateway(){
+  const el = document.getElementById("gwbody"); if (!el) return;
+  let routes = [];
+  try {
+    const r = await apiPost("/v1/query", {q: "FACTS OF route:* FACET config"});
+    routes = r.events || [];
+  } catch (e) {
+    el.innerHTML = `Couldn't read gateway facts — ${esc(e.message || e)}`;
+    return;
+  }
+  if (!routes.length) {
+    el.innerHTML =
+      `Turn this database into an API gateway: run <code>centauri gateway -admin :7771</code> against it —
+       routes, API keys and a tamper-evident request audit become plain facts in this log,
+       so your gateway config time-travels with <code>AS OF</code>.<br>
+       See <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md" target="_blank">docs/gateway.md</a>
+       and <a href="/ceql" target="_blank">the CeQL Book</a>.`;
+    return;
+  }
+  let audit = [];
+  try {
+    const a = await apiPost("/v1/query", {q: "FACTS OF gw:* FACET gateway ORDER BY recorded DESC LIMIT 50"});
+    audit = a.events || [];
+  } catch (e) { /* no audit facts yet — the route table still renders */ }
+  // Client-side summary over the newest (≤50) current audit facts. The full
+  // per-route request log is HISTORY OF gw:<name> — see docs/gateway.md.
+  const traf = {}; let total = 0, errors = 0;
+  for (const e of audit) {
+    const v = e.value || {};
+    const name = e.subject.indexOf("gw:") === 0 ? e.subject.slice(3) : e.subject;
+    const t = traf[name] || (traf[name] = {n: 0, err: 0, ms: 0});
+    t.n++; t.ms += Number(v.ms) || 0; total++;
+    if (Number(v.status) >= 500) { t.err++; errors++; }
+  }
+  const rows = routes.map(e => {
+    const v = e.value || {};
+    const name = e.subject.indexOf("route:") === 0 ? e.subject.slice(6) : e.subject;
+    const t = traf[name];
+    const dead = v.retired === true;
+    const cell = h => dead ? `<s style="opacity:.6">${h}</s>` : h;
+    const nprov = (v.providers || []).length;
+    const target = v.llm ? (nprov + " LLM provider" + (nprov === 1 ? "" : "s"))
+                         : (v.upstream || "—");
+    return `<tr>
+      <td>${cell(esc(name))}</td>
+      <td>${cell(esc(v.prefix || "") + " → " + esc(target))}</td>
+      <td>${cell(esc(v.auth || "none"))}</td>
+      <td>${cell(v.rate_per_min ? esc(v.rate_per_min) + "/min" : "—")}</td>
+      <td>${v.llm ? '<span class="chip">LLM</span>' : ""}</td>
+      <td class="mini">${t ? esc(t.n + " req · " + t.err + " 5xx · " + Math.round(t.ms / t.n) + " ms avg") : "—"}</td>
+    </tr>`;
+  }).join("");
+  el.innerHTML =
+    `<table><tr><th>route</th><th>prefix → upstream</th><th>auth</th><th>rate</th><th></th><th>traffic</th></tr>${rows}</table>
+     <div class="mini" style="margin-top:6px">traffic sample — newest ${audit.length} audit facts: <b>${total}</b> requests, <b>${errors}</b> 5xx</div>
+     <details style="margin-top:8px">
+       <summary class="mini" style="cursor:pointer">Add a route — example PUT (runs in the query bar)</summary>
+       <pre id="gwexample" style="white-space:pre-wrap;margin-top:6px">PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', rate_per_min=120, timeout_ms=10000, audit='meta'</pre>
+       <button class="ghost mini" onclick="gwCopyExample()">Copy</button>
+     </details>`;
+}
+function gwCopyExample(){
+  const pre = document.getElementById("gwexample"); if (!pre) return;
+  const text = pre.textContent;
+  const fallback = () => { qin.value = text; qin.focus(); toast("Copied into the query bar"); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => toast("Example copied"), fallback);
+  } else fallback();
 }
 
 // ---------------- subject view ----------------
