@@ -28,8 +28,32 @@ func (g *Gateway) audit(route *Route, method, path string, status int, ms int64,
 	for k, x := range extra {
 		v[k] = x
 	}
+	g.enqueueAudit("gw:"+route.Name, v)
+}
+
+// auditDenial records a policy or webhook denial. Unlike traffic audit,
+// denials are recorded even on audit:"none" routes — a rejection by an
+// authorization hook is a security event, not traffic volume.
+func (g *Gateway) auditDenial(route *Route, method, path string, status int, ms int64,
+	keyName string, extra map[string]any) {
+	v := map[string]any{
+		"method": method,
+		"path":   path,
+		"status": status,
+		"ms":     ms,
+		"key":    keyName,
+	}
+	for k, x := range extra {
+		v[k] = x
+	}
+	g.enqueueAudit("gw:"+route.Name, v)
+}
+
+// enqueueAudit wraps a value in the fixed audit envelope and queues it for
+// the async writer. Never blocks: a full buffer drops (and counts).
+func (g *Gateway) enqueueAudit(subject string, v map[string]any) {
 	ev := &model.Event{
-		Subject: "gw:" + route.Name, Facet: "gateway", Type: model.Observed,
+		Subject: subject, Facet: "gateway", Type: model.Observed,
 		Value: v, Provenance: model.SystemFeed, Confidence: 1, SourceSystem: "GATEWAY",
 	}
 	select {

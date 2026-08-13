@@ -6,6 +6,8 @@
 package gateway
 
 import (
+	"fmt"
+	"log"
 	"net/http/httputil"
 	"net/netip"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/aniljacobv-lab/centauri/internal/oidc"
+	"github.com/aniljacobv-lab/centauri/internal/proc"
 	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
@@ -36,6 +39,10 @@ const (
 	keySubjectPrefix   = "gwkey:"
 	configFacet        = "config"
 	defaultTimeoutMS   = 30000
+
+	// Stored CePL procedures (internal/proc) — route policies live there.
+	procSubjectPrefix = "proc:"
+	procFacet         = "procedure"
 )
 
 // ExampleRoutePut is the CeQL one-liner the banner teaches for adding a route.
@@ -82,9 +89,16 @@ type Route struct {
 	MaxBodyBytes         int64
 	BlockPathPatterns    []string // path.Match globs ('*' does not cross '/')
 
-	upstream *url.URL               // parsed Upstream; nil is only valid for LLM routes
-	verifier *oidc.Verifier         // auth:"oidc" only; JWKS keys are cached inside
-	proxy    *httputil.ReverseProxy // non-LLM: built once per config load, shared transport
+	// Request policy (CePL) and webhook authorization callout — both run
+	// after auth/rate-limit/middleware, before the proxy (see policy.go).
+	Policy          string // stored procedure proc:<name> consulted per request
+	AuthzWebhook    string // http(s) URL POSTed to per request; non-2xx = 403
+	WebhookFailOpen bool   // allow when the webhook is unreachable (default: deny)
+
+	upstream   *url.URL               // parsed Upstream; nil is only valid for LLM routes
+	verifier   *oidc.Verifier         // auth:"oidc" only; JWKS keys are cached inside
+	policyProc *proc.Procedure        // Policy parsed once per config load
+	proxy      *httputil.ReverseProxy // non-LLM: built once per config load, shared transport
 }
 
 // Key is the in-memory form of one gwkey:<hash> config fact. The secret is
@@ -157,6 +171,17 @@ func loadSnapshot(st *store.Store, prev *snapshot) *snapshot {
 		}
 		if isRoute {
 			if r := parseRoute(strings.TrimPrefix(sub, routeSubjectPrefix), v); r != nil {
+				if r.Policy != "" {
+					p, err := loadPolicy(st, r.Policy)
+					if err != nil {
+						// Fail closed: a route whose policy cannot run must
+						// not take traffic without it. Its paths 404 until
+						// the procedure exists/parses again.
+						log.Printf("gateway: route %q rejected: %v", r.Name, err)
+						continue
+					}
+					r.policyProc = p
+				}
 				if r.Auth == "oidc" {
 					if cached := verifiers[r.OIDCIssuer+"\x00"+r.OIDCAudience+"\x00"+r.OIDCJWKSURL]; cached != nil {
 						r.verifier = cached
@@ -187,6 +212,26 @@ func loadSnapshot(st *store.Store, prev *snapshot) *snapshot {
 	return snap
 }
 
+// loadPolicy fetches and parses the CePL procedure behind a route's policy
+// field. Called once per config load — the hot path executes the parsed form
+// (proc.Run) and never re-parses source per request (BenchmarkPolicyOverhead
+// measures what remains).
+func loadPolicy(st *store.Store, name string) (*proc.Procedure, error) {
+	evs := st.Current(procSubjectPrefix+name, procFacet)
+	if len(evs) == 0 || evs[0].Value == nil || boolField(evs[0].Value, "retired") {
+		return nil, fmt.Errorf("policy %q: no stored procedure %s%s — define it first", name, procSubjectPrefix, name)
+	}
+	src, _ := evs[0].Value["source"].(string)
+	if src == "" {
+		return nil, fmt.Errorf("policy %q: procedure has no source", name)
+	}
+	p, err := proc.Parse(src)
+	if err != nil {
+		return nil, fmt.Errorf("policy %q: %w", name, err)
+	}
+	return p, nil
+}
+
 // parseRoute builds a Route from a config fact's value, applying defaults.
 // Returns nil for unroutable configs (no prefix, no valid upstream on a
 // non-LLM route, unknown auth mode, incomplete OIDC config, bad CIDR, bad
@@ -212,6 +257,9 @@ func parseRoute(name string, v map[string]any) *Route {
 		CORS:                 boolField(v, "cors"),
 		MaxBodyBytes:         int64(intField(v, "max_body_bytes")),
 		BlockPathPatterns:    strSlice(v, "block_path_patterns"),
+		Policy:               strField(v, "policy"),
+		AuthzWebhook:         strField(v, "authz_webhook"),
+		WebhookFailOpen:      boolField(v, "webhook_fail_open"),
 	}
 	if r.Prefix == "" {
 		return nil
@@ -248,6 +296,12 @@ func parseRoute(name string, v map[string]any) *Route {
 	for _, pat := range r.BlockPathPatterns {
 		if _, err := path.Match(pat, "/"); err != nil {
 			return nil // a bad glob must not silently unblock the path
+		}
+	}
+	if r.AuthzWebhook != "" {
+		u, err := url.Parse(r.AuthzWebhook)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return nil // a broken webhook URL must not mean "no webhook"
 		}
 	}
 	if r.Upstream != "" {

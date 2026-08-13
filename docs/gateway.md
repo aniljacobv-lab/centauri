@@ -82,6 +82,9 @@ A route is the current fact of subject `route:<name>`, facet `config`:
 | `deny_ips`     | array  | Middleware: CIDRs refused with 403. Deny wins over allow.                                        |
 | `max_body_bytes` | number | Middleware: 413 for larger request bodies.                                                     |
 | `block_path_patterns` | array | Middleware: `path.Match` globs answered 403 (`*` does not cross `/`).                       |
+| `policy`       | string | Name of a stored CePL procedure run per request — allow/deny/add headers (see [Request policies](#request-policies-cepl--plugins-the-centauri-way)). A missing or unparsable procedure rejects the whole route. |
+| `authz_webhook`| string | URL POSTed per request after auth; anything but a 2xx answer is 403 (see [Webhook authorization](#webhook-authorization)). |
+| `webhook_fail_open` | bool | Allow requests when the webhook is unreachable/non-2xx (default: fail closed).             |
 | `retired`      | bool   | Set by `RETIRE` — the route stops matching; its history remains queryable.                       |
 
 Maps and arrays (like `providers`) go through the raw `/v1/append` endpoint or
@@ -168,8 +171,54 @@ validate it themselves). If yours must not see it, add
 `"remove_request_headers": ["Authorization"]` to the route — middleware runs
 after auth, so validation still happens.
 
-Honesty note: this is token *validation*, not an identity provider. No login
-flows, no token issuance, no session management — that stays your IdP's job.
+Honesty note: validating your IdP's tokens does not make the gateway an IdP —
+no login flows or session management here. It *can*, however, mint short-lived
+**service** tokens for its own keys (client-credentials only) that these same
+OIDC routes accept — see
+[Issuing tokens](#issuing-tokens-client-credentials--an-idp-lite). Human
+sign-in stays your IdP's job.
+
+## Issuing tokens (client-credentials) — an IdP-lite
+
+The gateway can also **issue** short-lived service tokens, so
+service-to-service callers can pass `auth: 'oidc'` routes without an external
+identity provider. Honestly scoped: **OAuth2 `client_credentials` only** —
+no human login, no consent screens, no refresh tokens, no sessions. This is
+for machines; bring your IdP for people.
+
+Every gateway key doubles as an OAuth2 client: `client_id` is the key's
+**name**, `client_secret` is the key itself (RFC 6749 §4.4, form-encoded):
+
+```
+curl -s http://localhost:8080/gw/token \
+  -d grant_type=client_credentials \
+  -d client_id=ci-bot \
+  -d client_secret=<the minted key>
+# -> {"access_token":"eyJ…","token_type":"Bearer","expires_in":900}
+```
+
+The token is an RS256 JWT — `iss` = `-issuer`, `sub` = the key name, `aud` =
+`-token-aud`, `exp` after `-token-ttl` seconds, random `jti` — signed with an
+RSA-2048 key generated on first use and stored as PEM **next to** the log
+(`<data-dir>/issuer.key`, mode 0600), never *in* it: the log is append-only
+forever, so a secret that entered it could never be erased. The public half
+is served from the proxy listener:
+
+- `GET /.well-known/jwks.json` — the key set (RFC 7517);
+- `GET /.well-known/openid-configuration` — minimal discovery
+  (`issuer`, `token_endpoint`, `jwks_uri`).
+
+Self-validation closes the loop — a route can require the gateway's own
+tokens:
+
+```
+PUT route:svc FACET config SET prefix='/svc/', upstream='http://127.0.0.1:9100', auth='oidc', oidc_issuer='http://localhost:8080', oidc_audience='centauri', oidc_jwks_url='http://localhost:8080/.well-known/jwks.json'
+```
+
+Every issuance — and every failed attempt — is audited on `gw:_tokens`
+(`{sub, ok}`, never any secret material). `RETIRE gwkey:…` stops **new**
+tokens immediately; already-issued tokens live out their TTL, which is short
+(900s) by design.
 
 ## mTLS on the proxy listener
 
@@ -187,18 +236,90 @@ This is listener-wide, not per-route.
 ## Built-in middleware — not a plugin ecosystem
 
 Honest naming up front: this is a **small fixed set** of per-route tweaks, not
-Kong's plugin ecosystem. There is no plugin API, and a zero-dependency single
-binary is unlikely to ever grow one. What exists (fields in the route table
-above): request/response header add + request header remove, permissive CORS
-with preflight short-circuit, IP allow/deny lists, request body caps, and
-blocked path globs.
+Kong's plugin ecosystem — there is no third-party plugin API. What exists
+(fields in the route table above): request/response header add + request
+header remove, permissive CORS with preflight short-circuit, IP allow/deny
+lists, request body caps, and blocked path globs. For *programmable* per-route
+logic, see the next two sections: CePL request policies and webhook
+authorization callouts.
 
 Order per request: CORS (before auth — browsers send preflights without
 credentials) → auth → rate limit → header add/remove → IP filters → body cap
-→ path blocks → proxy. Parsing is fail-closed: a route with an unparsable
-CIDR, a bad glob, or an unknown `auth` value is rejected whole (its paths 404)
-— a typo can never fail open. And because routes are facts, middleware config
-hot-reloads and time-travels like everything else.
+→ path blocks → authorization webhook → CePL policy → proxy. Parsing is
+fail-closed: a route with an unparsable CIDR, a bad glob, an unknown `auth`
+value, a broken webhook URL, or a missing policy procedure is rejected whole
+(its paths 404) — a typo can never fail open. And because routes are facts,
+middleware config hot-reloads and time-travels like everything else.
+
+## Request policies (CePL) — plugins, the Centauri way
+
+Instead of a plugin API, a route can name a **stored CePL procedure** that
+runs on every request — after auth, rate limiting, and the built-in
+middleware, immediately before proxying:
+
+```
+PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', policy='office_rules'
+```
+
+The policy is a normal stored procedure (subject `proc:office_rules`), so it
+is versioned, hot-reloaded on change, and `AS OF`-auditable like every other
+fact — *"what did our access policy say last Tuesday?"* is a query. It
+receives four arguments (declare any subset): `method`, `path`, `key` (the
+resolved caller name — key name, JWT `sub`, or mTLS CN; `''` when anonymous),
+and `ip`.
+
+```
+PROCEDURE office_rules(method, path, key, ip)
+  -- writes only from the ci key; reads for everyone
+  WHEN method != 'GET' AND key != 'ci': RETURN 'deny:only ci may write here'
+  RETURN 'allow'
+END
+```
+
+The decision is the procedure's `RETURN` value:
+
+- `'allow'` or `true` — proceed;
+- `'deny'` / `'deny:<message>'` or `false` — 403, with the message;
+- a record (e.g. a fact the policy read with `LET`) — honored as
+  `{"allow": bool, "status": N, "message": "…", "add_headers": {…}}`:
+  `status` defaults to 403 on deny; `add_headers` is applied to the
+  **upstream** request on allow;
+- anything else, a runtime error, or `FAIL 'msg'` — **403, fail closed**.
+
+A route naming a missing or unparsable procedure is **rejected whole** at
+config load (its paths 404) — a policy can never silently not run. Every
+policy denial is audited with `"policy": "<name>"` in the fact, *even on
+`audit: 'none'` routes* — a denial is a security event, not traffic volume.
+
+Cost, measured: the procedure is parsed once per config load, so the hot
+path only executes the parsed steps. `BenchmarkPolicyOverhead` puts the
+two-step policy above at **≈2.1 µs per request** (Go stdlib interpreter,
+2-core dev VM) — noise next to even a loopback HTTP round trip. Policies
+that run CeQL reads (`LET x = FIRST FACTS OF …`) cost more, typically tens
+of microseconds against the in-memory indexes.
+
+Honesty: CePL is guards + CeQL reads/writes — no loops, no body access.
+That covers allow/deny/annotate well; request/response *transformation* is
+out of scope. Programmable, yes; a plugin marketplace, no.
+
+## Webhook authorization
+
+For allow/deny decisions that live outside the database — an entitlement
+service, a corporate ACL — a route can call out to yours:
+
+```
+PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', authz_webhook='https://authz.internal/check'
+```
+
+After built-in auth passes (including on `auth: 'none'` routes), the gateway
+POSTs JSON to the webhook: `{"method", "path", "key", "ip", "headers"}`,
+where `headers` is a fixed safe subset (`content-type`, `user-agent`,
+`x-request-id`) — the caller's `Authorization` credential is **never**
+forwarded to the webhook. A **2xx** answer allows the request; anything else
+— a non-2xx status, the 2-second timeout, a refused connection — is a
+**403, fail closed**, audited with `"webhook_denied": true`. Set
+`webhook_fail_open: true` to prefer availability over enforcement when the
+webhook itself is down (the default is deny, on purpose).
 
 ## Scaling out
 
@@ -247,6 +368,9 @@ persistent volume for the database (single-writer semantics), and a Deployment
 | `-control-token` | bearer token for the primary's `/v1/log`. |
 | `-audit-data` | separate local audit log used with `-control-follow`. |
 | `-newkey` | mint an API key offline and exit. |
+| `-issuer` | `iss` claim of tokens minted at `POST /gw/token` (default `<scheme>://localhost<addr>`). |
+| `-token-ttl` | lifetime, in seconds, of minted tokens (default 900). |
+| `-token-aud` | `aud` claim of minted tokens (default `centauri`). |
 
 ## Audit & retention
 
@@ -328,9 +452,9 @@ then send `Authorization: Bearer my-secret`.
 | One binary, zero dependencies, no separate datastore | ✓ | ✗ (NGINX/OpenResty; DB or declarative config tooling) |
 | AI-native: LLM provider failover + model pinning + token accounting as facts | ✓ | partial (plugins exist; audit isn't a queryable temporal DB) |
 | Raw proxy throughput | partial — cached per-route proxy on one tuned connection pool; measured ~26k req/s end-to-end on a 2-core dev VM (loopback upstream, the round trip dominates). Plenty for internal APIs; NGINX still wins at the edge | ✓ NGINX data plane, battle-tested at scale |
-| Plugin ecosystem (auth, transforms, WAF, hundreds of plugins) | partial — fixed built-in middleware set (headers, CORS, IP filters, body caps, path blocks); no plugin API | ✓ |
+| Plugin ecosystem (auth, transforms, WAF, hundreds of plugins) | partial — built-in middleware set (headers, CORS, IP filters, body caps, path blocks) *plus* programmable CePL request policies and webhook auth callouts; no plugin marketplace | ✓ |
 | Kubernetes ingress controller / service mesh | ✗ (deployable ON k8s — see infra/k8s.yaml — but not an ingress controller) | ✓ |
-| OAuth2 / OIDC / mTLS client auth flows | ✓ OIDC JWT validation + mTLS client certs (not an identity provider — no login flows or token issuance) | ✓ |
+| OAuth2 / OIDC / mTLS client auth flows | partial — validates OIDC JWTs + mTLS client certs AND issues service tokens (client-credentials only: `/gw/token` + JWKS); no human login/consent flows — bring your IdP for people | ✓ |
 | Enterprise scale-out, multi-DC control plane, commercial support | partial — N gateways can follow one primary control plane (`-control-follow`); no multi-DC, no leader election, no commercial support | ✓ |
 | Response streaming (SSE) through LLM routes | ✓ passthrough, flushed per chunk; failover until the first byte | ✓ |
 

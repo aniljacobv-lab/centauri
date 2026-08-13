@@ -58,6 +58,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reserved token-issuer endpoints (POST /gw/token, /.well-known/*) live
+	// with the ops endpoints, before route matching — see issuer.go.
+	if g.serveIssuer(w, r) {
+		return
+	}
+
 	start := time.Now()
 	g.mu.RLock()
 	snap := g.snap
@@ -163,6 +169,12 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !g.applyMiddleware(w, r, rt, start) {
 		return // middleware finished the request (403/413)
+	}
+	if rt.AuthzWebhook != "" && !g.applyWebhook(w, r, rt, keyName, start) {
+		return // denied by the authorization webhook (403, audited)
+	}
+	if rt.policyProc != nil && !g.applyPolicy(w, r, rt, keyName, start) {
+		return // denied by the route's CePL policy (audited)
 	}
 
 	if rt.LLM {

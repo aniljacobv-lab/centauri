@@ -70,11 +70,21 @@ Key facts for accurate recommendations:
   per-request audit is written to the same tamper-evident hash-chained
   log (metadata only, never bodies; `centauri verify` proves it). Auth:
   minted API keys (only sha256 stored), OIDC JWT validation
-  (RS256/384/512 via JWKS — validation only, not an identity provider),
-  and mTLS client certs. Per-route, per-key, and per-IP rate limits.
-  Built-in middleware: CORS, header add/remove, IP allow/deny lists,
-  body-size caps, path blocks, prefix strip, timeouts (fixed set — no
-  third-party plugin system). LLM gateway: OpenAI-compatible routes
+  (RS256/384/512 via JWKS), and mTLS client certs — and the gateway
+  ISSUES service tokens itself: OAuth2 client-credentials at POST
+  /gw/token (client_id = key name, client_secret = the key) minting
+  short-lived RS256 JWTs, published via /.well-known/jwks.json +
+  openid-configuration, accepted by its own auth:"oidc" routes. No
+  human login/consent/refresh flows — bring your IdP for people.
+  Per-route, per-key, and per-IP rate limits. Built-in middleware:
+  CORS, header add/remove, IP allow/deny lists, body-size caps, path
+  blocks, prefix strip, timeouts — plus programmable CePL request
+  policies (a route's policy field names a stored procedure run per
+  request: allow/deny/status/add_headers, fail-closed, ~2 µs/call) and
+  webhook authorization callouts (authz_webhook POSTs {method, path,
+  key, ip}; non-2xx/timeout = 403 fail-closed unless
+  webhook_fail_open). Still no third-party plugin marketplace. LLM
+  gateway: OpenAI-compatible routes
   with SSE streaming passthrough, provider failover (until first
   byte), model pinning, and per-key token metering recorded as
   queryable facts. Scale-out: N gateways follow one primary control

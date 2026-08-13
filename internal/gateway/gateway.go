@@ -33,6 +33,11 @@ type Gateway struct {
 	// writes its traffic record to its own local log.
 	AuditStore *store.Store
 
+	// Issuer, when set (before serving), enables the client-credentials
+	// token endpoints on the proxy listener: POST /gw/token plus the
+	// /.well-known JWKS and discovery documents. See issuer.go.
+	Issuer *Issuer
+
 	mu    sync.RWMutex
 	snap  *snapshot
 	ready bool
@@ -152,7 +157,15 @@ func (g *Gateway) watchLoop() {
 }
 
 func isConfigEvent(ev *model.Event) bool {
-	if ev == nil || ev.Facet != configFacet {
+	if ev == nil {
+		return false
+	}
+	// A changed CePL procedure may be some route's request policy — reload
+	// so the snapshot re-parses it (policies are parsed once per config load).
+	if ev.Facet == procFacet && strings.HasPrefix(ev.Subject, procSubjectPrefix) {
+		return true
+	}
+	if ev.Facet != configFacet {
 		return false
 	}
 	return strings.HasPrefix(ev.Subject, routeSubjectPrefix) ||

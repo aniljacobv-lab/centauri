@@ -114,7 +114,7 @@
         <td class="p">~<small>assemble with Bedrock, Lambda, and usage plans</small></td>
         <td class="p">~<small>AI offering newer and less proven than Kong's</small></td></tr>
       <tr><td>Authentication</td>
-        <td class="p">~<small>✓ minted API keys (hash-only at rest), OIDC JWT validation (RS256/384/512, JWKS), mTLS client certs. ✗ not an identity provider: no OAuth2 login flows, no token issuance</small></td>
+        <td class="p">~<small>✓ minted API keys (hash-only at rest), OIDC JWT validation (RS256/384/512, JWKS), mTLS client certs — AND issues service tokens (OAuth2 client-credentials at /gw/token, own JWKS). ✗ no human login/consent flows — bring your IdP for people</small></td>
         <td class="y">✓<small>full OAuth2/OIDC plugin suites, key auth, HMAC, LDAP, ACLs</small></td>
         <td class="y">✓<small>built-in OAuth2 authorization server, API keys, JWT</small></td>
         <td class="y">✓<small>IAM, Cognito, Lambda authorizers, mTLS</small></td>
@@ -126,7 +126,7 @@
         <td class="y">✓<small>throttling + usage plans</small></td>
         <td class="y">✓<small>quotas + rate limits per key/policy</small></td></tr>
       <tr><td>Middleware / plugins</td>
-        <td class="p">~<small>built-in fixed set: CORS, header add/remove, IP allow/deny, body caps, path blocks, prefix strip, timeouts. No third-party plugin system</small></td>
+        <td class="p">~<small>built-ins (CORS, header add/remove, IP allow/deny, body caps, path blocks, prefix strip, timeouts) + programmable CePL request policies (stored, versioned, AS OF-auditable) + webhook auth callouts. No third-party plugin marketplace</small></td>
         <td class="y">✓<small>hundreds of plugins + custom plugins in Lua/Go/JS/Python</small></td>
         <td class="y">✓<small>rich policy catalog (transform, mediate, callout)</small></td>
         <td class="p">~<small>mapping templates + Lambda integrations</small></td>
@@ -205,7 +205,7 @@
   <div class="guide"><h3>Choose AWS API Gateway when…</h3><p>…your stack is already AWS and you want serverless scale with the lowest per-call price and zero hosts to manage. IAM/Cognito integration and Lambda authorizers are native. Accept that you assemble audit and analytics from separate services, and that leaving AWS means rebuilding the layer.</p></div>
   <div class="guide"><h3>Choose Tyk when…</h3><p>…you want a fast, open-source Go gateway with a real plugin system and k8s support, self-hosted without NGINX, and are happy pairing it with Redis and (optionally) its paid dashboard.</p></div>
   <div class="guide"><h3>Choose Centauri Gateway when…</h3><p>…your gateway's <em>history</em> matters as much as its throughput: regulated or audit-sensitive APIs, AI/LLM traffic where per-key token accounting must be provable, small-to-mid request volumes, and teams who want one $0 binary with no Postgres, no Redis, and no control-plane bill. It is also the natural choice if you already run Centauri as a system of record.</p></div>
-  <div class="honest"><b>When NOT to choose Centauri:</b> six-figure requests-per-second at the edge; Kubernetes ingress duty; OAuth2 login flows or token issuance (it validates JWTs, it is not an IdP); multi-datacenter active/active; anything that needs a plugin marketplace or a commercial support contract. Writes are single-writer per log and the working set is RAM-resident unless the archive tier is enabled. If those are your constraints, the vendors above earn their price — and this page will still be here when your audit requirements catch up with you.</div>
+  <div class="honest"><b>When NOT to choose Centauri:</b> six-figure requests-per-second at the edge; Kubernetes ingress duty; OAuth2 human login/consent flows (it validates JWTs and issues service tokens via client-credentials, but has no login UI — it is not a full IdP); multi-datacenter active/active; anything that needs a plugin marketplace or a commercial support contract. Writes are single-writer per log and the working set is RAM-resident unless the archive tier is enabled. If those are your constraints, the vendors above earn their price — and this page will still be here when your audit requirements catch up with you.</div>
 </div></section>
 
 <section class="alt"><div class="wrap">

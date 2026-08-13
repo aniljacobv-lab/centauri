@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -41,6 +42,9 @@ func runGatewayCmd(args []string) {
 	controlToken := fs.String("control-token", os.Getenv("CENTAURI_CONTROL_TOKEN"), "bearer token for the primary's /v1/log (with -control-follow)")
 	auditData := fs.String("audit-data", "", "separate local audit log used with -control-follow (default: -data with a -audit.log suffix)")
 	newKey := fs.String("newkey", "", "mint an API key with this friendly name: append its gwkey fact, print the key ONCE, exit")
+	issuerURL := fs.String("issuer", "", "'iss' claim of tokens minted at POST /gw/token (default: <scheme>://localhost<addr>)")
+	tokenTTL := fs.Int("token-ttl", 900, "lifetime, in seconds, of tokens minted at /gw/token")
+	tokenAud := fs.String("token-aud", "centauri", "audience ('aud') claim of tokens minted at /gw/token")
 	_ = fs.Parse(args)
 	*data = ensureDataPath(*data)
 
@@ -110,8 +114,26 @@ func runGatewayCmd(args []string) {
 		go followUntil(context.Background(), st, strings.TrimRight(*controlFollow, "/"), *controlToken, 2*time.Second)
 	}
 
+	scheme := "http"
+	if *tlsCert != "" && *tlsKey != "" {
+		scheme = "https"
+	}
+
 	gw := gateway.New(st)
 	gw.AuditStore = auditSt // nil unless -control-follow
+	// Token issuer (IdP-lite): client-credentials JWTs for gateway keys. The
+	// RSA signing key lives NEXT TO the log, never in it — the log is
+	// append-only forever, so a secret that entered it could not be erased.
+	iss := *issuerURL
+	if iss == "" {
+		iss = scheme + "://localhost" + *addr
+	}
+	gw.Issuer = &gateway.Issuer{
+		KeyPath:  filepath.Join(filepath.Dir(*data), "issuer.key"),
+		Issuer:   iss,
+		Audience: *tokenAud,
+		TTL:      time.Duration(*tokenTTL) * time.Second,
+	}
 	gw.Start()
 
 	var adminSrv *api.Server
@@ -130,10 +152,6 @@ func runGatewayCmd(args []string) {
 		os.Exit(0)
 	}()
 
-	scheme := "http"
-	if *tlsCert != "" && *tlsKey != "" {
-		scheme = "https"
-	}
 	fmt.Print(banner)
 	fmt.Println(api.BuildLine())
 	fmt.Printf("gateway: the API gateway with a perfect memory\n")
@@ -178,6 +196,7 @@ func runGatewayCmd(args []string) {
 	if *mtlsCA != "" {
 		fmt.Println("mTLS: client certificates required on the proxy listener (audit records the cert CN)")
 	}
+	fmt.Println("token endpoint: POST /gw/token (client-credentials for gateway keys)")
 	fmt.Printf("\nproxy listening on %s://localhost%s   metrics: /metrics   health: /livez /readyz\n", scheme, *addr)
 	fmt.Println("llm routes stream: \"stream\":true is passed through as SSE (failover until the first byte).")
 	if *mtlsCA != "" {
