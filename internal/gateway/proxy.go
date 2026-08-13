@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -15,10 +16,28 @@ import (
 	"time"
 )
 
+// proxyTransport is shared by every route's cached ReverseProxy: one tuned
+// connection pool for the whole data plane instead of the default transport's
+// 2-per-host idle cap. Rebuilt never; routes come and go, the pool stays warm.
+var proxyTransport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext,
+	ForceAttemptHTTP2:     true,
+	MaxIdleConns:          512,
+	MaxIdleConnsPerHost:   128,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+
 // ServeHTTP is the data plane. Ops endpoints (/livez /readyz /metrics) are
 // answered first so a route with prefix "/" can never shadow them; everything
-// else is longest-prefix route matching, then auth, then rate limit, then the
-// proxy (plain reverse proxy or the LLM path).
+// else is longest-prefix route matching, then CORS preflight, auth, rate
+// limit, the built-in middleware, and finally the proxy (cached reverse proxy
+// or the LLM path).
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/livez":
@@ -58,11 +77,29 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auth: Bearer or X-Api-Key; only the sha256 of the presented key is ever
-	// compared or stored — the gateway never learns which log line is "the key".
+	// X-Auth-Subject is the gateway's word, never the client's: strip any
+	// spoofed value before auth can set the real one.
+	r.Header.Del("X-Auth-Subject")
+
+	// CORS runs before auth on purpose: browsers send preflights without
+	// credentials, so an OPTIONS preflight must short-circuit here.
+	if rt.CORS {
+		setCORSHeaders(w, r)
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			g.met.observe(rt.Name, http.StatusNoContent, sinceMS(start))
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+
+	// Auth. auth:"key": Bearer or X-Api-Key; only the sha256 of the presented
+	// key is ever compared or stored. auth:"oidc": the Bearer JWT is verified
+	// against the route's issuer/audience and PASSED THROUGH to the upstream
+	// (upstreams often need it) — documented in docs/gateway.md.
 	keyName := ""
 	var key *Key
-	if rt.Auth == "key" {
+	switch rt.Auth {
+	case "key":
 		presented := presentedKey(r)
 		if presented == "" {
 			g.met.observe(rt.Name, http.StatusUnauthorized, sinceMS(start))
@@ -80,6 +117,28 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		key = k
 		keyName = k.Name
+	case "oidc":
+		tok := bearerToken(r)
+		if tok == "" {
+			g.met.observe(rt.Name, http.StatusUnauthorized, sinceMS(start))
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			jsonError(w, http.StatusUnauthorized, "missing bearer token (route requires an OIDC JWT)")
+			return
+		}
+		claims, err := rt.verifier.Verify(tok)
+		if err != nil {
+			g.met.observe(rt.Name, http.StatusUnauthorized, sinceMS(start))
+			jsonError(w, http.StatusUnauthorized, "invalid token: "+err.Error())
+			return
+		}
+		keyName = claims.Subject
+		r.Header.Set("X-Auth-Subject", claims.Subject)
+	}
+
+	// mTLS identity: when the listener verified a client certificate and no
+	// key/OIDC auth named the caller, audit facts record the cert's CN.
+	if keyName == "" && r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
+		keyName = r.TLS.PeerCertificates[0].Subject.CommonName
 	}
 
 	// Rate limit: per (key, route) when authenticated, per (client IP, route)
@@ -91,6 +150,8 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			limit = key.RatePerMin
 		}
 		who = "key:" + key.Hash
+	} else if keyName != "" {
+		who = "sub:" + keyName // OIDC subject / mTLS CN gets its own bucket
 	}
 	if ok, retry := g.rl.allow(rt.Name+"|"+who, limit, time.Now()); !ok {
 		g.rateLimited.Add(1)
@@ -100,6 +161,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !g.applyMiddleware(w, r, rt, start) {
+		return // middleware finished the request (403/413)
+	}
+
 	if rt.LLM {
 		g.serveLLM(w, r, rt, keyName, start)
 		return
@@ -107,27 +172,28 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.serveProxy(w, r, rt, keyName, start)
 }
 
-// serveProxy forwards one request through a per-request ReverseProxy with the
-// route's timeout. The client's gateway credentials are never forwarded.
-func (g *Gateway) serveProxy(w http.ResponseWriter, r *http.Request, rt *Route, keyName string, start time.Time) {
-	outPath := r.URL.Path
-	if rt.StripPrefix {
-		outPath = stripPathPrefix(outPath, rt.Prefix)
-	}
-	reqID := r.Header.Get("X-Request-ID")
-	if reqID == "" {
-		reqID = newRequestID()
-	}
+// newRouteProxy builds the one ReverseProxy a route keeps for its whole
+// config generation. All routes share proxyTransport, so connection pools
+// survive both requests and config reloads.
+func newRouteProxy(rt *Route) *httputil.ReverseProxy {
 	basePath := strings.TrimSuffix(rt.upstream.Path, "/")
-	rp := &httputil.ReverseProxy{
+	return &httputil.ReverseProxy{
+		Transport: proxyTransport,
 		Director: func(req *http.Request) {
+			outPath := req.URL.Path
+			if rt.StripPrefix {
+				outPath = stripPathPrefix(outPath, rt.Prefix)
+			}
 			req.URL.Scheme = rt.upstream.Scheme
 			req.URL.Host = rt.upstream.Host
 			req.URL.Path = basePath + outPath
 			req.Host = rt.upstream.Host
-			req.Header.Set("X-Request-ID", reqID)
+			if req.Header.Get("X-Request-ID") == "" {
+				req.Header.Set("X-Request-ID", newRequestID())
+			}
 			if rt.Auth == "key" {
-				// NEVER forward the gateway key upstream.
+				// NEVER forward the gateway key upstream. (OIDC tokens ARE
+				// forwarded — upstreams often validate them again.)
 				req.Header.Del("Authorization")
 				req.Header.Del("X-Api-Key")
 			}
@@ -137,13 +203,23 @@ func (g *Gateway) serveProxy(w http.ResponseWriter, r *http.Request, rt *Route, 
 			if cw, ok := rw.(*countingWriter); ok && cw.wrote {
 				return // headers already sent mid-stream; nothing safe to add
 			}
+			var mbe *http.MaxBytesError
+			if errors.As(err, &mbe) { // max_body_bytes on a chunked body
+				jsonError(rw, http.StatusRequestEntityTooLarge, "request body exceeds route limit")
+				return
+			}
 			jsonError(rw, http.StatusBadGateway, "upstream error: "+err.Error())
 		},
 	}
+}
+
+// serveProxy forwards one request through the route's cached ReverseProxy,
+// wrapped in the route's timeout.
+func (g *Gateway) serveProxy(w http.ResponseWriter, r *http.Request, rt *Route, keyName string, start time.Time) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(rt.TimeoutMS)*time.Millisecond)
 	defer cancel()
 	cw := &countingWriter{ResponseWriter: w}
-	rp.ServeHTTP(cw, r.WithContext(ctx))
+	rt.proxy.ServeHTTP(cw, r.WithContext(ctx))
 
 	ms := sinceMS(start)
 	g.met.observe(rt.Name, cw.status(), ms)
@@ -193,12 +269,19 @@ func (c *countingWriter) status() int {
 
 // presentedKey extracts the caller's key from Authorization: Bearer or X-Api-Key.
 func presentedKey(r *http.Request) string {
-	if a := r.Header.Get("Authorization"); a != "" {
-		if len(a) > 7 && strings.EqualFold(a[:7], "bearer ") {
-			return strings.TrimSpace(a[7:])
-		}
+	if t := bearerToken(r); t != "" {
+		return t
 	}
 	return strings.TrimSpace(r.Header.Get("X-Api-Key"))
+}
+
+// bearerToken extracts a Bearer credential from the Authorization header.
+func bearerToken(r *http.Request) string {
+	a := r.Header.Get("Authorization")
+	if len(a) > 7 && strings.EqualFold(a[:7], "bearer ") {
+		return strings.TrimSpace(a[7:])
+	}
+	return ""
 }
 
 func clientIP(r *http.Request) string {

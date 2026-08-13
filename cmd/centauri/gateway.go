@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -33,9 +36,27 @@ func runGatewayCmd(args []string) {
 	readToken := fs.String("read-token", os.Getenv("CENTAURI_READ_TOKEN"), "second admin token granting read-only access")
 	tlsCert := fs.String("tls-cert", "", "PEM certificate for HTTPS on the proxy listener (with -tls-key)")
 	tlsKey := fs.String("tls-key", "", "PEM private key for HTTPS on the proxy listener (with -tls-cert)")
+	mtlsCA := fs.String("mtls-ca", "", "PEM CA bundle: require client certificates signed by it on the proxy listener (needs -tls-cert/-tls-key); audit records the cert CN")
+	controlFollow := fs.String("control-follow", "", "scale-out: keep the control plane as a read-only follower of this primary Centauri URL; audit goes to -audit-data")
+	controlToken := fs.String("control-token", os.Getenv("CENTAURI_CONTROL_TOKEN"), "bearer token for the primary's /v1/log (with -control-follow)")
+	auditData := fs.String("audit-data", "", "separate local audit log used with -control-follow (default: -data with a -audit.log suffix)")
 	newKey := fs.String("newkey", "", "mint an API key with this friendly name: append its gwkey fact, print the key ONCE, exit")
 	_ = fs.Parse(args)
 	*data = ensureDataPath(*data)
+
+	if *mtlsCA != "" && (*tlsCert == "" || *tlsKey == "") {
+		log.Fatal("gateway: -mtls-ca requires -tls-cert and -tls-key (the mTLS listener is HTTPS)")
+	}
+	if *controlFollow != "" {
+		// A follower's control log must stay byte-identical to the primary's,
+		// so nothing may write to it locally — not the admin API, not -newkey.
+		if *admin != "" || *adminInline {
+			log.Fatal("gateway: -control-follow keeps the control plane read-only; manage routes/keys on the PRIMARY's dashboard (drop -admin/-admin-inline here)")
+		}
+		if *newKey != "" {
+			log.Fatal("gateway: mint keys on the primary — -control-follow replicates them here within seconds")
+		}
+	}
 
 	st, err := store.OpenOptions(*data, store.Options{Lock: true})
 	if err != nil {
@@ -70,7 +91,27 @@ func runGatewayCmd(args []string) {
 		return
 	}
 
+	// Scale-out: the control store becomes a read-only replica (log shipping,
+	// same mechanism as `centauri follow`), and audit facts go to a separate
+	// local log so N gateways can share one primary control plane.
+	var auditSt *store.Store
+	auditPath := ""
+	if *controlFollow != "" {
+		auditPath = *auditData
+		if auditPath == "" {
+			auditPath = strings.TrimSuffix(*data, ".log") + "-audit.log"
+		}
+		auditPath = ensureDataPath(auditPath)
+		auditSt, err = store.OpenOptions(auditPath, store.Options{Lock: true})
+		if err != nil {
+			st.Close()
+			log.Fatalf("gateway: open audit store: %v", err)
+		}
+		go followUntil(context.Background(), st, strings.TrimRight(*controlFollow, "/"), *controlToken, 2*time.Second)
+	}
+
 	gw := gateway.New(st)
+	gw.AuditStore = auditSt // nil unless -control-follow
 	gw.Start()
 
 	var adminSrv *api.Server
@@ -81,6 +122,9 @@ func runGatewayCmd(args []string) {
 		gw.Stop() // drains queued audit facts into the log
 		if adminSrv != nil {
 			adminSrv.Close()
+		}
+		if auditSt != nil {
+			_ = auditSt.Close()
 		}
 		_ = st.Close()
 		os.Exit(0)
@@ -94,6 +138,10 @@ func runGatewayCmd(args []string) {
 	fmt.Println(api.BuildLine())
 	fmt.Printf("gateway: the API gateway with a perfect memory\n")
 	fmt.Printf("control plane: %s   (routes/keys are bi-temporal facts; audit is tamper-evident)\n", *data)
+	if *controlFollow != "" {
+		fmt.Printf("control plane follows %s (read-only replica; manage config THERE)\n", *controlFollow)
+		fmt.Printf("audit log (local): %s\n", auditPath)
+	}
 	routes := gw.RouteList()
 	fmt.Printf("routes loaded: %d\n", len(routes))
 	for _, rt := range routes {
@@ -110,7 +158,7 @@ func runGatewayCmd(args []string) {
 			log.Fatal(listenMaybeTLS(*admin, "", "", api.WithLogging(adminSrv.Routes(), logger)))
 		}()
 		fmt.Printf("admin dashboard: http://localhost%s%s\n", *admin, authNote(*token))
-	} else if !*adminInline {
+	} else if !*adminInline && *controlFollow == "" {
 		fmt.Println("admin dashboard: off — add -admin :7771 (or -admin-inline) to manage routes in the browser")
 	}
 	if *adminInline {
@@ -121,11 +169,30 @@ func runGatewayCmd(args []string) {
 		gw.Fallback = api.WithLogging(adminSrv.Routes(), logger)
 		fmt.Printf("admin dashboard: inline on the proxy port — any path no route matches%s\n", authNote(*token))
 	}
-	fmt.Println("\nadd a route (CeQL, in the admin console/shell — applies live, no restart):")
-	fmt.Printf("  %s\n", gateway.ExampleRoutePut)
-	fmt.Println("mint a key (stop the gateway first — single-writer lock):")
-	fmt.Printf("  centauri gateway -data %s -newkey ci\n", *data)
+	if *controlFollow == "" {
+		fmt.Println("\nadd a route (CeQL, in the admin console/shell — applies live, no restart):")
+		fmt.Printf("  %s\n", gateway.ExampleRoutePut)
+		fmt.Println("mint a key (stop the gateway first — single-writer lock):")
+		fmt.Printf("  centauri gateway -data %s -newkey ci\n", *data)
+	}
+	if *mtlsCA != "" {
+		fmt.Println("mTLS: client certificates required on the proxy listener (audit records the cert CN)")
+	}
 	fmt.Printf("\nproxy listening on %s://localhost%s   metrics: /metrics   health: /livez /readyz\n", scheme, *addr)
-	fmt.Println("note: llm routes are non-streaming for now — \"stream\":true is rewritten to false.")
+	fmt.Println("llm routes stream: \"stream\":true is passed through as SSE (failover until the first byte).")
+	if *mtlsCA != "" {
+		tc, err := gateway.MTLSServerConfig(*tlsCert, *tlsKey, *mtlsCA)
+		if err != nil {
+			log.Fatalf("gateway: %v", err)
+		}
+		srv := &http.Server{
+			Addr:              *addr,
+			Handler:           gw,
+			TLSConfig:         tc,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       2 * time.Minute,
+		}
+		log.Fatal(srv.ListenAndServeTLS("", "")) // certs come from TLSConfig
+	}
 	log.Fatal(listenMaybeTLS(*addr, *tlsCert, *tlsKey, gw))
 }

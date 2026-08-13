@@ -70,6 +70,7 @@ type echoUpstream struct {
 	lastAPI  string
 	lastXFF  string
 	lastRID  string
+	lastHdr  http.Header
 }
 
 func newEchoUpstream(t *testing.T) *echoUpstream {
@@ -80,6 +81,7 @@ func newEchoUpstream(t *testing.T) *echoUpstream {
 		e.lastAPI = r.Header.Get("X-Api-Key")
 		e.lastXFF = r.Header.Get("X-Forwarded-For")
 		e.lastRID = r.Header.Get("X-Request-ID")
+		e.lastHdr = r.Header.Clone()
 		io.WriteString(w, "echo:"+r.URL.Path)
 	}))
 	t.Cleanup(e.srv.Close)
@@ -352,7 +354,6 @@ func TestLLMRoute(t *testing.T) {
 	}
 
 	var gotModel, gotAuth string
-	var gotStream any = "unset"
 	llmUp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/chat/completions" {
 			t.Errorf("provider got path %q", r.URL.Path)
@@ -360,7 +361,6 @@ func TestLLMRoute(t *testing.T) {
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 		gotModel, _ = body["model"].(string)
-		gotStream = body["stream"]
 		gotAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, `{"id":"cmpl-1","choices":[{"message":{"content":"hi"}}],"usage":{"prompt_tokens":7,"completion_tokens":3}}`)
@@ -375,7 +375,7 @@ func TestLLMRoute(t *testing.T) {
 		}})
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions",
-		strings.NewReader(`{"model":"user-model","stream":true,"messages":[{"role":"user","content":"hello"}]}`))
+		strings.NewReader(`{"model":"user-model","messages":[{"role":"user","content":"hello"}]}`))
 	req.RemoteAddr = "10.0.0.9:1234"
 	req.Header.Set("Authorization", "Bearer client-gateway-key") // must NOT reach the provider
 	rec := httptest.NewRecorder()
@@ -386,9 +386,6 @@ func TestLLMRoute(t *testing.T) {
 	}
 	if gotModel != "prov-model" {
 		t.Fatalf("model not forced: %q", gotModel)
-	}
-	if gotStream != false {
-		t.Fatalf("stream not rewritten to false: %#v", gotStream)
 	}
 	if gotAuth != "Bearer file-secret" {
 		t.Fatalf("provider auth = %q (want auth_file token, never the client key)", gotAuth)

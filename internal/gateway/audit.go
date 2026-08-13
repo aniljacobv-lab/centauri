@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/aniljacobv-lab/centauri/internal/model"
+	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
 // audit enqueues one audit fact for a proxied request. Contract (fixed):
@@ -38,6 +39,15 @@ func (g *Gateway) audit(route *Route, method, path string, status int, ms int64,
 	}
 }
 
+// auditTarget is the store audit facts are appended to: the dedicated audit
+// store when configured (-control-follow followers), else the control store.
+func (g *Gateway) auditTarget() *store.Store {
+	if g.AuditStore != nil {
+		return g.AuditStore
+	}
+	return g.st
+}
+
 // auditLoop is the single writer: it batches queued audit facts into one
 // Append per ~1s (or per 100 facts), keeping fsync pressure off the hot path.
 // On Stop it drains whatever is queued before exiting.
@@ -50,7 +60,7 @@ func (g *Gateway) auditLoop() {
 		if len(batch) == 0 {
 			return
 		}
-		if err := g.st.Append(time.Now().UnixMicro(), batch, nil); err != nil {
+		if err := g.auditTarget().Append(time.Now().UnixMicro(), batch, nil); err != nil {
 			g.auditDropped.Add(uint64(len(batch)))
 		}
 		batch = nil

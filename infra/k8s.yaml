@@ -1,0 +1,171 @@
+# Centauri on Kubernetes — deploy-ON-k8s, NOT an ingress controller.
+#
+# Centauri's gateway is a plain HTTP workload: it does not implement
+# IngressClass, the Gateway API, or any CRDs. Put a real ingress controller
+# (or a LoadBalancer Service, as below) in front of it.
+#
+# What this file gives you:
+#   - centauri-db:      StatefulSet, replicas: 1 + a persistent volume.
+#                       The store is SINGLE-WRITER by design (one process
+#                       holds the log's write lock) — do NOT raise replicas;
+#                       run read replicas with `centauri follow` instead.
+#   - centauri-gateway: Deployment (replicas: 1, Recreate) + Service, in
+#                       single-port -admin-inline mode: proxied routes win,
+#                       any unmatched path serves the admin dashboard,
+#                       token-gated by CENTAURI_TOKEN from a Secret.
+#                       Its control-plane log also has one writer, hence
+#                       one replica. To scale gateways horizontally, give
+#                       each its own volume and point them at one primary
+#                       with -control-follow (see docs/gateway.md,
+#                       "Scaling out").
+#
+# Build & push the image first (no public image is assumed):
+#   docker build -t <your-registry>/centauri:latest . && docker push <your-registry>/centauri:latest
+# then replace the two image: fields below.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: centauri-token
+type: Opaque
+stringData:
+  # Replace before applying (or create with:
+  #   kubectl create secret generic centauri-token --from-literal=token=$(openssl rand -hex 32))
+  token: change-me-to-a-long-random-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: centauri-db
+spec:
+  selector:
+    app: centauri-db
+  ports:
+    - name: http
+      port: 7771
+      targetPort: 7771
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: centauri-db
+spec:
+  serviceName: centauri-db
+  replicas: 1 # single-writer store: never more than 1
+  selector:
+    matchLabels:
+      app: centauri-db
+  template:
+    metadata:
+      labels:
+        app: centauri-db
+    spec:
+      containers:
+        - name: centauri
+          image: centauri:latest # <- your registry
+          args: ["serve", "-data", "/data/centauri.log", "-addr", ":7771"]
+          env:
+            - name: CENTAURI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: centauri-token
+                  key: token
+          ports:
+            - containerPort: 7771
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 7771
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 7771
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: centauri-gateway-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: centauri-gateway
+spec:
+  # Change to ClusterIP if an ingress controller fronts the gateway.
+  type: LoadBalancer
+  selector:
+    app: centauri-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: centauri-gateway
+spec:
+  replicas: 1 # the control-plane log has one writer; scale out via -control-follow
+  strategy:
+    type: Recreate # the volume is ReadWriteOnce and the log is single-writer
+  selector:
+    matchLabels:
+      app: centauri-gateway
+  template:
+    metadata:
+      labels:
+        app: centauri-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: centauri:latest # <- your registry
+          # Single-port mode: proxied routes win; any unmatched path serves
+          # the admin dashboard (token-gated by CENTAURI_TOKEN).
+          args: ["gateway", "-data", "/data/gateway.log", "-addr", ":8080", "-admin-inline"]
+          env:
+            - name: CENTAURI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: centauri-token
+                  key: token
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: centauri-gateway-data

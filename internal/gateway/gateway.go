@@ -27,6 +27,12 @@ type Gateway struct {
 	// same listener (single-port deploys like Render). Routes always win.
 	Fallback http.Handler
 
+	// AuditStore, when set (before Start), receives the audit facts instead
+	// of the control-plane store. Used by -control-follow scale-out: the
+	// control store is a read-only replica of the primary, so each gateway
+	// writes its traffic record to its own local log.
+	AuditStore *store.Store
+
 	mu    sync.RWMutex
 	snap  *snapshot
 	ready bool
@@ -82,7 +88,10 @@ func (g *Gateway) Stop() {
 // Reload rebuilds the route/key snapshot from Current facts. Cheap enough to
 // call on every config change; the hot path only ever swaps one pointer.
 func (g *Gateway) Reload() {
-	snap := loadSnapshot(g.st)
+	g.mu.RLock()
+	prev := g.snap
+	g.mu.RUnlock()
+	snap := loadSnapshot(g.st, prev)
 	g.mu.Lock()
 	g.snap = snap
 	g.ready = true

@@ -6,10 +6,14 @@
 package gateway
 
 import (
+	"net/http/httputil"
+	"net/netip"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 
+	"github.com/aniljacobv-lab/centauri/internal/oidc"
 	"github.com/aniljacobv-lab/centauri/internal/store"
 )
 
@@ -17,9 +21,14 @@ import (
 //
 //	Route: subject "route:<name>", facet "config", value:
 //	  {"prefix":"/api/","upstream":"https://host[:port]","strip_prefix":bool,
-//	   "auth":"none"|"key","rate_per_min":N,"timeout_ms":N,"audit":"meta"|"none",
-//	   "llm":bool,"providers":[{"endpoint","model","auth_env","auth_file"}],
-//	   "retired":true}
+//	   "auth":"none"|"key"|"oidc","rate_per_min":N,"timeout_ms":N,
+//	   "audit":"meta"|"none","llm":bool,
+//	   "providers":[{"endpoint","model","auth_env","auth_file"}],
+//	   "oidc_issuer":"https://idp","oidc_audience":"aud","oidc_jwks_url":"…",
+//	   "add_request_headers":{..},"add_response_headers":{..},
+//	   "remove_request_headers":[..],"cors":bool,
+//	   "allow_ips":[CIDRs],"deny_ips":[CIDRs],"max_body_bytes":N,
+//	   "block_path_patterns":[globs],"retired":true}
 //	Key: subject "gwkey:<sha256hex-of-key>", facet "config", value:
 //	  {"name":"friendly","routes":["/api/"],"rate_per_min":N,"retired":true}
 const (
@@ -49,14 +58,33 @@ type Route struct {
 	Prefix      string
 	Upstream    string
 	StripPrefix bool
-	Auth        string // "none" | "key"
+	Auth        string // "none" | "key" | "oidc"
 	RatePerMin  int    // 0 = unlimited (per key, or per client IP when auth=none)
 	TimeoutMS   int
 	Audit       string // "meta" | "none"
 	LLM         bool
 	Providers   []Provider
 
-	upstream *url.URL // parsed Upstream; nil is only valid for LLM routes
+	// OIDC route auth (auth:"oidc"): the Bearer JWT is validated against the
+	// issuer's JWKS. Both issuer and audience are required; the JWKS URL is
+	// discovered from the issuer when not given explicitly.
+	OIDCIssuer   string
+	OIDCAudience string
+	OIDCJWKSURL  string
+
+	// Built-in middleware, applied pre-proxy (see docs/gateway.md).
+	AddRequestHeaders    map[string]string
+	AddResponseHeaders   map[string]string
+	RemoveRequestHeaders []string
+	CORS                 bool
+	AllowIPs             []netip.Prefix
+	DenyIPs              []netip.Prefix
+	MaxBodyBytes         int64
+	BlockPathPatterns    []string // path.Match globs ('*' does not cross '/')
+
+	upstream *url.URL               // parsed Upstream; nil is only valid for LLM routes
+	verifier *oidc.Verifier         // auth:"oidc" only; JWKS keys are cached inside
+	proxy    *httputil.ReverseProxy // non-LLM: built once per config load, shared transport
 }
 
 // Key is the in-memory form of one gwkey:<hash> config fact. The secret is
@@ -100,8 +128,18 @@ func (s *snapshot) match(path string) *Route {
 
 // loadSnapshot reads Current route:/gwkey: config facts from the store
 // (mirrors how ceql.findModel scans model:*). Retired or unparsable entries
-// are skipped; nothing here can fail the gateway.
-func loadSnapshot(st *store.Store) *snapshot {
+// are skipped; nothing here can fail the gateway. prev (may be nil) lets
+// unchanged OIDC routes keep their verifier — and with it the cached JWKS
+// keys — across config reloads.
+func loadSnapshot(st *store.Store, prev *snapshot) *snapshot {
+	verifiers := map[string]*oidc.Verifier{}
+	if prev != nil {
+		for _, r := range prev.routes {
+			if r.verifier != nil {
+				verifiers[r.OIDCIssuer+"\x00"+r.OIDCAudience+"\x00"+r.OIDCJWKSURL] = r.verifier
+			}
+		}
+	}
 	snap := &snapshot{keys: map[string]*Key{}}
 	for _, sub := range st.Subjects() {
 		isRoute := strings.HasPrefix(sub, routeSubjectPrefix)
@@ -119,6 +157,14 @@ func loadSnapshot(st *store.Store) *snapshot {
 		}
 		if isRoute {
 			if r := parseRoute(strings.TrimPrefix(sub, routeSubjectPrefix), v); r != nil {
+				if r.Auth == "oidc" {
+					if cached := verifiers[r.OIDCIssuer+"\x00"+r.OIDCAudience+"\x00"+r.OIDCJWKSURL]; cached != nil {
+						r.verifier = cached
+					}
+				}
+				if !r.LLM {
+					r.proxy = newRouteProxy(r)
+				}
 				snap.routes = append(snap.routes, r)
 			}
 			continue
@@ -142,31 +188,67 @@ func loadSnapshot(st *store.Store) *snapshot {
 }
 
 // parseRoute builds a Route from a config fact's value, applying defaults.
-// Returns nil for unroutable configs (no prefix, or no valid upstream on a
-// non-LLM route) so a half-written fact can't take traffic.
+// Returns nil for unroutable configs (no prefix, no valid upstream on a
+// non-LLM route, unknown auth mode, incomplete OIDC config, bad CIDR, bad
+// glob) so a half-written fact can never take traffic — and, for the IP
+// filters especially, can never fail OPEN.
 func parseRoute(name string, v map[string]any) *Route {
 	r := &Route{
-		Name:        name,
-		Prefix:      strField(v, "prefix"),
-		Upstream:    strField(v, "upstream"),
-		StripPrefix: boolField(v, "strip_prefix"),
-		Auth:        strField(v, "auth"),
-		RatePerMin:  intField(v, "rate_per_min"),
-		TimeoutMS:   intField(v, "timeout_ms"),
-		Audit:       strField(v, "audit"),
-		LLM:         boolField(v, "llm"),
+		Name:                 name,
+		Prefix:               strField(v, "prefix"),
+		Upstream:             strField(v, "upstream"),
+		StripPrefix:          boolField(v, "strip_prefix"),
+		Auth:                 strField(v, "auth"),
+		RatePerMin:           intField(v, "rate_per_min"),
+		TimeoutMS:            intField(v, "timeout_ms"),
+		Audit:                strField(v, "audit"),
+		LLM:                  boolField(v, "llm"),
+		OIDCIssuer:           strField(v, "oidc_issuer"),
+		OIDCAudience:         strField(v, "oidc_audience"),
+		OIDCJWKSURL:          strField(v, "oidc_jwks_url"),
+		AddRequestHeaders:    strMap(v, "add_request_headers"),
+		AddResponseHeaders:   strMap(v, "add_response_headers"),
+		RemoveRequestHeaders: strSlice(v, "remove_request_headers"),
+		CORS:                 boolField(v, "cors"),
+		MaxBodyBytes:         int64(intField(v, "max_body_bytes")),
+		BlockPathPatterns:    strSlice(v, "block_path_patterns"),
 	}
 	if r.Prefix == "" {
 		return nil
 	}
-	if r.Auth == "" {
-		r.Auth = "none"
+	if r.Audit == "" {
+		r.Audit = "meta"
 	}
 	if r.TimeoutMS <= 0 {
 		r.TimeoutMS = defaultTimeoutMS
 	}
-	if r.Audit == "" {
-		r.Audit = "meta"
+	switch r.Auth {
+	case "":
+		r.Auth = "none"
+	case "none", "key":
+	case "oidc":
+		if r.OIDCIssuer == "" || r.OIDCAudience == "" {
+			return nil // can't verify tokens without both — never serve open
+		}
+		r.verifier = oidc.New(oidc.Config{
+			Issuer:   r.OIDCIssuer,
+			Audience: r.OIDCAudience,
+			JWKSURL:  r.OIDCJWKSURL,
+		})
+	default:
+		return nil // unknown auth mode must not mean "open"
+	}
+	var ok bool
+	if r.AllowIPs, ok = cidrList(v, "allow_ips"); !ok {
+		return nil
+	}
+	if r.DenyIPs, ok = cidrList(v, "deny_ips"); !ok {
+		return nil
+	}
+	for _, pat := range r.BlockPathPatterns {
+		if _, err := path.Match(pat, "/"); err != nil {
+			return nil // a bad glob must not silently unblock the path
+		}
 	}
 	if r.Upstream != "" {
 		if u, err := url.Parse(r.Upstream); err == nil && u.Scheme != "" && u.Host != "" {
@@ -240,4 +322,37 @@ func strSlice(v map[string]any, k string) []string {
 		}
 	}
 	return out
+}
+
+func strMap(v map[string]any, k string) map[string]string {
+	m, ok := v[k].(map[string]any)
+	if !ok || len(m) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for kk, x := range m {
+		if s, ok := x.(string); ok {
+			out[kk] = s
+		}
+	}
+	return out
+}
+
+// cidrList parses a list of CIDRs (bare IPs allowed, meaning a single-address
+// prefix). ok=false when any entry is unparsable: the caller rejects the whole
+// route, so a typo in an IP filter turns into a 404 — never an open filter.
+func cidrList(v map[string]any, k string) ([]netip.Prefix, bool) {
+	var out []netip.Prefix
+	for _, s := range strSlice(v, k) {
+		if p, err := netip.ParsePrefix(s); err == nil {
+			out = append(out, p.Masked())
+			continue
+		}
+		if a, err := netip.ParseAddr(s); err == nil {
+			out = append(out, netip.PrefixFrom(a, a.BitLen()))
+			continue
+		}
+		return nil, false
+	}
+	return out, true
 }
