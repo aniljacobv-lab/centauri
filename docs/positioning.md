@@ -119,16 +119,38 @@ models in queries, `SEARCH`/`SIMILAR` are hybrid keyword+vector, and turning on
 Nothing leaves the machine. Everything — including every model inference and every
 human rating — is a queryable, replayable fact.
 
-### For an enterprise / CIO
-A compliance-grade system of record: append-only with a SHA-256 hash chain and
-per-segment Merkle roots, bi-temporal time travel for "as-of" reconstructions,
-crypto-erasure for right-to-be-forgotten without breaking the audit trail, and
-retention + enforced legal hold. It fits your stack without a rewrite: OIDC/JWT SSO
-(Okta/Azure AD/Auth0/Keycloak), row-level security with field masking, Prometheus
-metrics and health probes, an S3 cold tier, and **automatic HA failover** via
-lease-based leader election. The AI runs locally, so sensitive data never leaves
-your perimeter — and every model answer is auditable. One binary, zero third-party
-runtime dependencies, no license to renew.
+### For an enterprise / CIO (mirrors the homepage "Why Centauri" tab)
+Five outcomes, one binary:
+
+1. **Provable compliance.** When a regulator asks "what did you know, and
+   when?", the answer is a query, not a forensics project: every record is
+   sealed into a tamper-evident SHA-256 hash chain (plus per-segment Merkle
+   roots), and bi-temporal time travel reconstructs any past moment exactly as
+   it was believed then. `centauri verify` re-proves the whole history
+   byte-for-byte, on demand. Crypto-erasure covers right-to-be-forgotten
+   without breaking the chain; retention + enforced legal hold ship in the box.
+2. **Data sovereignty.** AI answers are computed on your hardware, from your
+   documents. Nothing is uploaded, nothing phones home. Cloud models (GLM-5.2,
+   OpenAI GPT-5.5, Anthropic Claude) are optional, per-provider-keyed, off by
+   default, and explicitly labeled when data would leave the machine.
+3. **Radical TCO.** The software is $0, forever, under The PostgreSQL License.
+   It runs on a laptop or a $5–20/month VM — where comparable API platforms
+   bill per gateway service, per million calls, and per environment. No
+   per-seat, per-request, or control-plane fees.
+4. **Vendor independence.** The PostgreSQL License (any use, including
+   commercial, no copyleft), zero third-party dependencies (the empty go.mod
+   `require` block is public and verifiable), and data in plain files your own
+   engineers can read. Leaving costs one file copy.
+5. **Five-minute deployment.** One binary: installer or `curl | sh`;
+   `centauri desktop` sets up local AI automatically; a one-click Render
+   blueprint for cloud. It fits the existing stack without a rewrite —
+   OIDC/JWT SSO, row-level security with field masking, Prometheus metrics,
+   native TLS, an S3 cold tier, automatic HA failover, and an API/LLM gateway
+   whose config time-travels and whose request audit is tamper-evident.
+
+Honest trade (say it before they ask): no commercial support org today, no
+plugin marketplace, no managed SLA — support is GitHub issues and the docs,
+and you run it yourself.
 
 ### For a small/medium business owner
 Run one command — `centauri desktop` — and you have a private AI in about five
@@ -171,7 +193,12 @@ and the model never phones home.
    row-level security + field masking; retention + enforced legal hold;
    **automatic HA failover** (lease-based election with epoch fencing); CDC with
    durable replication slots; admission control (rate limits, body caps);
-   Prometheus metrics, health probes, structured logs, native TLS.
+   Prometheus metrics, health probes, structured logs, native TLS. Plus the
+   **API/LLM gateway** (`centauri gateway`): routes and keys as bi-temporal
+   facts (config time travel), a tamper-evident per-request audit, API keys /
+   OIDC JWT validation / mTLS, SSE-streaming LLM routes with provider failover
+   and per-key token metering, and the **Console** at `/console` for browser
+   key minting and usage panels.
 
 4. **Scales and stays fast** — compressed cold-tier segments with zone-map data
    skipping; a lazy index so data exceeds RAM; sharding and group commit for write
@@ -179,7 +206,9 @@ and the model never phones home.
    cold tier** (stdlib SigV4, Merkle-verified) for cheap, verifiable cold storage.
 
 5. **You own it** — one self-contained binary, **zero third-party Go dependencies**
-   (stdlib only), no cloud requirement, no license. Download one file and run.
+   (stdlib only), no cloud requirement, and **The PostgreSQL License**
+   (OSI-approved, permissive, free for any use including commercial, no
+   copyleft — never described as MIT). Download one file and run.
    Zero-dependency Python / Go / JS SDKs and a native MCP server for agents.
 
 ---

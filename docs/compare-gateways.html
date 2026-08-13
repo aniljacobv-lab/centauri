@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri Gateway vs Kong, Apigee, AWS API Gateway &amp; Tyk — an honest comparison</title>
+<meta name="description" content="Feature-by-feature, honest comparison of the Centauri API/LLM gateway against Kong (OSS + Konnect), Google Apigee, AWS API Gateway, and Tyk — including what the others do better, and indicative mid-2026 pricing.">
+<meta name="theme-color" content="#0f1b29">
+<link rel="canonical" href="https://centauridb.com/compare-gateways.html">
+<style>
+  :root{
+    --navy:#16212e;--ink:#16243a;--dim:#54627a;--faint:#8493a8;
+    --blue:#2f6fb0;--blue-d:#245a91;--teal:#00add8;--teal-d:#0594bb;
+    --bg:#ffffff;--bg2:#f4f8fc;--bg3:#eaf1f8;--border:#dbe5f0;--code:#f5f8fc;
+    --good:#1a8754;--bad:#d23b3b;--warn:#b4690e;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.88em;background:var(--code);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  nav{background:var(--navy);color:#fff;position:sticky;top:0;z-index:50}
+  nav .wrap{display:flex;align-items:center;gap:24px;height:58px}
+  .brand{font-weight:800;font-size:18px;color:#fff;display:flex;align-items:center;gap:8px}
+  .brand .star{color:var(--teal);font-size:20px}
+  nav .links{margin-left:auto;display:flex;gap:20px;font-size:14.5px}
+  nav .links a{color:#c6d4e6}nav .links a:hover{color:#fff;text-decoration:none}
+  @media(max-width:900px){nav .links a:not(.gh){display:none}}
+  .gh{border:1px solid #38506b;border-radius:7px;padding:6px 13px;color:#fff!important}
+  .hero{background:linear-gradient(180deg,#fff,var(--bg2));border-bottom:1px solid var(--border)}
+  .hero .wrap{padding:44px 24px 36px}
+  h1{font-size:clamp(28px,3.8vw,42px);line-height:1.12;margin:0 0 10px;letter-spacing:-1px;font-weight:800}
+  h1 .accent{color:var(--teal-d)}
+  .sub{font-size:17.5px;color:var(--dim);margin:0;max-width:860px}
+  section{padding:44px 0}
+  .alt{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  h2{font-size:clamp(22px,2.6vw,29px);margin:0 0 8px;letter-spacing:-.4px;font-weight:800}
+  h2 .rule{color:var(--teal-d)}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-d);font-weight:700;margin-bottom:6px}
+  .lead{color:var(--dim);font-size:16.5px;max-width:840px;margin:0 0 24px}
+  .scroll{overflow-x:auto}
+  table.cmp{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:980px}
+  .cmp th,.cmp td{padding:11px 12px;text-align:center;border-bottom:1px solid var(--border);vertical-align:top}
+  .cmp thead th{background:var(--bg2);font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .cmp td:first-child,.cmp th:first-child{text-align:left;color:var(--ink);font-weight:600;min-width:170px}
+  .cmp .me{color:var(--teal-d);font-weight:800}
+  .y{color:var(--good);font-weight:700}.n{color:var(--bad)}.p{color:var(--warn)}
+  .cmp td small{color:var(--faint);font-size:11px;display:block;font-weight:400;line-height:1.45;margin-top:2px}
+  .honest{background:#fff8ed;border:1px solid #f0d8af;border-left:4px solid var(--warn);border-radius:10px;padding:18px 22px;color:var(--dim);font-size:15px}
+  .honest b{color:var(--warn)}
+  .guide{background:#fff;border:1px solid var(--border);border-radius:11px;padding:20px 24px;margin-bottom:16px}
+  .guide h3{margin:0 0 8px;font-size:17px}
+  .guide p{margin:0;color:var(--dim);font-size:15px}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:9px;font-weight:700;font-size:16px;border:1.5px solid transparent;cursor:pointer}
+  .btn:hover{text-decoration:none}
+  .btn.primary{background:var(--teal);color:#06222b;border-color:var(--teal)}
+  .btn.primary:hover{background:var(--teal-d);border-color:var(--teal-d);color:#fff}
+  .btn.outline{background:#fff;color:var(--ink);border-color:var(--border)}
+  .btn.outline:hover{border-color:var(--blue);color:var(--blue)}
+  .srcnote{font-size:12.5px;color:var(--faint);margin-top:10px}
+  footer{background:var(--navy);color:#aebfd4;padding:30px 0 44px;font-size:14px}
+  footer a{color:#cfe0f5}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <span class="brand"><span class="star">✦</span> Centauri</span>
+  <span class="links">
+    <a href="index.html#why">Why Centauri</a>
+    <a href="index.html#pricing">Pricing</a>
+    <a href="index.html#compare">Compare</a>
+    <a href="index.html#what">For engineers</a>
+    <a href="index.html#download">Download</a>
+    <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
+  </span>
+</div></nav>
+
+<div class="hero"><div class="wrap">
+  <div class="kicker">API gateway comparison</div>
+  <h1>Centauri Gateway vs Kong, Apigee, AWS <span class="accent">&amp; Tyk</span> — honestly.</h1>
+  <p class="sub"><code>centauri gateway</code> is an API + LLM gateway whose configuration is <b>bi-temporal facts</b> (you can time-travel any past config) and whose per-request audit is a <b>tamper-evident hash chain</b>. It is also a young, single-binary gateway from a small project — so this page states plainly what Kong, Google, AWS, and Tyk do better. Documentation honesty is policy here: a ✗ is a ✗.</p>
+</div></div>
+
+<section><div class="wrap">
+  <h2>The feature matrix</h2>
+  <p class="lead">✓ = shipped and first-class · <span class="p">~</span> = partial, or assembled from other pieces · ✗ = not offered. Nuance in small print; when in doubt, the cell errs in the competitor's favor.</p>
+  <div class="scroll"><table class="cmp">
+    <thead><tr><th></th><th class="me">Centauri Gateway</th><th>Kong (OSS + Konnect)</th><th>Google Apigee</th><th>AWS API Gateway</th><th>Tyk</th></tr></thead>
+    <tbody>
+      <tr><td>Config model</td>
+        <td class="y">bi-temporal facts<small>routes &amp; keys are database facts; AS OF / AS KNOWN AT / HISTORY replay any past config; RETIRE, never delete</small></td>
+        <td class="y">✓<small>declarative YAML (DB-less), Postgres-backed, or Konnect console; version via GitOps</small></td>
+        <td class="y">✓<small>API proxies with numbered revisions; console + management API</small></td>
+        <td class="p">~<small>console / CloudFormation / SAM; stages + deployment history</small></td>
+        <td class="y">✓<small>API definitions in files, Redis, or the dashboard</small></td></tr>
+      <tr><td>Config time travel<small>"what was live last Tuesday 9am?"</small></td>
+        <td class="y">✓<small>one query; every change is a superseding fact</small></td>
+        <td class="n">✗<small>reconstruct from git history / external audit</small></td>
+        <td class="p">~<small>revision rollback exists; not point-in-time query</small></td>
+        <td class="p">~<small>redeploy an old stage deployment</small></td>
+        <td class="n">✗</td></tr>
+      <tr><td>Request audit trail</td>
+        <td class="y">tamper-evident<small>per-request facts in a SHA-256 hash chain; centauri verify proves nothing was edited; metadata only, never bodies</small></td>
+        <td class="p">~<small>rich logging via plugins to your sink; not independently verifiable</small></td>
+        <td class="y">✓<small>managed analytics + Cloud Audit Logs; strong, but not a verifiable chain you hold</small></td>
+        <td class="p">~<small>assemble CloudWatch + CloudTrail + Athena yourself</small></td>
+        <td class="p">~<small>analytics via Tyk Pump to your store</small></td></tr>
+      <tr><td>AI / LLM routing</td>
+        <td class="y">✓<small>OpenAI-compatible routes; SSE streaming passthrough; provider failover (until first byte); model pinning; per-key token metering stored as queryable facts</small></td>
+        <td class="y">✓<small>dedicated AI-gateway plugin suite: multi-provider routing, token rate limiting, prompt guards</small></td>
+        <td class="p">~<small>emerging LLM-ops features on Google's stack</small></td>
+        <td class="p">~<small>assemble with Bedrock, Lambda, and usage plans</small></td>
+        <td class="p">~<small>AI offering newer and less proven than Kong's</small></td></tr>
+      <tr><td>Authentication</td>
+        <td class="p">~<small>✓ minted API keys (hash-only at rest), OIDC JWT validation (RS256/384/512, JWKS), mTLS client certs. ✗ not an identity provider: no OAuth2 login flows, no token issuance</small></td>
+        <td class="y">✓<small>full OAuth2/OIDC plugin suites, key auth, HMAC, LDAP, ACLs</small></td>
+        <td class="y">✓<small>built-in OAuth2 authorization server, API keys, JWT</small></td>
+        <td class="y">✓<small>IAM, Cognito, Lambda authorizers, mTLS</small></td>
+        <td class="y">✓<small>OAuth2/OIDC, HMAC, mTLS, custom middleware auth</small></td></tr>
+      <tr><td>Rate limiting</td>
+        <td class="y">✓<small>per-route, per-key, and per-IP budgets</small></td>
+        <td class="y">✓<small>basic + advanced (sliding window, clustered)</small></td>
+        <td class="y">✓<small>quotas + spike arrest policies</small></td>
+        <td class="y">✓<small>throttling + usage plans</small></td>
+        <td class="y">✓<small>quotas + rate limits per key/policy</small></td></tr>
+      <tr><td>Middleware / plugins</td>
+        <td class="p">~<small>built-in fixed set: CORS, header add/remove, IP allow/deny, body caps, path blocks, prefix strip, timeouts. No third-party plugin system</small></td>
+        <td class="y">✓<small>hundreds of plugins + custom plugins in Lua/Go/JS/Python</small></td>
+        <td class="y">✓<small>rich policy catalog (transform, mediate, callout)</small></td>
+        <td class="p">~<small>mapping templates + Lambda integrations</small></td>
+        <td class="y">✓<small>middleware in JS/Python/Go gRPC plugins</small></td></tr>
+      <tr><td>Kubernetes ingress / mesh</td>
+        <td class="n">✗<small>no ingress controller, no mesh; runs fine *in* k8s as a plain deployment</small></td>
+        <td class="y">✓<small>Kong Ingress Controller + Kuma/Kong Mesh</small></td>
+        <td class="p">~<small>via Apigee adapters / Anthos service mesh</small></td>
+        <td class="p">~<small>not a k8s ingress; ALB/App Mesh are separate products</small></td>
+        <td class="y">✓<small>Tyk Operator + ingress support</small></td></tr>
+      <tr><td>Throughput class</td>
+        <td class="p">~<small>Go stdlib reverse proxy; comfortable for small/mid APIs; no published high-throughput benchmarks — do not pick it for six-figure RPS</small></td>
+        <td class="y">✓<small>NGINX/OpenResty core; very high, battle-tested throughput</small></td>
+        <td class="y">✓<small>Google-scale managed infrastructure and SLAs</small></td>
+        <td class="y">✓<small>serverless scale, regional redundancy</small></td>
+        <td class="y">✓<small>Go gateway, high throughput, published benchmarks</small></td></tr>
+      <tr><td>Deployment weight</td>
+        <td class="y">one binary<small>config + audit in one log file; no separate DB, no control-plane service; admin plane is the same binary</small></td>
+        <td class="p">~<small>data plane + control plane; Postgres (DB mode) or DB-less files; Konnect adds SaaS control plane</small></td>
+        <td class="p">~<small>managed SaaS; org/environment provisioning</small></td>
+        <td class="y">✓<small>fully managed, nothing to host</small></td>
+        <td class="p">~<small>gateway + Redis; dashboard/analytics components extra</small></td></tr>
+      <tr><td>Scale-out / HA</td>
+        <td class="p">~<small>N gateways follow one primary control plane (-control-follow, read-only replicas); no multi-DC, no gateway leader election</small></td>
+        <td class="y">✓<small>clustering, hybrid mode, multi-region via Konnect</small></td>
+        <td class="y">✓<small>multi-region managed</small></td>
+        <td class="y">✓<small>managed regional service</small></td>
+        <td class="y">✓<small>clustered gateways, multi-DC in paid tiers</small></td></tr>
+      <tr><td>Observability</td>
+        <td class="y">✓<small>Prometheus metrics + the audit log is itself queryable (CeQL) — token spend per key is a query</small></td>
+        <td class="y">✓<small>Prometheus, Datadog, OpenTelemetry plugins</small></td>
+        <td class="y">✓<small>full analytics + monetization reporting suite</small></td>
+        <td class="y">✓<small>CloudWatch metrics/logs, X-Ray tracing</small></td>
+        <td class="y">✓<small>Tyk Pump → Prometheus/Elastic/etc.</small></td></tr>
+      <tr><td>API monetization</td>
+        <td class="n">✗<small>token/request metering as facts, but no billing engine</small></td>
+        <td class="p">~<small>via plugins/partners</small></td>
+        <td class="y">✓<small>first-class monetization suite</small></td>
+        <td class="p">~<small>usage plans + marketplace</small></td>
+        <td class="p">~<small>in paid dashboard tiers</small></td></tr>
+      <tr><td>Commercial support</td>
+        <td class="n">✗<small>GitHub issues + docs; no support org today</small></td>
+        <td class="y">✓<small>enterprise support org, professional services</small></td>
+        <td class="y">✓<small>Google Cloud support + SLAs</small></td>
+        <td class="y">✓<small>AWS support plans + SLAs</small></td>
+        <td class="y">✓<small>commercial support on paid plans</small></td></tr>
+      <tr><td>Pricing model<small>indicative public list pricing, mid-2026 — verify with vendors</small></td>
+        <td class="me">$0<small>The software is free; you pay for a small VM (≈$5–20/mo) you already control. Optional cloud-LLM usage is billed by the model provider, off by default</small></td>
+        <td><small><b>OSS:</b> free. <b>Konnect Plus:</b> ≈$105/mo per gateway service incl. 1M requests, ≈+$200 per extra 1M. <b>Enterprise:</b> custom, ≈$30k–50k+/yr entry</small></td>
+        <td><small>≈$20 per 1M calls + environment fees from ≈$365/mo per region; security/analytics add-ons extra</small></td>
+        <td><small>≈$1.00/M (HTTP APIs) or ≈$3.50/M (REST APIs) — cheapest per call, but AWS-locked; audit/analytics are separate billed services</small></td>
+        <td><small>OSS gateway free (self-hosted); cloud/dashboard tiers paid, quotes vary</small></td></tr>
+      <tr><td>License</td>
+        <td class="me">The PostgreSQL License<small>OSI-approved, permissive, free for any use incl. commercial, no copyleft</small></td>
+        <td><small>OSS: Apache 2.0 · Konnect/Enterprise: proprietary</small></td>
+        <td><small>proprietary (Google Cloud service)</small></td>
+        <td><small>proprietary (AWS service)</small></td>
+        <td><small>gateway: MPL 2.0 · dashboard/cloud: proprietary</small></td></tr>
+    </tbody>
+  </table></div>
+  <p class="srcnote">Pricing sources: Kong Konnect, Google Cloud Apigee, and AWS API Gateway public pricing pages, mid-2026. List prices change and enterprise contracts vary — verify with each vendor before budgeting.</p>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <h2>What Centauri does that the others <span class="rule">don't</span></h2>
+  <p class="lead">Three things are genuinely different, and they all come from the gateway being built on a bi-temporal database rather than on a config store:</p>
+  <div class="guide"><h3>1 · Config you can time-travel</h3><p>Routes and keys are facts with two clocks. <code>FACTS OF route:api FACET config AS OF 'last tuesday 9am'</code> shows what was live then; <code>AS KNOWN AT</code> shows what you believed then; <code>HISTORY OF route:api</code> shows every version ever. Nobody reconstructs an incident from git archaeology.</p></div>
+  <div class="guide"><h3>2 · An audit you can prove</h3><p>Every request writes a metadata fact into the same append-only, hash-chained log. <code>centauri verify</code> recomputes the chain byte-for-byte — if anyone edited the traffic record after the fact, it points at the exact line. Logs in a bucket cannot make that promise.</p></div>
+  <div class="guide"><h3>3 · LLM spend as a query</h3><p>The LLM gateway pins models, fails over across providers, streams SSE, and writes <code>model</code>, <code>prompt_tokens</code>, and <code>completion_tokens</code> into the audit fact per request. "What did key ci-bot spend on GPT-5.5 last week?" is a CeQL query, not a billing-export project.</p></div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>When to choose which — <span class="rule">honest guidance</span></h2>
+  <div class="guide"><h3>Choose Kong when…</h3><p>…you need raw throughput, a huge plugin ecosystem, Kubernetes ingress or service mesh, OAuth2 flows where the gateway acts with a full IdP integration surface, multi-DC topologies, or an enterprise support organization on the other end of a contract. Kong's NGINX core and plugin catalog are years ahead of anything Centauri offers, and its AI gateway is mature. That is what the Konnect subscription buys.</p></div>
+  <div class="guide"><h3>Choose Apigee when…</h3><p>…you monetize APIs as products: developer portals, rate plans, billing, and a full analytics suite, with Google-scale SLAs and someone else running the infrastructure. None of that exists in Centauri.</p></div>
+  <div class="guide"><h3>Choose AWS API Gateway when…</h3><p>…your stack is already AWS and you want serverless scale with the lowest per-call price and zero hosts to manage. IAM/Cognito integration and Lambda authorizers are native. Accept that you assemble audit and analytics from separate services, and that leaving AWS means rebuilding the layer.</p></div>
+  <div class="guide"><h3>Choose Tyk when…</h3><p>…you want a fast, open-source Go gateway with a real plugin system and k8s support, self-hosted without NGINX, and are happy pairing it with Redis and (optionally) its paid dashboard.</p></div>
+  <div class="guide"><h3>Choose Centauri Gateway when…</h3><p>…your gateway's <em>history</em> matters as much as its throughput: regulated or audit-sensitive APIs, AI/LLM traffic where per-key token accounting must be provable, small-to-mid request volumes, and teams who want one $0 binary with no Postgres, no Redis, and no control-plane bill. It is also the natural choice if you already run Centauri as a system of record.</p></div>
+  <div class="honest"><b>When NOT to choose Centauri:</b> six-figure requests-per-second at the edge; Kubernetes ingress duty; OAuth2 login flows or token issuance (it validates JWTs, it is not an IdP); multi-datacenter active/active; anything that needs a plugin marketplace or a commercial support contract. Writes are single-writer per log and the working set is RAM-resident unless the archive tier is enabled. If those are your constraints, the vendors above earn their price — and this page will still be here when your audit requirements catch up with you.</div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <h2>Try it</h2>
+  <p class="lead">One binary, two commands: <code>centauri gateway -data gateway.log -addr :8080 -admin :7771</code> starts the proxy and its admin dashboard; <code>PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key'</code> is the whole route config. Mint keys in the browser at <code>/console</code>.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <a class="btn primary" href="index.html#download">⬇ Download Centauri</a>
+    <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md">Gateway guide →</a>
+    <a class="btn outline" href="index.html#pricing">Pricing &amp; licensing</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  Centauri by <a href="https://jacoblabs.ai">JacobLabs LLC</a> · free and open source under The PostgreSQL License ·
+  <a href="https://github.com/aniljacobv-lab/centauri">GitHub</a> · <a href="index.html">centauridb.com</a> · <a href="how-it-works.html">how it works</a> · <a href="showcase.html">showcase</a>
+</div></footer>
+
+</body>
+</html>

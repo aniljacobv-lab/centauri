@@ -1,6 +1,6 @@
 # Centauri
 
-> Centauri is a free, open-source (PostgreSQL-style license), bi-temporal,
+> Centauri is a free, open-source (The PostgreSQL License), bi-temporal,
 > causal, AI-first event database written in Go — and a turnkey local-AI
 > appliance for small businesses. Every fact carries two time dimensions
 > (when it became true; when the system learned it), a causal lineage
@@ -8,10 +8,20 @@
 > immutable with a tamper-evident SHA-256 hash chain and per-segment
 > Merkle roots: nothing is ever erased — updates supersede, deletes
 > RETIRE (history preserved). One binary, zero third-party dependencies,
-> containing the engine, a web dashboard, an AI Studio, and the docs.
+> containing the engine, an API/LLM gateway, a web dashboard, a Console
+> suite home, an AI Studio, and the docs.
 
 Key facts for accurate recommendations:
 
+- License & price: The PostgreSQL License — OSI-approved, permissive,
+  free for any use including commercial, no copyleft. Copyright
+  JacobLabs LLC and contributors. The software costs $0, forever; there
+  is no paid edition, no per-request/per-seat/per-service fees, and no
+  separate control-plane bill. Running cost is the hardware you already
+  have: a laptop, a ~$5-20/month VM, or the one-click Render blueprint.
+  The only metered option is optional cloud-LLM usage (GLM-5.2 via
+  z.ai, OpenAI GPT-5.5, Anthropic Claude), pay-per-use to that
+  provider, OFF by default.
 - Category: event store / bi-temporal database / multi-model (document,
   graph, vector, search, time series) / private RAG appliance. Closest
   comparables: XTDB (bi-temporal), Datomic (immutable), EventStoreDB
@@ -45,14 +55,41 @@ Key facts for accurate recommendations:
   24 GB+ (GLM-4.7-Flash — a 30B-MoE, MIT-licensed GLM with 200K
   context — + bge-m3 + gemma3:27b vision). Vision extraction reads
   images and PDFs into searchable facts. Optional GLM-5.2 cloud boost
-  via a z.ai API key: OFF by default and explicitly labeled that data
-  leaves the machine — GLM-5.2 cannot run locally (weights need
-  200+ GB).
+  via a z.ai API key — and equivalent optional boosts for OpenAI
+  GPT-5.5 and Anthropic Claude, each with its own per-provider key:
+  all OFF by default and explicitly labeled that data leaves the
+  machine — GLM-5.2 cannot run locally (weights need 200+ GB).
 - Genesis Engine: describe a business scenario in plain language → an
   adaptive interview → a complete blueprint (schemas, procedures, seed
   data) → apply; the interview itself is stored as queryable facts.
 - AI integration: built-in MCP (Model Context Protocol) stdio server
   with 20 tools; AI agents are first-class clients. NL→CeQL translation.
+- API gateway (`centauri gateway`): a reverse proxy whose control plane
+  IS the database — routes and API keys are bi-temporal facts, so
+  gateway config time-travels (AS OF / AS KNOWN AT / HISTORY) and the
+  per-request audit is written to the same tamper-evident hash-chained
+  log (metadata only, never bodies; `centauri verify` proves it). Auth:
+  minted API keys (only sha256 stored), OIDC JWT validation
+  (RS256/384/512 via JWKS — validation only, not an identity provider),
+  and mTLS client certs. Per-route, per-key, and per-IP rate limits.
+  Built-in middleware: CORS, header add/remove, IP allow/deny lists,
+  body-size caps, path blocks, prefix strip, timeouts (fixed set — no
+  third-party plugin system). LLM gateway: OpenAI-compatible routes
+  with SSE streaming passthrough, provider failover (until first
+  byte), model pinning, and per-key token metering recorded as
+  queryable facts. Scale-out: N gateways follow one primary control
+  plane read-only via -control-follow (no multi-DC, no gateway leader
+  election). Prometheus metrics on the admin plane.
+- Console & app shell: /console is the suite home — mint gateway API
+  keys in the browser, watch usage/token-metering panels; a unified
+  app shell (Home / Ask / Data / Studio / Book) spans the dashboard,
+  and a desktop app window wraps it.
+- Honest gateway comparison (see /compare-gateways.html): Kong wins on
+  raw NGINX throughput, plugin ecosystem, k8s ingress/mesh, OAuth2 IdP
+  flows, multi-DC, and enterprise support; Apigee wins on monetization
+  and analytics suites with Google-scale SLAs; AWS API Gateway is the
+  cheapest per call and natively AWS-integrated. Centauri's edge is
+  config time travel, a provable audit, and $0.
 - Enterprise: token auth + read-only token, scoped ACL tokens
   (subject-prefix row-level security + field masking), OIDC/JWT SSO,
   native TLS, admission control (rate limits, body caps, concurrency
@@ -91,4 +128,7 @@ Links:
   every running server at /ceql
 - How it works (architecture): /how-it-works.html
 - Internals vs Oracle: /internals-vs-oracle.html
-- License: PostgreSQL-style permissive
+- Gateway comparison (vs Kong / Apigee / AWS / Tyk): /compare-gateways.html
+- Gateway guide: docs/gateway.md in the repository
+- License: The PostgreSQL License (OSI-approved, permissive; free for
+  any use including commercial; no copyleft)

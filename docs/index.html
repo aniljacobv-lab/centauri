@@ -3,27 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Centauri — Your own AI that knows your business and never forgets</title>
-<meta name="description" content="Centauri is your own private AI — it runs on your computer, learns your business from your own files, and answers questions in plain English with citations. Nothing leaves your machine. Under the hood: an open-source, bi-temporal, tamper-evident event database. One binary, zero dependencies, free.">
-<meta property="og:title" content="Centauri — Your own AI. It knows your business and never forgets.">
-<meta property="og:description" content="Your own private AI that runs on your computer and knows your business from your own files — answers in plain English, with citations, nothing sent to the cloud. Open source, one binary, free.">
+<title>Centauri — system of record, private AI, and API gateway in one free binary</title>
+<meta name="description" content="Centauri is a free, open-source system of record with a built-in private AI and an API/LLM gateway. Bi-temporal, tamper-evident, zero dependencies — $0 forever under The PostgreSQL License, on hardware you already have.">
+<meta property="og:title" content="Centauri — provable history, private AI, and an auditable API gateway. $0, forever.">
+<meta property="og:description" content="A system of record that can prove its history, a private AI that runs on your hardware, and an API/LLM gateway with a tamper-evident audit — one zero-dependency binary, free under The PostgreSQL License.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://centauridb.ai/">
-<meta property="og:image" content="https://centauridb.ai/og-image.png">
+<meta property="og:url" content="https://centauridb.com/">
+<meta property="og:image" content="https://centauridb.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:site_name" content="Centauri">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Centauri — Your own AI">
 <meta name="twitter:description" content="Your own private AI that runs on your computer and knows your business from your own files. Ask in plain English, get answers with citations, nothing leaves your machine. Open source, one binary, free.">
-<meta name="twitter:image" content="https://centauridb.ai/og-image.png">
+<meta name="twitter:image" content="https://centauridb.com/og-image.png">
 <meta name="theme-color" content="#0f1b29">
-<link rel="canonical" href="https://centauridb.ai/">
+<link rel="canonical" href="https://centauridb.com/">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Centauri",
  "applicationCategory":"DeveloperApplication","operatingSystem":"Windows, Linux, macOS",
  "description":"Open-source bi-temporal, causal, AI-first event database with the CeQL query language, topology operators, BM25 search, MCP server, and the Genesis Engine.",
  "license":"https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE",
+ "releaseNotes":"https://github.com/aniljacobv-lab/centauri/releases",
  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
  "url":"https://github.com/aniljacobv-lab/centauri"}
 </script>
@@ -81,6 +82,22 @@
   h2 .rule{color:var(--teal-d)}
   .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-d);font-weight:700;margin-bottom:6px}
   .lead{color:var(--dim);font-size:17px;max-width:780px;margin:0 0 26px}
+
+  /* hero strip + tabs */
+  .hs{padding:36px 24px 32px}
+  .hs h1{font-size:clamp(27px,3.5vw,40px);margin:0 0 10px}
+  .hs .sub{max-width:820px}
+  .tabs{position:sticky;top:58px;z-index:40;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 4px 14px rgba(20,40,80,.06)}
+  .tabs .wrap{display:flex;gap:2px;overflow-x:auto}
+  .tabbtn{appearance:none;background:none;border:0;border-bottom:3px solid transparent;padding:15px 18px 12px;font:700 15px system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;color:var(--dim);cursor:pointer;white-space:nowrap}
+  .tabbtn:hover{color:var(--ink)}
+  .tabbtn.active{color:var(--teal-d);border-bottom-color:var(--teal)}
+  .tabpane{display:none}
+  .tabpane.active{display:block}
+  .proof{margin-top:11px;font-family:var(--mono);font-size:12px;color:var(--teal-d)}
+  .honest ul{margin:8px 0 0;padding-left:20px}
+  .honest li{margin:6px 0}
+  .srcnote{font-size:12.5px;color:var(--faint);margin-top:10px}
 
   /* ASK box */
   .ask{background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 34px rgba(20,40,80,.08);overflow:hidden}
@@ -233,62 +250,152 @@
 <nav><div class="wrap">
   <span class="brand"><span class="star">✦</span> Centauri</span>
   <span class="links">
-    <a href="#what">Overview</a>
-    <a href="#own">Own your data</a>
-    <a href="#vision">Vision &amp; AI</a>
-    <a href="#agents">For agents</a>
-    <a href="#quickstart">Quickstart</a>
-    <a href="#reference">Reference</a>
-    <a href="#sdks">SDKs</a>
+    <a href="#why">Why Centauri</a>
+    <a href="#pricing">Pricing</a>
     <a href="#compare">Compare</a>
+    <a href="#what">For engineers</a>
+    <a href="#reference">CeQL</a>
     <a href="#docs">Docs</a>
     <a class="btn-nav" href="#download">⬇ Download</a>
     <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
   </span>
 </div></nav>
-<div class="announce">Latest — the <b>turnkey local-AI appliance</b>: <b>centauri desktop</b> detects your hardware, installs the model runtime, and pulls the right models automatically — from an 8&nbsp;GB laptop (gemma3:4b) to a 24&nbsp;GB+ GPU running <b>GLM-4.7-Flash</b> (30B MoE, 200K context). Optional GLM-5.2 cloud boost, off by default. Plus sharding, HA failover, Postgres wire &amp; CDC slots. <a href="https://github.com/aniljacobv-lab/centauri/releases">Release notes →</a></div>
+<div class="announce">New — the <b>Centauri Gateway</b> &amp; <b>Console</b>: an API + LLM gateway whose config is bi-temporal facts and whose per-request audit is tamper-evident — SSE streaming, provider failover, per-key token metering, OIDC JWT + mTLS. <a href="compare-gateways.html">How it compares to Kong, Apigee, AWS &amp; Tyk →</a></div>
 
-<!-- HERO -->
-<div class="hero"><div class="wrap">
+<!-- HERO STRIP (persistent above tabs) -->
+<div class="hero"><div class="wrap hs">
   <div>
-    <h1>Your own <span class="accent">AI.</span></h1>
-    <p class="sub"><b>It knows your business — and it never forgets.</b> Centauri is your own private AI that runs on <b>your</b> computer, not in the cloud. Put in your invoices, contracts, notes and PDFs, then ask questions in plain English — it answers and shows you exactly where it found them. Your data never leaves your machine, and there's no monthly AI bill. <span style="white-space:nowrap">(Under the hood: an open-source, bi-temporal, tamper-evident event database — one zero-dependency binary.)</span></p>
-    <ul class="checks">
-      <li><b>Agent-native (MCP)</b> — agents query it directly for grounded memory &amp; RAG; no glue, no token cost to remember</li>
-      <li><b>A time machine</b> — query what was <b>true</b> and what you <b>believed</b> at any moment (bi-temporal)</li>
-      <li><b>Blockchain-grade integrity</b> — a SHA-256 hash chain proves history was never altered — without a blockchain</li>
-      <li><b>Your data, your hardware</b> — one open file on your laptop, server, or cloud. Free, no lock-in</li>
-      <li><b>A five-minute private AI</b> — <code>centauri desktop</code> detects your hardware, installs the runtime, and pulls models sized to the machine — zero steps, no cloud account</li>
-      <li><b>Sees your files</b> — a local vision model reads images &amp; PDFs into searchable, vectorized facts; runs free on your machine, nothing leaves it</li>
-    </ul>
+    <h1><span class="accent">✦</span> Centauri — own your data, your AI, <span class="accent">and your gateway.</span></h1>
+    <p class="sub">A system of record that can <b>prove its history</b>, a private AI that <b>runs on your hardware</b>, and an API gateway with a <b>tamper-evident audit</b> — one zero-dependency binary. <b>$0, forever</b>, under The PostgreSQL License.</p>
     <div class="btns">
       <a class="btn primary" href="#download">⬇ Download</a>
-      <a class="btn outline" href="showcase.html">See what it does →</a>
-      <a class="btn outline" href="how-it-works.html">How it works →</a>
-      <a class="btn outline" href="#ask">Ask Centauri →</a>
+      <a class="btn outline" href="#quickstart">5-minute quickstart →</a>
+      <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri">★ GitHub</a>
     </div>
-    <div class="dlhint">Packages for <a href="#download">Windows</a>, <a href="#download">macOS</a>, <a href="#download">Linux</a> · or <code>curl … | sh</code></div>
-    <div class="spon">Centauri by JacobLabs LLC · jacoblabs.ai</div>
-  </div>
-  <div class="heroart">
-    <svg viewBox="0 0 420 360" xmlns="http://www.w3.org/2000/svg" width="100%" role="img" aria-label="Centauri constellation over a bi-temporal grid">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00add8"/><stop offset="1" stop-color="#2f6fb0"/></linearGradient></defs>
-      <rect x="20" y="20" width="380" height="320" rx="14" fill="#0f1b29"/>
-      <g stroke="#24384e" stroke-width="1">
-        <line x1="60" y1="300" x2="380" y2="300"/><line x1="60" y1="40" x2="60" y2="300"/>
-        <line x1="60" y1="240" x2="380" y2="240"/><line x1="60" y1="180" x2="380" y2="180"/><line x1="60" y1="120" x2="380" y2="120"/>
-        <line x1="140" y1="40" x2="140" y2="300"/><line x1="220" y1="40" x2="220" y2="300"/><line x1="300" y1="40" x2="300" y2="300"/>
-      </g>
-      <text x="56" y="324" fill="#6c8099" font-family="monospace" font-size="11">valid time →</text>
-      <text x="34" y="44" fill="#6c8099" font-family="monospace" font-size="11" transform="rotate(-90 34 44)">↑ transaction time</text>
-      <polyline points="80,270 140,270 140,210 220,210 220,150 300,150 300,90 360,90" fill="none" stroke="url(#g)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-      <g fill="#7fe6ff"><circle cx="110" cy="90" r="4.5"/><circle cx="175" cy="70" r="3"/><circle cx="250" cy="105" r="5.5"/><circle cx="320" cy="70" r="3.5"/><circle cx="300" cy="150" r="4"/><circle cx="220" cy="150" r="3"/></g>
-      <g stroke="#3a6c8f" stroke-width="1.2"><line x1="110" y1="90" x2="175" y2="70"/><line x1="175" y1="70" x2="250" y2="105"/><line x1="250" y1="105" x2="320" y2="70"/><line x1="250" y1="105" x2="300" y2="150"/><line x1="300" y1="150" x2="220" y2="150"/></g>
-      <text x="250" y="128" fill="#9fb6cc" font-family="monospace" font-size="10" text-anchor="middle">α Centauri</text>
-    </svg>
+    <div class="dlhint">Windows · macOS · Linux · one-click <a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">Render blueprint</a> · <span class="spon" style="margin:0">Centauri by JacobLabs LLC · jacoblabs.ai</span></div>
   </div>
 </div></div>
 
+<!-- TAB BAR -->
+<div class="tabs"><div class="wrap" role="tablist">
+  <button class="tabbtn active" data-tab="why" role="tab" aria-selected="true">Why Centauri</button>
+  <button class="tabbtn" data-tab="pricing" role="tab" aria-selected="false">Pricing &amp; Licensing</button>
+  <button class="tabbtn" data-tab="compare" role="tab" aria-selected="false">Compare</button>
+  <button class="tabbtn" data-tab="eng" role="tab" aria-selected="false">For engineers</button>
+</div></div>
+
+<!-- TAB 1: WHY CENTAURI -->
+<div class="tabpane active" id="tab-why">
+<section id="why"><div class="wrap">
+  <div class="kicker">For decision makers</div>
+  <h2>Five outcomes. <span class="rule">One binary.</span></h2>
+  <p class="lead">Centauri gives an organization a record it can prove, an AI it can trust with sensitive data, and an API layer it can audit — at a software cost of zero. The executive case, with the proof one click away:</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">🧾</div><h3>Provable compliance</h3><p>When a regulator or auditor asks <em>“what did you know, and when?”</em>, the answer is a query, not a six-week forensics project. Every record is sealed into a tamper-evident hash chain, and bi-temporal time travel reconstructs any past moment exactly as it was believed then.</p><div class="proof">proof: centauri verify re-proves the whole history byte-for-byte · <a href="how-it-works.html#integrity">how →</a></div></div>
+    <div class="feat"><div class="fi">🔐</div><h3>Data sovereignty</h3><p>AI answers are computed <b>on your hardware, from your documents</b>. Nothing is uploaded, nothing phones home. Cloud models exist as an option — per-provider keys, off by default, clearly labeled when data would leave the machine.</p><div class="proof">proof: runs fully offline / air-gapped · <a href="#vision">the local-AI appliance →</a></div></div>
+    <div class="feat"><div class="fi">💰</div><h3>Radical TCO</h3><p>The software is <b>$0, forever</b>. It runs on a laptop or a $5–20/month VM — where comparable API platforms bill per gateway service, per million calls, and per environment. No per-seat, per-request, or control-plane fees.</p><div class="proof">proof: the cost table below · <a href="#pricing">full pricing →</a></div></div>
+    <div class="feat"><div class="fi">🔓</div><h3>Vendor independence</h3><p>The PostgreSQL License — use it for anything, commercially, free, no copyleft. Zero third-party dependencies, and your data lives in plain files your own engineers can read. Leaving Centauri costs one file copy.</p><div class="proof">proof: the empty require block in go.mod is public · <a href="https://github.com/aniljacobv-lab/centauri/blob/main/go.mod">verify it →</a></div></div>
+    <div class="feat"><div class="fi">⚡</div><h3>5-minute deployment</h3><p>One binary. Run the installer or one <code>curl | sh</code>; <code>centauri desktop</code> detects your hardware and sets up the local AI models automatically. Prefer cloud? One-click Render blueprint with HTTPS and a generated token.</p><div class="proof">proof: no config files, no cluster, no DBA · <a href="#quickstart">quickstart →</a></div></div>
+  </div>
+  <h3 style="margin:36px 0 10px">What an API layer costs to run — at a glance</h3>
+  <div class="scroll"><table class="cmp">
+    <thead><tr><th></th><th class="me">Centauri</th><th>Kong Konnect</th><th>Google Apigee</th><th>AWS API Gateway</th></tr></thead>
+    <tbody>
+      <tr><td>Software / platform, per year</td><td class="me">$0</td><td>≈$1,260+/yr per gateway service (Plus)<small>Enterprise ≈$30k–50k+/yr entry</small></td><td>≈$4,380+/yr per environment/region</td><td>$0 base fee</td></tr>
+      <tr><td>Per-request fees</td><td class="y">none</td><td>1M req/mo included, ≈$200 per extra 1M</td><td>≈$20 per 1M calls</td><td>≈$1.00/M (HTTP) · ≈$3.50/M (REST)</td></tr>
+      <tr><td>Infrastructure</td><td>a laptop or ≈$5–20/mo VM</td><td>your data-plane hosts + SaaS control plane</td><td>managed (Google Cloud)</td><td>managed (AWS only)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="srcnote">Indicative public list pricing, mid-2026 — verify with each vendor; enterprise contracts vary. AWS is the cheapest per call at scale, but AWS-locked, and audit/analytics are separate services you assemble. Details: <a href="#pricing">Pricing &amp; Licensing</a> · <a href="compare-gateways.html">gateway comparison →</a></p>
+</div></section>
+</div>
+
+<!-- TAB 2: PRICING & LICENSING -->
+<div class="tabpane" id="tab-pricing">
+<section id="pricing"><div class="wrap">
+  <div class="kicker">Pricing &amp; licensing</div>
+  <h2>The software is <span class="rule">$0. Forever.</span></h2>
+  <p class="lead">Centauri is open source under <b>The PostgreSQL License</b> — an OSI-approved permissive license that lets you use, copy, modify, and distribute the software for any purpose, including commercial, free of charge and with no copyleft obligations. Copyright JacobLabs LLC and contributors. There is no paid edition: the binary you download is everything.</p>
+  <div class="grid3">
+    <div class="feat"><div class="fi">🆓</div><h3>What you pay JacobLabs</h3><p><b>$0.</b> No per-request fees, no per-seat fees, no per-service fees, no separate control-plane bill, no paid tiers, no telemetry. The enterprise features — SSO, HA, sharding, the gateway, the Console — are in the same free binary.</p></div>
+    <div class="feat"><div class="fi">🖥</div><h3>What you actually pay for</h3><p>The machine it runs on — hardware you likely already have: a laptop, a ~$5–20/month VM at any host, or the one-click <a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">Render blueprint</a>. RAM sized to your live working set is the main knob.</p></div>
+    <div class="feat"><div class="fi">☁️</div><h3>The only metered option</h3><p>The optional <b>cloud AI boost</b> — GLM-5.2 (z.ai), OpenAI GPT-5.5, or Anthropic Claude — is pay-per-use <em>to that provider</em>, with your own key. It is <b>off by default</b>; the local models are free and stay on your machine.</p></div>
+  </div>
+  <h3 style="margin:36px 0 10px">How that compares</h3>
+  <div class="scroll"><table class="cmp">
+    <thead><tr><th></th><th class="me">Centauri</th><th>Kong Konnect Plus</th><th>Kong Konnect Enterprise</th><th>Google Apigee (PAYG)</th><th>AWS API Gateway</th></tr></thead>
+    <tbody>
+      <tr><td>Software / license</td><td class="me">$0 — The PostgreSQL License</td><td>subscription</td><td>custom contract</td><td>pay-as-you-go</td><td>pay-per-use</td></tr>
+      <tr><td>Entry price</td><td class="y">$0</td><td>≈$105/mo per gateway service<small>incl. 1M requests/mo</small></td><td>≈$30k–$50k+/yr entry<small>negotiated</small></td><td>environment fees from ≈$365/mo per region</td><td>no base fee</td></tr>
+      <tr><td>Per-call</td><td class="y">none</td><td>≈+$200 per additional 1M requests</td><td>contracted</td><td>≈$20 per 1M calls</td><td>≈$1.00/M HTTP APIs · ≈$3.50/M REST APIs</td></tr>
+      <tr><td>Typical extras</td><td>optional cloud-LLM usage, billed by the model provider, off by default</td><td>higher tiers for advanced plugins</td><td>support org, SLAs, multi-DC</td><td>security/analytics add-ons extra</td><td>audit/analytics assembled from separate AWS services</td></tr>
+      <tr><td>What you host</td><td>one binary — laptop / small VM / Render</td><td colspan="2">your data planes; control plane is SaaS</td><td>managed</td><td>managed, AWS-locked</td></tr>
+    </tbody>
+  </table></div>
+  <p class="srcnote">Sources: Kong Konnect, Google Cloud Apigee, and AWS API Gateway public pricing pages — indicative list prices as of mid-2026. Enterprise contracts vary widely; verify with the vendors before budgeting.</p>
+  <div class="honest" style="margin-top:26px"><b>What you give up vs the paid platforms — honestly:</b>
+    <ul>
+      <li><b>A commercial support organization.</b> Kong, Google, and AWS sell 24×7 support and someone to call. Centauri support is GitHub issues and the docs — there is no support org today.</li>
+      <li><b>A plugin marketplace.</b> Kong has hundreds of plugins plus custom-plugin SDKs. Centauri&#39;s middleware is built in (CORS, header transforms, IP filters, body caps, path blocks) — capable, but a fixed list.</li>
+      <li><b>A managed SLA.</b> Apigee and AWS run the service with contractual uptime. You run Centauri yourself — HA failover ships in the binary, but the pager is yours.</li>
+      <li><b>Raw throughput.</b> Kong&#39;s tuned NGINX core and the hyperscaler edges outrun Centauri&#39;s Go stdlib proxy at very high volume; writes are single-writer per log, and the working set is RAM-resident unless the archive tier is on.</li>
+      <li><b>An identity provider.</b> Centauri validates OIDC JWTs and mTLS client certs; it does not run login flows or issue tokens — keep your IdP.</li>
+    </ul>
+  </div>
+</div></section>
+</div>
+
+<!-- TAB 3: COMPARE -->
+<div class="tabpane" id="tab-compare">
+<!-- COMPARE -->
+<section id="compare"><div class="wrap">
+  <div class="kicker">Feature matrix</div>
+  <h2>Where Centauri fits — and where it doesn't</h2>
+  <p class="lead">Centauri is the flight recorder beside your operational stores, not a Postgres replacement. The unvarnished picture, ✗ and all. Coming from Oracle? There is a concept-by-concept teardown — redo/undo, SCN, flashback, RAC, Data Guard mapped to Centauri's internals: <a href="internals-vs-oracle.html"><b>Centauri internals vs Oracle →</b></a></p>
+  <div class="scroll"><table class="cmp">
+    <thead><tr><th></th><th class="me">Centauri</th><th>PostgreSQL</th><th>Datomic</th><th>EventStoreDB</th><th>SQLite</th></tr></thead>
+    <tbody>
+      <tr><td>Bi-temporal (valid + transaction time)</td><td class="y">✓</td><td class="n">✗</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Nothing ever erased</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+      <tr><td>Causal links as data</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Tamper-evident hash chain</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Topology / TDA operators</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Native BM25 + hybrid search</td><td class="y">✓</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="p">~</td></tr>
+      <tr><td>Built-in MCP for AI agents</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Local vision ingest (images/PDFs)</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Runs a free local LLM for search &amp; Q&amp;A</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+      <tr><td>Horizontal scale / sharding + HA failover</td><td class="y">✓<small>shards + auto-failover</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+      <tr><td>Data larger than RAM</td><td class="y">✓<small>lazy index</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+      <tr><td>SQL access</td><td class="p">~<small>read-only + Postgres wire</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+      <tr><td>Enterprise SSO + row-level security</td><td class="y">✓<small>OIDC/JWT, RLS, masking</small></td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+    </tbody>
+  </table></div>
+  <div class="honest" style="margin-top:24px"><b>Honest limits:</b> writes are <b>single-writer per log</b> (the hash chain is sequential by design) — Centauri is a system of record, not a high-contention multi-writer OLTP engine. <code>serve -shards</code> scales write throughput across subjects, <code>serve -ha-lease</code> adds automatic failover, and the lazy index serves data beyond RAM; there's no cost-based optimizer, and the SQL exposed over the PostgreSQL wire is <b>read-only</b> (writes use CeQL). The vision &amp; local-LLM features <em>orchestrate</em> a model you run (free, e.g. Ollama) over HTTP — the engine bundles no model and stays zero-dependency. Full detail: <a href="how-it-works.html#compare">how it compares →</a></div>
+</div></section>
+
+
+<!-- GATEWAY COMPARE TEASER -->
+<section class="alt" id="gateways"><div class="wrap">
+  <div class="kicker">API gateways</div>
+  <h2>Centauri Gateway vs Kong, Apigee, AWS <span class="rule">&amp; Tyk</span></h2>
+  <p class="lead"><code>centauri gateway</code> is an API + LLM gateway whose configuration is bi-temporal facts and whose request audit is a tamper-evident chain. The full honest matrix — including everything Kong and the clouds do better — is on the <a href="compare-gateways.html">gateway comparison page</a>. The short version:</p>
+  <div class="scroll"><table class="cmp">
+    <thead><tr><th></th><th class="me">Centauri Gateway</th><th>Kong (OSS + Konnect)</th><th>Apigee</th><th>AWS API Gateway</th></tr></thead>
+    <tbody>
+      <tr><td>Config model</td><td class="y">bi-temporal facts<small>time-travel any past config with AS OF</small></td><td>declarative / DB / console<small>versioning via GitOps, not the gateway</small></td><td class="p">~<small>proxy revisions</small></td><td class="p">~<small>console / IaC + stages</small></td></tr>
+      <tr><td>Tamper-evident request audit</td><td class="y">✓<small>hash chain + centauri verify</small></td><td class="n">✗<small>logs via plugins</small></td><td class="p">~<small>managed analytics + audit logs</small></td><td class="p">~<small>assemble CloudTrail / CloudWatch</small></td></tr>
+      <tr><td>LLM routing: SSE streaming · failover · per-key token metering</td><td class="y">✓<small>metering as queryable facts</small></td><td class="y">✓<small>AI-gateway plugin suite</small></td><td class="p">~<small>emerging LLM features</small></td><td class="p">~<small>assemble with Bedrock / Lambda</small></td></tr>
+      <tr><td>Plugin ecosystem &amp; k8s ingress</td><td class="n">✗<small>fixed built-in middleware; no ingress controller</small></td><td class="y">✓<small>hundreds of plugins, Ingress Controller, mesh</small></td><td class="p">~</td><td class="p">~<small>AWS-native integrations instead</small></td></tr>
+      <tr><td>Price of entry <small>indicative public pricing, mid-2026</small></td><td class="y">$0<small>+ a small VM you run</small></td><td>≈$105/mo per gateway service<small>Enterprise ≈$30k–50k+/yr</small></td><td>≈$365/mo/region + ≈$20/M calls</td><td>≈$1.00–3.50 per 1M calls<small>AWS-locked</small></td></tr>
+    </tbody>
+  </table></div>
+  <div style="margin-top:20px"><a class="btn primary" href="compare-gateways.html">Full gateway comparison →</a>&nbsp; <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md">Gateway guide →</a></div>
+</div></section>
+</div>
+
+<!-- TAB 4: FOR ENGINEERS -->
+<div class="tabpane" id="tab-eng">
 <!-- WHAT IS IT -->
 <section id="what"><div class="wrap">
   <div class="kicker">What is Centauri?</div>
@@ -331,7 +438,7 @@
     <div class="feat"><div class="fi">📦</div><h3>Zero-step setup</h3><p><code>centauri desktop</code> detects your hardware, installs Ollama + a PDF renderer if missing, pulls the right model tier, registers the models, and turns on auto-embed — skipping whatever's already there. <code>centauri desktop</code> then starts the model with Centauri and stops it on exit.</p></div>
     <div class="feat"><div class="fi">🆓</div><h3>Free &amp; private</h3><p>Runs on free, open <a href="https://ollama.com">Ollama</a> models sized to your hardware — from <code>gemma3:4b</code> + <code>nomic-embed-text</code> on a laptop to <code>glm-4.7-flash</code> + <code>bge-m3</code> + <code>gemma3:27b</code> vision on a 24&nbsp;GB+ GPU. The engine stays zero-dependency; the model is reached over plain HTTP. Your documents never leave the machine.</p></div>
   </div>
-  <div class="honest" style="margin:18px 0 0"><b>Model tiers &amp; the cloud boost:</b> <code>centauri desktop</code> picks a preset for your hardware — <b>small</b> (~8&nbsp;GB laptop: gemma3:4b + nomic-embed-text), <b>balanced</b> (12–16&nbsp;GB GPU: qwen3:14b + bge-m3), <b>max</b> (24&nbsp;GB+: <b>GLM-4.7-Flash</b>, a 30B-MoE, MIT-licensed GLM with a 200K context, + bge-m3 + gemma3:27b vision). The dashboard's AI panel shows live status dots and offers a one-click, optional <b>GLM-5.2 cloud boost</b> via a z.ai API key — <b>off by default and explicitly labeled, because with it your questions leave the machine</b>. GLM-5.2 cannot run locally: its weights need 200+&nbsp;GB.</div>
+  <div class="honest" style="margin:18px 0 0"><b>Model tiers &amp; the cloud boost:</b> <code>centauri desktop</code> picks a preset for your hardware — <b>small</b> (~8&nbsp;GB laptop: gemma3:4b + nomic-embed-text), <b>balanced</b> (12–16&nbsp;GB GPU: qwen3:14b + bge-m3), <b>max</b> (24&nbsp;GB+: <b>GLM-4.7-Flash</b>, a 30B-MoE, MIT-licensed GLM with a 200K context, + bge-m3 + gemma3:27b vision). The dashboard's AI panel shows live status dots and offers optional <b>cloud boosts</b> — <b>GLM-5.2</b> (z.ai), <b>OpenAI GPT-5.5</b>, or <b>Anthropic Claude</b>, each with its own per-provider key — <b>off by default and explicitly labeled, because with them your questions leave the machine</b>. GLM-5.2 cannot run locally: its weights need 200+&nbsp;GB.</div>
   <p class="lead" style="margin-top:18px"><b>The loop:</b> <code>Upload → ENRICH → SEARCH / ASK</code>. Your electrical drawings, contracts, and photos become searchable by what's <em>in</em> them — the kind of thing teams normally wire up Firestore, an object store, and a cloud vision API to do. Here it's one local binary. Setup: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">vision-setup.md</a> · features: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">ai-features.md</a>.</p>
 </div></section>
 
@@ -481,7 +588,7 @@ client = OpenAI(base_url=<span class="lit">"http://localhost:11434/v1"</span>,  
     <div>
       <h3 style="margin:0 0 10px;font-size:16px;color:var(--dim)">1 · Install &amp; run</h3>
       <pre><span class="cm"># macOS / Linux</span>
-curl -fsSL https://centauridb.ai/install.sh | sh
+curl -fsSL https://centauridb.com/install.sh | sh
 centauri seed                 <span class="cm"># load demo data</span>
 centauri desktop              <span class="cm"># dashboard + local AI, auto-sized to your hardware</span>
 
@@ -520,6 +627,7 @@ centauri setup vision -install</pre>
     <div class="feat"><div class="fi">🧮</div><h3>Built-in topology</h3><p>Persistent homology &amp; sheaf consistency as operators: <code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — clusters, loops, voids, periodicity, and drift no row store can see.</p></div>
     <div class="feat"><div class="fi">🤖</div><h3>Built for AI agents</h3><p>A native MCP server lets agents speak CeQL directly. Plain-English compiles to queries with no tokens. <code>AS KNOWN AT</code> gives leak-free training features. Genesis builds a database from a description.</p></div>
     <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>A <b>Studio</b> IDE (object explorer, causal-graph view, edit-as-a-fact), a one-screen <b>Console</b> (<code>/console</code>) for the whole suite, a psql-style <code>shell</code>, <code>EXPLAIN ANALYZE</code>, <code>doctor</code> diagnostics, CDC + replication slots, the <b>PostgreSQL wire protocol</b> (read-only SQL for psql/BI), sharding + <b>HA auto-failover</b>, scoped-token security, CePL procedures, chain-verified backups, and Python / Go / JS SDKs.</p></div>
+    <div class="feat"><div class="fi">🛡</div><h3>API &amp; LLM gateway</h3><p><code>centauri gateway</code> — a reverse proxy whose routes and keys are bi-temporal facts (config time-travels with <code>AS OF</code>) and whose per-request audit is hash-chained. API keys, OIDC JWT validation, mTLS, per-key/per-IP rate limits, built-in middleware — plus an LLM gateway with <b>SSE streaming</b>, provider failover, model pinning, and <b>per-key token metering</b> as queryable facts. Scale out with <code>-control-follow</code>; Prometheus metrics; mint keys in the <b>Console</b> (<code>/console</code>). <a href="compare-gateways.html">vs Kong, Apigee, AWS, Tyk →</a></p></div>
   </div>
 </div></section>
 
@@ -788,33 +896,6 @@ $ centauri verify
   </div>
 </div></section>
 
-<!-- COMPARE -->
-<section id="compare"><div class="wrap">
-  <div class="kicker">Feature matrix</div>
-  <h2>Where Centauri fits — and where it doesn't</h2>
-  <p class="lead">Centauri is the flight recorder beside your operational stores, not a Postgres replacement. The unvarnished picture, ✗ and all.</p>
-  <div class="scroll"><table class="cmp">
-    <thead><tr><th></th><th class="me">Centauri</th><th>PostgreSQL</th><th>Datomic</th><th>EventStoreDB</th><th>SQLite</th></tr></thead>
-    <tbody>
-      <tr><td>Bi-temporal (valid + transaction time)</td><td class="y">✓</td><td class="n">✗</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Nothing ever erased</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
-      <tr><td>Causal links as data</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Tamper-evident hash chain</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Topology / TDA operators</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Native BM25 + hybrid search</td><td class="y">✓</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="p">~</td></tr>
-      <tr><td>Built-in MCP for AI agents</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Local vision ingest (images/PDFs)</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Runs a free local LLM for search &amp; Q&amp;A</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
-      <tr><td>Horizontal scale / sharding + HA failover</td><td class="y">✓<small>shards + auto-failover</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
-      <tr><td>Data larger than RAM</td><td class="y">✓<small>lazy index</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-      <tr><td>SQL access</td><td class="p">~<small>read-only + Postgres wire</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
-      <tr><td>Enterprise SSO + row-level security</td><td class="y">✓<small>OIDC/JWT, RLS, masking</small></td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-    </tbody>
-  </table></div>
-  <div class="honest" style="margin-top:24px"><b>Honest limits:</b> writes are <b>single-writer per log</b> (the hash chain is sequential by design) — Centauri is a system of record, not a high-contention multi-writer OLTP engine. <code>serve -shards</code> scales write throughput across subjects, <code>serve -ha-lease</code> adds automatic failover, and the lazy index serves data beyond RAM; there's no cost-based optimizer, and the SQL exposed over the PostgreSQL wire is <b>read-only</b> (writes use CeQL). The vision &amp; local-LLM features <em>orchestrate</em> a model you run (free, e.g. Ollama) over HTTP — the engine bundles no model and stays zero-dependency. Full detail: <a href="how-it-works.html#compare">how it compares →</a></div>
-</div></section>
-
 <!-- DOWNLOAD -->
 <section class="alt" id="download"><div class="wrap">
   <div class="kicker">Download</div>
@@ -834,12 +915,12 @@ $ centauri verify
   </div>
   <div class="dlpanel" id="p-mac">
     <p style="margin:0 0 6px;color:var(--dim)">Install with one line (auto-detects Apple Silicon or Intel):</p>
-    <div class="cmd"><code id="mac-cmd">curl -fsSL https://centauridb.ai/install.sh | sh</code><button class="copy" data-copy="mac-cmd">copy</button></div>
+    <div class="cmd"><code id="mac-cmd">curl -fsSL https://centauridb.com/install.sh | sh</code><button class="copy" data-copy="mac-cmd">copy</button></div>
     <div class="dlsub">Then: <code>centauri desktop</code>. Direct: <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-darwin-arm64" download>Apple Silicon</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-darwin-amd64" download>Intel</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
   </div>
   <div class="dlpanel" id="p-linux">
     <p style="margin:0 0 6px;color:var(--dim)">Install with one line (amd64 &amp; arm64 auto-detected):</p>
-    <div class="cmd"><code id="lin-cmd">curl -fsSL https://centauridb.ai/install.sh | sh</code><button class="copy" data-copy="lin-cmd">copy</button></div>
+    <div class="cmd"><code id="lin-cmd">curl -fsSL https://centauridb.com/install.sh | sh</code><button class="copy" data-copy="lin-cmd">copy</button></div>
     <div class="dlsub">Then: <code>centauri desktop</code>. Direct: <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-amd64" download>linux-amd64</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-arm64" download>linux-arm64</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
   </div>
   <div class="dlpanel" id="p-cloud">
@@ -848,16 +929,18 @@ $ centauri verify
   </div>
 </div></section>
 
+</div><!-- /tab-eng -->
+
 <footer><div class="wrap">
   <div class="lock"><span class="star">✦</span> Centauri</div>
   <div>by <a href="https://jacoblabs.ai">JacobLabs LLC</a> — the nearest star to your data.</div>
   <div class="cols">
-    <div class="col"><b>Product</b><a href="#what">Overview</a><a href="#vision">Vision &amp; AI</a><a href="#agents">For agents</a><a href="#reference">CeQL reference</a><a href="#compare">Feature matrix</a><a href="#download">Download</a></div>
+    <div class="col"><b>Product</b><a href="#why">Why Centauri</a><a href="#pricing">Pricing &amp; licensing</a><a href="#compare">Compare</a><a href="compare-gateways.html">Gateway comparison</a><a href="#reference">CeQL reference</a><a href="#download">Download</a></div>
     <div class="col"><b>Docs</b><a href="ceql.html">The CeQL Book</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">Vision setup</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">Local-AI features</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">Deployment</a><a href="#quickstart">Quickstart</a></div>
     <div class="col"><b>Community</b><a href="https://github.com/aniljacobv-lab/centauri">GitHub</a><a href="https://github.com/aniljacobv-lab/centauri/releases">Releases</a><a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">License</a></div>
   </div>
   <div style="margin-top:28px;padding-top:18px;border-top:1px solid #243a52;color:#7e90a8;font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span>© 2026 JacobLabs LLC · open source under the project license</span>
+    <span>© 2026 JacobLabs LLC · free and open source under The PostgreSQL License</span>
     <span>Bi-temporal · causal · local · free</span>
   </div>
 </div></footer>
@@ -905,7 +988,9 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Does Centauri scale larger than RAM sharding cluster",t:"scale scaling ram memory sharding cluster volume capacity big data petabyte how much data limits",
       a:"Yes. <code>--lazy</code> keeps payloads on disk, and the disk-backed <b>lazy index</b> (<code>serve -lazy-index</code>) serves archives far larger than RAM — only the current fact per subject stays resident. Cold data seals into <b>compressed segments</b> with zone-map skipping and can live in an <b>S3-compatible bucket</b>. <code>serve -shards N</code> partitions subjects across independent logs for parallel write throughput, and <code>serve -ha-lease</code> adds automatic failover. Writes are single-writer per log by design (sequential hash chain), so it's a system of record beside your operational stores — not a high-contention OLTP warehouse."},
     {q:"Is it free and what is the license",t:"free license cost open source pricing money commercial paid",
-      a:"Yes — <b>free and open source</b> under a PostgreSQL-style permissive license. No paid tiers, no telemetry."},
+      a:"Yes — <b>$0, forever</b>: free and open source under <b>The PostgreSQL License</b> (OSI-approved, permissive, free for any use including commercial, no copyleft). No paid tiers, no per-request or per-seat fees, no telemetry. You pay only for the hardware it runs on. See the <a href='#pricing'>Pricing tab</a>."},
+    {q:"Does Centauri have an API gateway",t:"gateway api reverse proxy kong apigee tyk llm routes keys rate limit oidc mtls streaming failover token metering console",
+      a:"Yes — <code>centauri gateway</code> turns a Centauri log into a reverse proxy whose routes and API keys are <b>bi-temporal facts</b> (config time-travels with <code>AS OF</code>) and whose per-request audit is <b>tamper-evident</b>. It does API keys, OIDC JWT validation, mTLS, per-key/per-IP rate limits, built-in middleware, and an <b>LLM gateway</b> with SSE streaming, provider failover, and per-key token metering. Mint keys in the <b>Console</b> (<code>/console</code>). See the <a href='compare-gateways.html'>honest comparison vs Kong, Apigee, AWS and Tyk</a>."},
     {q:"How is Centauri different from PostgreSQL",t:"postgresql postgres compare versus difference replace relational sql",
       a:"It isn't a Postgres replacement — it's the layer Postgres doesn't have: bi-temporal history, causal lineage, tamper-evidence, topology, native search, and an agent-native interface. Run it <em>beside</em> Postgres as the system of record for what happened, when, why, and how much to trust it. See the <a href='#compare'>feature matrix</a>."},
     {q:"How does it compare to Oracle DB2 SQL Server MongoDB",t:"compare comparison versus oracle db2 sqlserver sql server mongodb mongo mysql cassandra snowflake elasticsearch alternative replace traditional rdbms warehouse",
@@ -965,7 +1050,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Who made Centauri JacobLabs",t:"who made author company jacoblabs proxima360 centauri llc team built sponsor",
       a:"Centauri is by <b>JacobLabs LLC</b> (<a href='https://jacoblabs.ai'>jacoblabs.ai</a>) — the nearest star to your data. Source is on <a href='https://github.com/aniljacobv-lab/centauri'>GitHub</a>."},
     {q:"Roadmap future plans",t:"roadmap future encryption clustering plans coming soon next managed cloud",
-      a:"Shipped since this page first launched: <b>crypto-erasure</b>, <b>subject sharding</b> (<code>serve -shards</code>), <b>automatic HA failover</b> (<code>serve -ha-lease</code>), <b>OIDC/JWT SSO</b>, the <b>PostgreSQL wire protocol</b>, an <b>S3 cold tier</b>, and a turnkey <b>local-AI appliance</b> (<code>serve -ai</code>). Still on the roadmap: an ANN index for billion-scale vectors and a fully managed Centauri Cloud."},
+      a:"Shipped since this page first launched: <b>crypto-erasure</b>, <b>subject sharding</b> (<code>serve -shards</code>), <b>automatic HA failover</b> (<code>serve -ha-lease</code>), <b>OIDC/JWT SSO</b>, the <b>PostgreSQL wire protocol</b>, an <b>S3 cold tier</b>, a turnkey <b>local-AI appliance</b> (<code>serve -ai</code>), the <b>API/LLM gateway</b> (<code>centauri gateway</code>) with streaming, failover and token metering, and the <b>Console</b> at <code>/console</code>. Still on the roadmap: an ANN index for billion-scale vectors and a fully managed Centauri Cloud."},
     {q:"Can it do compute and analytics",t:"compute computation analytics calculate calculation processing aggregate aggregation sum avg average group by having cepl procedure topology math run analysis",
       a:"Yes — Centauri runs real computation inside the engine: <b>aggregations</b> (<code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/<code>GROUP BY</code>/<code>HAVING</code>), <b>topology</b> (persistent homology, sheaf consistency), <b>BM25 search</b>, vector similarity, and <b>CePL stored procedures</b> for custom logic — all in pure Go over your in-memory working set. It's analytical, not a distributed compute grid; for heavy ETL, pair it with a warehouse."},
     {q:"How do I write or insert or update data",t:"write insert add put update record create save data ingest load import csv pump",
@@ -1023,7 +1108,7 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     {q:"Which AI agents or LLMs can use it",t:"which agent llm claude gpt openai anthropic gemini model compatible support copilot",
       a:"Any agent that speaks MCP (Claude and other MCP clients) or can make an HTTP call. No model lock-in — the model just needs to call a tool or a REST endpoint."},
     {q:"Is there support or a community",t:"support community help enterprise commercial sla contact maintainer",
-      a:"It's open source — file issues and feature requests on GitHub (accepted features get implemented and shipped). Commercial/enterprise support is via JacobLabs LLC (jacoblabs.ai)."},
+      a:"It's open source — file issues and feature requests on GitHub (accepted features get implemented and shipped). There is <b>no commercial support organization today</b>; the maintainer is JacobLabs LLC (jacoblabs.ai)."},
     {q:"How can I contribute",t:"contribute contributing pull request pr open source develop hack",
       a:"PRs welcome on GitHub, and you can suggest a feature via the issue template — accepted ideas get implemented by the maintainers (sometimes by an AI)."},
     {q:"What does the name Centauri mean",t:"name meaning centauri proxima star why called branding",
@@ -1201,6 +1286,33 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
     else{verify.className='verify fail';verify.textContent='✗ centauri verify — chain breaks at record #'+broke+' (and every record after it)';}
   }
   document.getElementById('reset').onclick=build;build();
+})();
+
+/* ---------- top-level tabs ---------- */
+(function(){
+  const panes=[...document.querySelectorAll('.tabpane')];
+  const tabs=[...document.querySelectorAll('.tabbtn')];
+  function show(id){
+    panes.forEach(p=>p.classList.toggle('active',p.id==='tab-'+id));
+    tabs.forEach(t=>{const on=t.dataset.tab===id;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false');});
+  }
+  const alias={why:'why',pricing:'pricing',engineers:'eng',eng:'eng'};
+  function paneOf(el){let p=el;while(p&&!(p.classList&&p.classList.contains('tabpane')))p=p.parentElement;return p;}
+  tabs.forEach(t=>t.onclick=()=>{show(t.dataset.tab);try{history.replaceState(null,'','#'+t.dataset.tab);}catch(e){}window.scrollTo({top:0});});
+  function goHash(h){
+    const id=(h||'').replace('#','');if(!id)return;
+    const el=document.getElementById(id);
+    if(!el){if(alias[id])show(alias[id]);return;}
+    const p=paneOf(el);
+    if(p){show(p.id.slice(4));setTimeout(()=>{try{el.scrollIntoView();}catch(e){}},0);}
+  }
+  document.addEventListener('click',e=>{
+    const a=e.target.closest('a[href^="#"]');if(!a)return;
+    const el=document.getElementById(a.getAttribute('href').slice(1));
+    if(el){const p=paneOf(el);if(p&&!p.classList.contains('active'))show(p.id.slice(4));}
+  });
+  window.addEventListener('hashchange',()=>goHash(location.hash));
+  if(location.hash)goHash(location.hash);
 })();
 </script>
 </body>
