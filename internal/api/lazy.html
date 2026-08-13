@@ -46,9 +46,26 @@
   .tab.active{background:var(--accent);color:#06101f;font-weight:600}
   .muted{color:var(--muted)}
   .err{color:var(--bad)}
+.cnav{display:flex;align-items:center;gap:2px;padding:0 14px;height:44px;background:#0B1020;border-bottom:1px solid #26304F;font-family:'Outfit','Segoe UI',sans-serif;position:sticky;top:0;z-index:50}
+.cnav a{color:#8B96B4;text-decoration:none;font-size:13px;font-weight:600;padding:0 12px;line-height:44px;border-bottom:2px solid transparent}
+.cnav a:hover{color:#F0F3FA}
+.cnav a.on{color:#F0F3FA;border-bottom-color:#D9A93B}
+.cnav .brand{color:#E8C766;font-weight:800;font-size:14px;letter-spacing:.5px;margin-right:10px;border-bottom:2px solid transparent}
+.cnav-spacer{flex:1}
+.cnav-slot{display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
+<nav class="cnav">
+  <a class="brand" href="/console">◆ Centauri</a>
+  <a href="/console">Home</a>
+  <a href="/app">Ask</a>
+  <a href="/">Data</a>
+  <a href="/studio">Studio</a>
+  <a href="/ceql">Book</a>
+  <span class="cnav-spacer"></span>
+  <span class="cnav-slot"></span>
+</nav>
 <header>
   <h1>Centauri — Tablespace Console <span class="chip" id="mode">lazy disk-backed</span></h1>
   <div class="sub">Read-only over a sealed-segment archive. RAM scales with live subjects, not total events. Cold data is compressed &amp; tamper-evident.</div>

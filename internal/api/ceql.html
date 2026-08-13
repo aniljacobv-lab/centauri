@@ -37,12 +37,26 @@
   .toc a:hover{color:var(--accent)}
   .toc b{color:var(--dim);font-size:12px;letter-spacing:1px}
   a{color:var(--accent)}
-  .back{position:fixed;top:14px;right:18px;background:var(--panel);border:1px solid var(--line);
-        border-radius:8px;padding:6px 12px;text-decoration:none;font-size:13px}
+.cnav{display:flex;align-items:center;gap:2px;padding:0 14px;height:44px;background:#0B1020;border-bottom:1px solid #26304F;font-family:'Outfit','Segoe UI',sans-serif;position:sticky;top:0;z-index:50}
+.cnav a{color:#8B96B4;text-decoration:none;font-size:13px;font-weight:600;padding:0 12px;line-height:44px;border-bottom:2px solid transparent}
+.cnav a:hover{color:#F0F3FA}
+.cnav a.on{color:#F0F3FA;border-bottom-color:#D9A93B}
+.cnav .brand{color:#E8C766;font-weight:800;font-size:14px;letter-spacing:.5px;margin-right:10px;border-bottom:2px solid transparent}
+.cnav-spacer{flex:1}
+.cnav-slot{display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
-<a class="back" href="/">← dashboard</a>
+<nav class="cnav">
+  <a class="brand" href="/console">◆ Centauri</a>
+  <a href="/console">Home</a>
+  <a href="/app">Ask</a>
+  <a href="/">Data</a>
+  <a href="/studio">Studio</a>
+  <a href="/ceql" class="on">Book</a>
+  <span class="cnav-spacer"></span>
+  <span class="cnav-slot"></span>
+</nav>
 <div class="wrap">
 
 <h1>The <b>CeQL</b> Book</h1>

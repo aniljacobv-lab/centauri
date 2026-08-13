@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Centauri Console — one home for the whole suite</title>
+<title>Centauri — Home</title>
 <style>
   :root{
     --bg:#0b0e14; --panel:#121826; --panel2:#0e1420; --line:#1f2a3d;
@@ -13,12 +13,6 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
        font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;min-height:100vh}
-  header{display:flex;align-items:center;gap:10px;padding:12px 22px;
-         border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
-  header h1{font-size:17px;margin:0;letter-spacing:.5px}
-  header h1 b{color:var(--accent)}
-  header .tag{color:var(--dim);font-size:12px;font-weight:400}
-  .hright{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   input,select,button{background:var(--panel);color:var(--text);border:1px solid var(--line);
         border-radius:8px;padding:6px 10px;font-size:13px;outline:none;font-family:inherit}
   input:focus,select:focus{border-color:var(--accent)}
@@ -65,27 +59,58 @@
          padding:8px 16px;font-size:13px;z-index:9}
   #toast.err{border-color:var(--bad);color:var(--bad)}
   .x{margin-left:auto}
+  .cnav{display:flex;align-items:center;gap:2px;padding:0 14px;height:44px;background:#0B1020;border-bottom:1px solid #26304F;font-family:'Outfit','Segoe UI',sans-serif;position:sticky;top:0;z-index:50}
+  .cnav a{color:#8B96B4;text-decoration:none;font-size:13px;font-weight:600;padding:0 12px;line-height:44px;border-bottom:2px solid transparent}
+  .cnav a:hover{color:#F0F3FA}
+  .cnav a.on{color:#F0F3FA;border-bottom-color:#D9A93B}
+  .cnav .brand{color:#E8C766;font-weight:800;font-size:14px;letter-spacing:.5px;margin-right:10px;border-bottom:2px solid transparent}
+  .cnav-spacer{flex:1}
+  .cnav-slot{display:flex;align-items:center;gap:8px}
+  .welcome{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:20px}
+  .welcome h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--text)}
+  .starts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .start{display:flex;flex-direction:column;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:var(--text)}
+  .start:hover{border-color:var(--accent);text-decoration:none}
+  .start b{font-size:14px}
+  .start span{color:var(--dim);font-size:12.5px}
 </style>
 </head>
 <body>
-<header>
-  <h1><b>CENTAURI</b> Console <span class="tag">the whole suite, one page · environment: <span id="envname">default</span></span></h1>
-  <div class="hright">
+<nav class="cnav">
+  <a class="brand" href="/console">◆ Centauri</a>
+  <a href="/console" class="on">Home</a>
+  <a href="/app">Ask</a>
+  <a href="/">Data</a>
+  <a href="/studio">Studio</a>
+  <a href="/ceql">Book</a>
+  <span class="cnav-spacer"></span>
+  <span class="cnav-slot">
+    <span class="mini">database: <span id="envname">default</span></span>
     <button class="ghost" onclick="toggleToken()" title="Set the API token — shared with the dashboard, entered once">🔑 Token</button>
-    <a href="/" title="The advanced dashboard">Dashboard</a>
-  </div>
-</header>
+  </span>
+</nav>
 <div id="tokenbox">
   <input id="token" type="password" placeholder="API token" size="24">
   <button class="primary" onclick="saveToken()">Unlock</button>
   <span class="mini">Stored only in this browser — the same token the dashboard uses, so you authenticate once.</span>
 </div>
 <main>
+  <section class="welcome">
+    <h2>Your private AI and database. Three places to start:</h2>
+    <div class="starts">
+      <a class="start" href="/app"><b>Ask a question</b><span>Plain-English answers from your own data.</span></a>
+      <a class="start" href="/?demo=1"><b>Load demo data</b><span>Open the Data page with sample data to explore.</span></a>
+      <a class="start" href="/?tour=1"><b>Take the tour</b><span>A guided walk through the dashboard.</span></a>
+    </div>
+  </section>
+  <details id="allcaps" open>
+    <summary id="allcaps-sum" class="mini" style="cursor:pointer;padding:6px 2px;color:var(--dim);list-style:none">
+      Everything Centauri can do <span style="opacity:.6">(click to show or hide)</span></summary>
   <div class="grid">
 
     <div class="tile" id="tile-gateway">
       <h3><span class="dot" id="dot-gw"></span>API Gateway</h3>
-      <div class="blurb">Routes, keys and rate limits are bi-temporal facts — your gateway config time-travels and nothing is ever erased.</div>
+      <div class="blurb">Routes, keys and rate limits are stored as bi-temporal facts, so your gateway config time-travels.</div>
       <div class="stat" id="gw-stats">—</div>
       <div class="acts">
         <a href="/">Open dashboard</a>
@@ -97,7 +122,7 @@
 
     <div class="tile" id="tile-llm">
       <h3><span class="dot" id="dot-llm"></span>AI Gateway</h3>
-      <div class="blurb">OpenAI-compatible LLM routes with SSE streaming, provider failover, pinned models, and per-key token metering.</div>
+      <div class="blurb">OpenAI-compatible LLM routes with streaming, provider failover and per-key token metering.</div>
       <div class="stat" id="llm-stats">—</div>
       <div class="acts">
         <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md#llm-gateway-recipe" target="_blank" rel="noopener">LLM recipe (docs)</a>
@@ -107,35 +132,35 @@
 
     <div class="tile" id="tile-ai">
       <h3><span class="dot" id="dot-ai"></span>Private AI</h3>
-      <div class="blurb">Ask your data questions in plain English — answered locally by default; you choose where answers are computed.</div>
+      <div class="blurb">Ask your data questions in plain English, answered locally by default.</div>
       <div class="stat" id="ai-stats">—</div>
       <div class="acts"><a href="/" title="The AI panel lives on the dashboard">Open dashboard AI panel</a></div>
     </div>
 
     <div class="tile" id="tile-events">
       <h3><span class="dot" id="dot-ev"></span>Events &amp; Live</h3>
-      <div class="blurb">Every fact knows when it became true and when you learned it. Append-only, tamper-evident.</div>
+      <div class="blurb">Every fact records when it became true and when you learned it, append-only and tamper-evident.</div>
       <div class="stat" id="ev-stats">—</div>
       <div class="acts"><a href="/" title="Press ▶ Watch on the dashboard to stream commits live">Watch live</a></div>
     </div>
 
     <div class="tile" id="tile-identity">
       <h3><span class="dot" id="dot-id"></span>Identity &amp; Keys</h3>
-      <div class="blurb">Gateway API keys and prefix-scoped database tokens. Only hashes are stored — a leaked log leaks no secrets.</div>
+      <div class="blurb">Gateway keys and prefix-scoped database tokens, with only hashes ever stored.</div>
       <div class="stat" id="id-stats">—</div>
       <div class="acts"><button class="primary" onclick="openPanel('keys')">Keys &amp; Access</button></div>
     </div>
 
     <div class="tile" id="tile-usage">
       <h3><span class="dot" id="dot-use"></span>Usage &amp; Metering</h3>
-      <div class="blurb">Every gateway call is an audit fact: requests, latency, errors, and LLM token spend — per key, forever queryable.</div>
+      <div class="blurb">Every gateway call becomes an audit fact: requests, latency, errors and token spend per key.</div>
       <div class="stat" id="use-stats">—</div>
       <div class="acts"><button class="primary" onclick="openPanel('usage')">Open usage</button></div>
     </div>
 
     <div class="tile" id="tile-obs">
       <h3><span class="dot" id="dot-live"></span>Observability</h3>
-      <div class="blurb">Liveness, readiness and Prometheus metrics — plain HTTP, no token needed, ready for probes and scrapers.</div>
+      <div class="blurb">Liveness, readiness and Prometheus metrics over plain HTTP, no token needed.</div>
       <div class="stat"><span class="dot" id="dot-livez"></span> /livez <span id="livez-txt" class="mini">…</span>
         &nbsp; <span class="dot" id="dot-readyz"></span> /readyz <span id="readyz-txt" class="mini">…</span></div>
       <div class="acts"><a href="/metrics" target="_blank" rel="noopener">/metrics</a></div>
@@ -143,18 +168,20 @@
 
     <div class="tile" id="tile-learn">
       <h3><span class="dot good"></span>Learn</h3>
-      <div class="blurb">The CeQL textbook, the AI-first Studio IDE, and the simple no-jargon app.</div>
+      <div class="blurb">The CeQL textbook, the Studio IDE and the simple Ask view.</div>
       <div class="stat"></div>
       <div class="acts">
-        <a href="/ceql" target="_blank" rel="noopener">📘 CeQL book</a>
-        <a href="/studio" target="_blank" rel="noopener">🛰 Studio</a>
-        <a href="/app" target="_blank" rel="noopener">🙂 Simple app</a>
+        <a href="/ceql">CeQL Book</a>
+        <a href="/studio">Studio</a>
+        <a href="/app">Ask</a>
       </div>
     </div>
   </div>
 
+  </details>
+
   <section class="panel" id="panel-keys" style="display:none">
-    <h2>🔑 Keys &amp; Access <button class="ghost x" onclick="closePanels()">✕ close</button></h2>
+    <h2>Keys &amp; Access <button class="ghost x" onclick="closePanels()">✕ close</button></h2>
     <div class="mini">Gateway API keys are <code>gwkey:&lt;sha256&gt;</code> config facts. Revoking retires the fact —
       the key stops working, its history stays.</div>
     <h3>Gateway API keys</h3>
@@ -175,7 +202,7 @@
   </section>
 
   <section class="panel" id="panel-usage" style="display:none">
-    <h2>📈 Usage &amp; Metering <button class="ghost x" onclick="closePanels()">✕ close</button></h2>
+    <h2>Usage &amp; Metering <button class="ghost x" onclick="closePanels()">✕ close</button></h2>
     <div class="formrow">
       <label class="mini">Route</label>
       <select id="useroute"><option value="all">all routes</option></select>
@@ -266,6 +293,7 @@ async function loadRoutes(){
                providers: Array.isArray(v.providers) ? v.providers.length : 0, prefix: v.prefix || "" };
     });
     const live = ROUTES.filter(r => !r.retired);
+    FRESHNESS.routes = live.length; maybeFold();
     const llm = live.filter(r => r.llm), plain = live.filter(r => !r.llm);
     dot("dot-gw", live.length ? "good" : "");
     gwEl.innerHTML = live.length
@@ -279,7 +307,7 @@ async function loadRoutes(){
     const sel = document.getElementById("useroute");
     sel.innerHTML = `<option value="all">all routes</option>` +
       ROUTES.map(r => `<option value="${esc(r.name)}">${esc(r.name)}${r.retired ? " (retired)" : ""}</option>`).join("");
-  } catch (e) {
+  } catch (e) { FRESHNESS.routes = 0; maybeFold(); 
     dot("dot-gw", "bad"); dot("dot-llm", "");
     gwEl.textContent = "Couldn't read route facts — " + (e.message || e);
     llmEl.textContent = "—";
@@ -526,6 +554,18 @@ async function loadUsage(){
 }
 
 // ---- boot ----
+// A brand-new install shows three friendly actions, not a wall of tiles:
+// fold the capability grid until the system is actually in use.
+let FRESHNESS = {subjects: -1, routes: -1};
+function maybeFold(){
+  if (FRESHNESS.subjects < 0 || FRESHNESS.routes < 0) return; // both loaded?
+  const fresh = FRESHNESS.subjects < 5 && FRESHNESS.routes === 0;
+  const d = document.getElementById("allcaps");
+  if (d && fresh && !localStorage.getItem("centauri_caps_open")) d.removeAttribute("open");
+  if (d) d.addEventListener("toggle", () => {
+    if (d.open) localStorage.setItem("centauri_caps_open", "1");
+  }, {once: true});
+}
 function boot(){
   document.getElementById("envname").textContent = DB || "default";
   loadHealth();

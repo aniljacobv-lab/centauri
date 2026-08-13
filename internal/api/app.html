@@ -43,9 +43,26 @@
   @keyframes sp{to{transform:rotate(360deg)}}
   footer{text-align:center;color:var(--muted);font-size:12.5px;margin-top:18px}
   footer a{color:var(--accent);text-decoration:none}
+  .cnav{display:flex;align-items:center;gap:2px;padding:0 14px;height:44px;background:#0B1020;border-bottom:1px solid #26304F;font-family:'Outfit','Segoe UI',sans-serif;position:sticky;top:0;z-index:50}
+  .cnav a{color:#8B96B4;text-decoration:none;font-size:13px;font-weight:600;padding:0 12px;line-height:44px;border-bottom:2px solid transparent}
+  .cnav a:hover{color:#F0F3FA}
+  .cnav a.on{color:#F0F3FA;border-bottom-color:#D9A93B}
+  .cnav .brand{color:#E8C766;font-weight:800;font-size:14px;letter-spacing:.5px;margin-right:10px;border-bottom:2px solid transparent}
+  .cnav-spacer{flex:1}
+  .cnav-slot{display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
+<nav class="cnav">
+  <a class="brand" href="/console">◆ Centauri</a>
+  <a href="/console">Home</a>
+  <a href="/app" class="on">Ask</a>
+  <a href="/">Data</a>
+  <a href="/studio">Studio</a>
+  <a href="/ceql">Book</a>
+  <span class="cnav-spacer"></span>
+  <span class="cnav-slot"></span>
+</nav>
 <header>
   <h1>Your private <span class="a">AI</span></h1>
   <p>Add your stuff, then ask in plain English — answers come from your own data, with receipts.<br>It never forgets: every change is kept, so you can ask about the past and see why things changed.</p>
@@ -89,8 +106,8 @@
   </section>
 
   <footer>
-    Powered by Centauri · <a href="/">advanced dashboard</a> · <a href="/studio">Studio</a> · <a href="/console">Console</a> · private by default —
-    your data leaves this machine only if you enable the optional cloud boost on the dashboard
+    Powered by Centauri · private by default —
+    your data leaves this machine only if you enable the optional cloud boost on the Data page
   </footer>
 </div>
 

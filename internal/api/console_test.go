@@ -54,7 +54,7 @@ func TestConsoleServed(t *testing.T) {
 		t.Fatalf("content type %q", ct)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !bytes.Contains(body, []byte("Centauri Console")) {
+	if !bytes.Contains(body, []byte("<title>Centauri — Home</title>")) {
 		t.Fatal("embedded console.html is missing its title — embed broken?")
 	}
 }

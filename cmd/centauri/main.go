@@ -578,8 +578,8 @@ func main() {
 			fmt.Printf("assistant: %d knowledge facts (ASK '…')\n", n)
 		}
 		fmt.Printf("your data:  %s\n", *data)
-		fmt.Printf("open:       http://localhost%s/app   (the simple view — opening in your browser…)\n", *addr)
-		fmt.Printf("dashboard:  http://localhost%s        ·  studio: http://localhost%s/studio\n", *addr, *addr)
+		fmt.Printf("open:       http://localhost%s/console   (home — opening the Centauri app window; falls back to your browser)\n", *addr)
+		fmt.Printf("ask:        http://localhost%s/app   ·  data: http://localhost%s   ·  studio: http://localhost%s/studio\n", *addr, *addr, *addr)
 		// Turnkey local AI: pick the right models for this machine, turn on
 		// auto-embed, and in the background install the model runtime (Ollama) if
 		// needed and pull the models — so an average user does nothing at all.
@@ -597,7 +597,7 @@ func main() {
 		fmt.Println("\nKeep this window open while you use Centauri. Close it (or Ctrl+C) to stop.")
 		go func() {
 			time.Sleep(1200 * time.Millisecond)
-			openBrowser("http://localhost" + *addr + "/app") // the simple, friendly view
+			openAppWindow("http://localhost" + *addr + "/console") // the Home hub
 		}()
 		srv := api.NewWithOptions(st, api.Options{Token: *token, DataPath: *data,
 			MaxConcurrent: *maxConc, RequestTimeout: time.Duration(*queryTimeout) * time.Second,
@@ -1025,6 +1025,60 @@ func openBrowser(url string) {
 	_ = c.Start()
 }
 
+// openAppWindow opens a URL as a chromeless "app" window (Edge/Chrome
+// --app=URL) so the desktop command feels like a native app. Everything is
+// best-effort: the first launcher that works wins, and any failure falls
+// back silently to a plain browser tab via openBrowser.
+func openAppWindow(url string) {
+	app := "--app=" + url
+	switch runtime.GOOS {
+	case "windows":
+		// Browsers are rarely on PATH on Windows; try PATH first, then the
+		// usual install locations, then `start` (which consults the App
+		// Paths registry, where Edge and Chrome always register).
+		for _, exe := range []string{"msedge", "chrome"} {
+			if p, err := exec.LookPath(exe); err == nil {
+				if exec.Command(p, app).Start() == nil {
+					return
+				}
+			}
+		}
+		for _, dir := range []string{os.Getenv("ProgramFiles(x86)"), os.Getenv("ProgramFiles"), os.Getenv("LocalAppData")} {
+			if dir == "" {
+				continue
+			}
+			for _, rel := range []string{`Microsoft\Edge\Application\msedge.exe`, `Google\Chrome\Application\chrome.exe`} {
+				p := filepath.Join(dir, rel)
+				if _, err := os.Stat(p); err == nil {
+					if exec.Command(p, app).Start() == nil {
+						return
+					}
+				}
+			}
+		}
+		for _, exe := range []string{"msedge", "chrome"} {
+			// `cmd /c start <exe> --app=<url>` resolves via App Paths; start
+			// returns immediately, and cmd exits non-zero if the exe is unknown.
+			if exec.Command("cmd", "/c", "start", exe, app).Run() == nil {
+				return
+			}
+		}
+	case "darwin":
+		if exec.Command("open", "-na", "Google Chrome", "--args", app).Run() == nil {
+			return
+		}
+	default:
+		for _, exe := range []string{"google-chrome", "chromium", "chromium-browser"} {
+			if p, err := exec.LookPath(exe); err == nil {
+				if exec.Command(p, app).Start() == nil {
+					return
+				}
+			}
+		}
+	}
+	openBrowser(url)
+}
+
 // runExport runs a CeQL read and writes the events in the chosen format.
 // With -to empty or "-", it prints to stdout (handy for ad-hoc queries);
 // otherwise it writes the file and prints a one-line summary.
@@ -1449,7 +1503,7 @@ func usage() {
 	fmt.Println(`usage: centauri <command> [flags]
 
 Commands
-  desktop  one-click start: data in your profile, dashboard opens in your browser
+  desktop  one-click start: data in your profile, the Centauri home opens in an app window (or your browser)
   serve    HTTP/JSON API — writes, queries, SSE watch, log shipping
   gateway  reverse proxy: routes/keys/audit live in a Centauri store (bi-temporal)
   mcp      Model Context Protocol server on stdio (connect AI agents)
@@ -1478,7 +1532,7 @@ Common flags
   -to <file>      output file ('-' or omitted = stdout)  (export/backup/merge)
 
 Examples
-  centauri desktop                 # try it now — opens the dashboard
+  centauri desktop                 # try it now — opens the Centauri home
   centauri tablespace-demo         # seed→archive→retrieve→insert, end to end
   centauri doctor                  # is my database healthy?
   centauri export -q "FACTS OF item:*" -format table   # query to the terminal

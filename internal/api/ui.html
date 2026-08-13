@@ -135,48 +135,82 @@
   .cmp th:last-child,.cmp td:last-child{background:#10202f}
   pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;
       font-family:var(--mono);font-size:12px;overflow:auto}
+/* canonical suite nav */
+.cnav{display:flex;align-items:center;gap:2px;padding:0 14px;height:44px;background:#0B1020;border-bottom:1px solid #26304F;font-family:'Outfit','Segoe UI',sans-serif;position:sticky;top:0;z-index:50}
+.cnav a{color:#8B96B4;text-decoration:none;font-size:13px;font-weight:600;padding:0 12px;line-height:44px;border-bottom:2px solid transparent}
+.cnav a:hover{color:#F0F3FA}
+.cnav a.on{color:#F0F3FA;border-bottom-color:#D9A93B}
+.cnav .brand{color:#E8C766;font-weight:800;font-size:14px;letter-spacing:.5px;margin-right:10px;border-bottom:2px solid transparent}
+.cnav-spacer{flex:1}
+.cnav-slot{display:flex;align-items:center;gap:8px}
+  body.focus-script .cnav{display:none}
+  /* top-bar overflow menu */
+  .moremenu{position:relative;display:inline-block}
+  #moredrop{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:55;min-width:230px;
+            background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;
+            box-shadow:0 14px 40px rgba(0,0,0,.55)}
+  #moredrop.show{display:flex;flex-direction:column;gap:1px}
+  #moredrop button{background:transparent;border:none;text-align:left;border-radius:6px;padding:7px 10px;width:100%}
+  #moredrop button:hover{background:var(--panel2)}
+  #moredrop .mhead{font-size:10px;letter-spacing:1.2px;color:var(--dim);text-transform:uppercase;padding:6px 10px 2px}
+  /* calm home zones */
+  .zonehead{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin:26px 0 10px}
+  .capgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
+  .capgrid .card{margin:0}
+  details.cap>summary{cursor:pointer;user-select:none;list-style:none}
+  details.cap>summary::-webkit-details-marker{display:none}
+  details.cap>summary::before{content:"\25B8 ";color:var(--dim)}
+  details.cap[open]>summary::before{content:"\25BE "}
 </style>
 </head>
 <body>
+<nav class="cnav">
+  <a class="brand" href="/console">◆ Centauri</a>
+  <a href="/console">Home</a>
+  <a href="/app">Ask</a>
+  <a href="/" class="on">Data</a>
+  <a href="/studio">Studio</a>
+  <a href="/ceql">Book</a>
+  <span class="cnav-spacer"></span>
+  <span class="cnav-slot">
+    <select id="dbsel" onchange="switchDb(this.value)" title="Environment — each is its own isolated database file"></select>
+    <div id="tokenbox">
+      <input id="token" placeholder="API token" size="14" type="password">
+      <button onclick="saveToken()">Unlock</button>
+    </div>
+    <button class="ghost" onclick="showToken()" title="Set the API token">🔑</button>
+    <button id="livebtn" class="primary" onclick="toggleLive()" title="Stream new facts the moment they commit">▶ Watch</button>
+  </span>
+</nav>
 <header>
   <h1><b>CENTAURI</b> <span class="tag">every fact knows its time, cause, and source</span></h1>
-  <div class="tgroup" title="Each environment is its own isolated database file">
-    <span class="lbl">Environment</span>
-    <select id="dbsel" onchange="switchDb(this.value)"></select>
-    <button title="Create a new environment (optionally cloning this one)" onclick="openNewDb()">＋ new</button>
-    <button class="ghost" title="Verify the tamper-evidence chain" onclick="verifyIntegrity()">🛡 verify</button>
-  </div>
-  <div id="tokenbox">
-    <input id="token" placeholder="API token" size="14" type="password">
-    <button onclick="saveToken()">Unlock</button>
+  <button class="primary" onclick="openAddFact()" title="Write one fact (insert and update are the same thing)">＋ Add fact</button>
+  <button class="primary" style="background:var(--accent2);border-color:var(--accent2)"
+          onclick="openGenesis()" title="Describe a scenario or paste SQL DDL — Genesis builds the whole database">🏗 Build my database</button>
+  <button class="ghost" onclick="openDemo()" title="Load a guided multi-domain example dataset">🎲 Demo data</button>
+  <button class="ghost" onclick="openTour(0)" title="The 2-minute hands-on tour">❓ Tour</button>
+  <div class="moremenu" id="moremenu">
+    <button onclick="toggleMore(event)" title="Everything else: manage, learn, community">⋯ More</button>
+    <div id="moredrop">
+      <div class="mhead">Manage</div>
+      <button onclick="openSchemas()" title="Optional validation rules for your data">🧩 Schemas</button>
+      <button onclick="openProcs()" title="CePL stored procedures">⚙ Procedures</button>
+      <button title="Create a new environment (optionally cloning this one)" onclick="openNewDb()">＋ New environment</button>
+      <button title="Verify the tamper-evidence chain" onclick="verifyIntegrity()">🛡 Verify integrity</button>
+      <div class="mhead">Learn</div>
+      <button onclick="openWhy('why')" title="What makes Centauri different + honest comparisons">★ Why Centauri</button>
+      <button onclick="window.open('/ceql','_blank')" title="The CeQL textbook">📘 CeQL Book</button>
+      <button onclick="window.open('/studio','_blank')" title="The AI-first IDE: explorer, time-travel, copilot, rollback">🛰 Studio</button>
+      <button onclick="window.open('/console','_blank')" title="The product-suite console: gateway, keys, usage &amp; metering, health">⊞ Console</button>
+      <button onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
+      <button onclick="openVision()" title="Upload an image or PDF for an AI to inspect (stored locally + vectorized)">📎 Vision</button>
+      <div class="mhead">Community</div>
+      <button onclick="openSuggest()" title="Suggest a feature or report a bug — stored as facts here, one click to send upstream">💡 Suggest</button>
+    </div>
   </div>
   <div id="stats"></div>
   <div id="buildinfo" class="mini" title="When this build was shipped and what was in it (GET /v1/version)" style="opacity:.7"></div>
 </header>
-<div class="toolbar">
-  <div class="tgroup"><span class="lbl">Create</span>
-    <button class="primary" style="background:var(--accent2);border-color:var(--accent2)"
-            onclick="openGenesis()" title="Describe a scenario or paste SQL DDL — Genesis builds the whole database">🏗 Build my database</button>
-    <button class="primary" onclick="openAddFact()" title="Write one fact (insert and update are the same thing)">＋ Add fact</button>
-  </div>
-  <div class="tgroup"><span class="lbl">Manage</span>
-    <button onclick="openSchemas()" title="Optional validation rules for your data">🧩 Schemas</button>
-    <button onclick="openProcs()" title="CePL stored procedures">⚙ Procedures</button>
-  </div>
-  <div class="tgroup"><span class="lbl">Learn</span>
-    <button class="ghost" onclick="openTour(0)" title="The 2-minute hands-on tour">❓ Tour</button>
-    <button class="ghost" onclick="openWhy('why')" title="What makes Centauri different + honest comparisons">★ Why Centauri</button>
-    <button class="ghost" onclick="window.open('/ceql','_blank')" title="The CeQL textbook">📘 CeQL Book</button>
-    <button class="ghost" onclick="window.open('/studio','_blank')" title="The AI-first IDE: explorer, time-travel, copilot, rollback">🛰 Studio</button>
-    <button class="ghost" onclick="window.open('/console','_blank')" title="The product-suite console: gateway, keys, usage &amp; metering, health">⊞ Console</button>
-    <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
-    <button class="ghost" onclick="openDemo()" title="Load a guided multi-domain example dataset">🎲 Demo data</button>
-    <button class="ghost" onclick="openVision()" title="Upload an image or PDF for an AI to inspect (stored locally + vectorized)">📎 Vision</button>
-  </div>
-  <div class="tgroup"><span class="lbl">Community</span>
-    <button class="ghost" onclick="openSuggest()" title="Suggest a feature or report a bug — stored as facts here, one click to send upstream">💡 Suggest</button>
-  </div>
-</div>
 <main>
   <div id="left">
     <div class="pad"><input id="search" placeholder="Search subjects…" style="width:100%"></div>
@@ -220,45 +254,63 @@
     </div>
     <div id="qres"></div>
     <div id="empty">
-      <h2>Welcome to Centauri 👋</h2>
-      <div class="qgridish" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0">
+      <section id="zone-start">
+        <h2>Welcome to Centauri 👋</h2>
+        <div class="zonehead" style="margin-top:6px">Start Here</div>
+        <div class="qgridish" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:0 0 10px">
         <div class="card" style="margin:0;cursor:pointer" onclick="openGenesis()">
-          <h3 style="color:var(--accent2)">1 · Build a database 🏗</h3>
+          <h3 style="color:var(--accent2)">1 · Build a Database</h3>
           <span class="mini">Describe your scenario in plain words — or paste SQL
           CREATE TABLEs — and Genesis builds schemas, procedures and queries for you.</span></div>
         <div class="card" style="margin:0;cursor:pointer" onclick="openAddFact()">
-          <h3 style="color:var(--accent)">2 · Or just write a fact ＋</h3>
+          <h3 style="color:var(--accent)">2 · Or Just Write a Fact</h3>
           <span class="mini">No tables, no setup: <code>toy:robot</code> +
           <code>price_cents=500</code> and you have data. Writing again updates it —
           and keeps the old fact forever.</span></div>
         <div class="card" style="margin:0;cursor:pointer" onclick="qin.focus()">
-          <h3 style="color:var(--good)">3 · Ask anything 🔎</h3>
+          <h3 style="color:var(--good)">3 · Ask Anything</h3>
           <span class="mini">Use the query bar in CeQL or plain English —
           <i>"price of toy:robot yesterday"</i>. ❓ Tour walks you through everything
           in two minutes.</span></div>
-      </div>
-      <p class="mini">Wondering what makes this database special?
-         <a href="#" onclick="openWhy('why');return false">★ Why Centauri</a> has the
-         full story and an honest comparison with Oracle, PostgreSQL, MySQL &amp; MongoDB.</p>
-      <div class="card" style="text-align:left">
-        <h3>Pending wedges (distributed, never activated)</h3>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <select id="wfacet"><option>pdt</option><option>register</option><option>shelf</option><option>storecentral</option></select>
-          <select id="wdays"><option value="">any age</option><option value="7">older than 7d</option><option value="21" selected>older than 21d</option><option value="45">older than 45d</option></select>
-          <button onclick="loadWedges()">Scan</button>
         </div>
-        <div id="wedges" class="mini">—</div>
-      </div>
-      <div class="card" style="text-align:left">
-        <h3>Disagreements between facets</h3>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input id="dfield" value="price_cents" size="14">
-          <button onclick="loadDisagreements()">Find</button>
+        <p class="mini" style="margin:2px 0 0">New here?
+           <a href="#" onclick="openTour(0);return false">Take the two-minute tour</a> ·
+           <a href="#" onclick="openDemo();return false">load demo data</a> ·
+           <a href="#" onclick="openWhy('why');return false">★ Why Centauri</a> — the full story and an
+           honest comparison with Oracle, PostgreSQL, MySQL &amp; MongoDB.</p>
+      </section>
+      <section id="zone-attn">
+        <div class="zonehead">Needs Your Attention</div>
+        <div id="attnnone" class="mini" style="display:none">✓ nothing needs your attention
+          <a href="#" onclick="showAttnScans();return false">(show scan options)</a></div>
+        <div id="attncards">
+        <div class="card" style="text-align:left">
+          <h3>Pending Wedges <span class="mini" style="text-transform:none">(distributed, never activated)</span></h3>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <select id="wfacet"><option>pdt</option><option>register</option><option>shelf</option><option>storecentral</option></select>
+            <select id="wdays"><option value="">any age</option><option value="7">older than 7d</option><option value="21" selected>older than 21d</option><option value="45">older than 45d</option></select>
+            <button onclick="loadWedges()">Scan</button>
+          </div>
+          <div id="wedges" class="mini">—</div>
         </div>
-        <div id="dlist" class="mini">—</div>
-      </div>
-      <div class="card" style="text-align:left" id="aicard">
-        <h3>🤖 AI <span class="mini">— ask questions about your own data, in plain English</span></h3>
+        <div class="card" style="text-align:left">
+          <h3>Disagreements Between Facets</h3>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input id="dfield" value="price_cents" size="14">
+            <button onclick="loadDisagreements()">Find</button>
+          </div>
+          <div id="dlist" class="mini">—</div>
+        </div>
+        </div>
+      </section>
+      <section id="zone-cap">
+        <div class="zonehead">Capabilities</div>
+        <div class="capgrid">
+        <div class="card" style="text-align:left" id="aicard">
+        <details class="cap" id="aidet">
+        <summary><b>🤖 AI</b> <span class="mini" id="aisum">— checking…</span></summary>
+        <div style="margin-top:10px">
+        <h3>AI <span class="mini">— ask questions about your own data, in plain English</span></h3>
         <div id="aistatus" class="mini" style="line-height:2">checking…</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
           <button class="primary" onclick="aiEnable()"
@@ -291,11 +343,20 @@
           </div>
         </details>
         <div id="aimsg" class="mini" style="margin-top:8px"></div>
-      </div>
-      <div class="card" style="text-align:left" id="gwcard">
-        <h3>🛡 Gateway <span class="mini">— the API gateway with a perfect memory</span></h3>
+        </div>
+        </details>
+        </div>
+        <div class="card" style="text-align:left" id="gwcard">
+        <details class="cap" id="gwdet">
+        <summary><b>🛡 Gateway</b> <span class="mini" id="gwsum">— checking…</span></summary>
+        <div style="margin-top:10px">
+        <h3>Gateway <span class="mini">— the API gateway with a perfect memory</span></h3>
         <div id="gwbody" class="mini" style="line-height:1.7">checking…</div>
-      </div>
+        </div>
+        </details>
+        </div>
+        </div>
+      </section>
     </div>
     <div id="detail" style="display:none"></div>
   </div>
@@ -303,9 +364,8 @@
     <div class="pad">
       <button class="ghost" id="feedtoggle" onclick="toggleFeedPanel()" title="Collapse / expand the live feed">»</button>
       <b style="font-size:12px;letter-spacing:1px;color:var(--dim)">LIVE FEED</b>
-      <button id="livebtn" class="primary" style="margin-left:auto" onclick="toggleLive()">▶ Watch</button>
     </div>
-    <div id="feed"><div class="mini" style="padding:10px">Press ▶ Watch to stream new facts as they are committed.</div></div>
+    <div id="feed"><div class="mini" style="padding:10px">Press ▶ Watch (in the top bar) to stream new facts as they are committed.</div></div>
   </div>
 </main>
 <div id="overlay"><div id="modal"></div></div>
@@ -367,6 +427,37 @@ function saveToken(){
   localStorage.setItem("centauri_token", TOKEN);
   document.getElementById("tokenbox").style.display = "none";
   boot();
+}
+// ---------------- top bar: overflow menu + calm home zones ----------------
+function toggleMore(e){
+  if (e) e.stopPropagation();
+  document.getElementById("moredrop").classList.toggle("show");
+}
+document.addEventListener("click", e => {
+  const drop = document.getElementById("moredrop");
+  if (!drop) return;
+  // click-outside closes; picking an item also closes (its own onclick still runs)
+  if (!e.target.closest("#moremenu") || e.target.closest("#moredrop button"))
+    drop.classList.remove("show");
+});
+// "Needs your attention": when both scans come back clean the whole zone
+// collapses to one quiet line; the scan controls stay reachable behind it.
+const ATTN = {wedges: null, dis: null, userShow: false};
+function updateAttention(){
+  const cards = document.getElementById("attncards"), none = document.getElementById("attnnone");
+  if (!cards || !none || ATTN.wedges === null || ATTN.dis === null) return;
+  const clean = ATTN.wedges === 0 && ATTN.dis === 0 && !ATTN.userShow;
+  cards.style.display = clean ? "none" : "";
+  none.style.display = clean ? "" : "none";
+}
+function showAttnScans(){ ATTN.userShow = true; updateAttention(); }
+// Capability cards: the <summary> line always shows current status; whether
+// the card starts open is decided ONCE per page load (after the first status
+// fetch), so a user's manual toggle is never fought by the pollers.
+function capSummary(sumId, detId, text, open){
+  const s = document.getElementById(sumId); if (s) s.textContent = "— " + text;
+  const d = document.getElementById(detId);
+  if (d && !d._auto) { d._auto = true; d.open = !!open; }
 }
 function toast(msg, err){
   const t = document.getElementById("toast");
@@ -702,10 +793,18 @@ async function checkAI(){
       `<div>${aiDot(v.runtime_up ? "ok" : "off")}<b>AI engine</b> — ${v.runtime_up ? "running" : "not running yet"}</div>` +
       `<div>${aiDot(mState)}<b>Models</b> — ${esc(mText)}</div>` +
       `<div>${aiDot(aState)}<b>Answers computed</b> — ${esc(aText)}</div>`;
+    capSummary("aisum", "aidet",
+      pulling ? "models downloading — fine to keep working"
+      : chat.where === "cloud" ? "cloud AI active — questions leave this machine"
+      : chat.where === "local" ? "private AI ready on this machine"
+      : v.runtime_up ? "engine running — no chat model configured yet"
+      : "not set up yet",
+      pulling || chat.where === "cloud");
     aiPoll(pulling);
   } catch (e) {
     aiPoll(false);
     el.innerHTML = `<span class="mini">Couldn't read the AI status — ${esc(e.message || e)}. This panel needs the admin token.</span>`;
+    capSummary("aisum", "aidet", "status needs the admin token", false);
   }
 }
 async function aiEnable(){
@@ -803,7 +902,8 @@ async function loadWedges(){
         `<div>⚠️ <a href="#" onclick="select(${jsAttr(e.subject)});return false">${esc(e.subject)}</a>
          <span class="mini">distributed ${fmtUS(e.recorded_time)}, never activated</span></div>`).join("")
       + (evs.length > 15 ? `<div class="mini">…and ${evs.length-15} more</div>` : "");
-  } catch (e) { /* fresh empty db */ }
+    ATTN.wedges = evs.length; updateAttention();
+  } catch (e) { ATTN.wedges = 0; updateAttention(); /* fresh empty db */ }
 }
 async function loadDisagreements(){
   const field = document.getElementById("dfield").value || "price_cents";
@@ -816,7 +916,8 @@ async function loadDisagreements(){
         return `<div>⚡ <a href="#" onclick="select(${jsAttr(s)});return false">${esc(s)}</a>
                 <span class="mini">${esc(vals)}</span></div>`;
       }).join("") + (keys.length > 15 ? `<div class="mini">…and ${keys.length-15} more</div>` : "");
-  } catch (e) { /* ignore */ }
+    ATTN.dis = keys.length; updateAttention();
+  } catch (e) { ATTN.dis = 0; updateAttention(); }
 }
 
 // ---------------- gateway card ----------------
@@ -831,6 +932,7 @@ async function loadGateway(){
     routes = r.events || [];
   } catch (e) {
     el.innerHTML = `Couldn't read gateway facts — ${esc(e.message || e)}`;
+    capSummary("gwsum", "gwdet", "status unavailable", false);
     return;
   }
   if (!routes.length) {
@@ -840,6 +942,7 @@ async function loadGateway(){
        so your gateway config time-travels with <code>AS OF</code>.<br>
        See <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md" target="_blank">docs/gateway.md</a>
        and <a href="/ceql" target="_blank">the CeQL Book</a>.`;
+    capSummary("gwsum", "gwdet", "not configured — this database can be a gateway", false);
     return;
   }
   let audit = [];
@@ -883,6 +986,9 @@ async function loadGateway(){
        <pre id="gwexample" style="white-space:pre-wrap;margin-top:6px">PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', rate_per_min=120, timeout_ms=10000, audit='meta'</pre>
        <button class="ghost mini" onclick="gwCopyExample()">Copy</button>
      </details>`;
+  capSummary("gwsum", "gwdet",
+    routes.length + " route(s) · " + total + " recent request(s)" + (errors ? " · " + errors + " 5xx" : ""),
+    true);
 }
 function gwCopyExample(){
   const pre = document.getElementById("gwexample"); if (!pre) return;
@@ -2016,7 +2122,7 @@ function openWhy(tab){
        questions in one engine. 📘 The <a href="/ceql" target="_blank">CeQL book</a> maps every
        Oracle, DB2, MongoDB, Cypher and KSQL command to its CeQL equivalent.</p>`;
   else if (tab === "how") body = `
-    <div class="tourbox"><b>🗄 Environments</b> — the dropdown (top-left) switches databases; <b>＋ environment</b>
+    <div class="tourbox"><b>🗄 Environments</b> — the dropdown (in the top bar) switches databases; <b>＋ New environment</b> (⋯ More menu)
       creates a new one. Each is one file on disk. No tables, no migrations — ever.</div>
     <div class="tourbox"><b>✏️ Writing</b> — <b>＋ Add fact</b>: pick a subject (e.g. <code>toy:robot</code>),
       add field/value rows, save. Writing about a new subject <i>creates</i> it; writing again
@@ -2028,7 +2134,7 @@ function openWhy(tab){
     <div class="tourbox"><b>⚠️ Wedges & ⚡ disagreements</b> — the home screen scans for changes that were
       distributed but never activated, and for facets that disagree on a value (with the claim
       Centauri trusts most marked ✓).</div>
-    <div class="tourbox"><b>📡 Live</b> — ▶ Watch (top right) streams every new fact the moment it commits.</div>
+    <div class="tourbox"><b>📡 Live</b> — ▶ Watch (in the top bar) streams every new fact the moment it commits.</div>
     <div class="tourbox"><b>🧩 Schemas</b> — optional guardrails: define fields, types, ranges; bad data
       gets rejected with a clear message. Versioned, so updating never breaks old facts.</div>
     <div class="tourbox"><b>📊 Reports</b> — type aggregates straight into the query bar:
@@ -2039,7 +2145,7 @@ function openWhy(tab){
       the query bar takes plain English (✨ Helper); 📎 <b>Vision</b> turns images/PDFs into facts.
       The 🤖 <b>AI card</b> on the home screen switches it all on — private/local by default.</div>
     <div class="tourbox"><b>⚙ Procedures</b> — CePL logic stored in the database (versioned,
-      step-traced): define under ⚙ Procedures, run with <code>RUN name WITH arg=value</code>.</div>
+      step-traced): define under ⚙ Procedures (⋯ More menu), run with <code>RUN name WITH arg=value</code>.</div>
     <div class="tourbox"><b>📐 Data shape</b> — <code>SHAPE</code> (clusters/loops/seasonality),
       <code>DRIFT</code> (regime change), <code>CONSISTENCY</code> (do a subject's systems agree),
       <code>CYCLES IN CAUSES</code> (lineage integrity).</div>
@@ -2255,7 +2361,7 @@ function renderGenesisPreview(bp){
         esc(f.name) + " (" + f.type + (f.min != null ? " ≥" + f.min : "") + ")").join(", ")}</span>`).join("<br>")}</div>
     <div class="tourbox"><b>⚙ ${bp.procedures.length} procedures</b>
       <pre style="max-height:140px">${esc(bp.procedures[0] || "")}</pre>
-      <span class="mini">…and ${Math.max(0, bp.procedures.length - 1)} more (⚙ Procedures after build)</span></div>
+      <span class="mini">…and ${Math.max(0, bp.procedures.length - 1)} more (⚙ Procedures, in the ⋯ More menu, after build)</span></div>
     <div class="tourbox"><b>🔍 ${bp.queries.length} starter queries</b><br>
       ${bp.queries.slice(0, 6).map(q => `<code style="display:inline-block;margin:2px">${esc(q)}</code>`).join(" ")}</div>
     ${bp.watches.length ? `<div class="tourbox"><b>📡 standing watch</b> <span class="mini">${esc(bp.watches.join("; "))}</span></div>` : ""}
@@ -2505,11 +2611,11 @@ const TOUR = [
   {
     title: `📡 <b>Live & automation</b>`,
     body: `
-      <div class="tourbox">📡 ▶ <b>Watch</b> (top right) streams every fact the instant it commits.
+      <div class="tourbox">📡 ▶ <b>Watch</b> (in the top bar) streams every fact the instant it commits.
         In CeQL, <code>WATCH ALL FACET register TYPE DISTRIBUTED</code> is a standing query —
         filters turn the stream into a trigger.</div>
       <div class="tourbox">⚙ <b>Procedures</b> — store CePL logic inside the database, versioned and
-        step-traced: define one under ⚙ <b>Procedures</b> (top bar), then
+        step-traced: define one under ⚙ <b>Procedures</b> (in the ⋯ More menu, top bar), then
         <code>RUN reprice WITH item='toy:robot', pct=90</code>.</div>`,
     btn: "Next: data shape →",
   },
@@ -2584,7 +2690,12 @@ function openTour(step){
 }
 
 boot().then(() => {
-  if (!localStorage.getItem("centauri_seen")) openTour(0);
+  // Deep links from the Home page: /?tour=1 starts the tour, /?demo=1 opens
+  // the demo-data loader. Both beat the first-visit auto-tour.
+  const qp = new URLSearchParams(location.search);
+  if (qp.get("tour") === "1") openTour(0);
+  else if (qp.get("demo") === "1") openDemo();
+  else if (!localStorage.getItem("centauri_seen")) openTour(0);
 });
 setInterval(() => { if (ES) boot(); }, 15000);
 </script>

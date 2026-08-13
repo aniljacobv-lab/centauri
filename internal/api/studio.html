@@ -33,15 +33,23 @@
   ::-webkit-scrollbar-thumb{background:#26313f;border-radius:5px;border:2px solid var(--bg)}
   ::-webkit-scrollbar-thumb:hover{background:#33414f}
 
+.cnav{display:flex;align-items:center;gap:2px;padding:0 14px;height:44px;background:#0B1020;border-bottom:1px solid #26304F;font-family:'Outfit','Segoe UI',sans-serif;position:sticky;top:0;z-index:50}
+.cnav a{color:#8B96B4;text-decoration:none;font-size:13px;font-weight:600;padding:0 12px;line-height:44px;border-bottom:2px solid transparent}
+.cnav a:hover{color:#F0F3FA}
+.cnav a.on{color:#F0F3FA;border-bottom-color:#D9A93B}
+.cnav .brand{color:#E8C766;font-weight:800;font-size:14px;letter-spacing:.5px;margin-right:10px;border-bottom:2px solid transparent}
+.cnav-spacer{flex:1}
+.cnav-slot{display:flex;align-items:center;gap:8px}
+
   #app{display:flex;flex-direction:column;height:100vh}
-  header.top{display:flex;align-items:center;gap:13px;padding:0 14px;height:46px;
+  header.top{display:flex;align-items:center;gap:13px;padding:0 14px;height:34px;
     background:linear-gradient(180deg,#121a26,#0d141d);border-bottom:1px solid var(--border);flex:none}
   .brand{font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
   .brand .logo{width:18px;height:18px;border-radius:5px;
     background:radial-gradient(circle at 30% 30%,#7fc1ff,#5e6bff 60%,#9a7bff);box-shadow:0 0 10px #5e6bff66}
   .brand small{color:var(--dim);font-weight:500}
-  .top .stat{color:var(--dim);font-size:12px}
-  .top .stat b{color:var(--text)}
+  .top .stat,.cnav-slot .stat{color:var(--dim);font-size:12px}
+  .top .stat b,.cnav-slot .stat b{color:var(--text)}
   .top .grow{flex:1}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--bad);display:inline-block;margin-right:5px}
   .dot.ok{background:var(--good);box-shadow:0 0 7px var(--good)}
@@ -171,22 +179,26 @@
 </head>
 <body>
 <div id="app">
-  <header class="top">
-    <div class="brand"><span class="logo"></span>Centauri <small>Studio</small></div>
+<nav class="cnav">
+  <a class="brand" href="/console">◆ Centauri</a>
+  <a href="/console">Home</a>
+  <a href="/app">Ask</a>
+  <a href="/">Data</a>
+  <a href="/studio" class="on">Studio</a>
+  <a href="/ceql">Book</a>
+  <span class="cnav-spacer"></span>
+  <span class="cnav-slot">
+    <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
+    <button class="ghost" onclick="openToken()" title="API token">🔑 Token</button>
     <span class="stat"><span id="dot" class="dot"></span><span id="conn">connecting…</span></span>
-    <div class="grow"></div>
+  </span>
+</nav>
+  <header class="top">
     <span class="stat">events <b id="s-events">–</b></span>
     <span class="stat">subjects <b id="s-subjects">–</b></span>
     <span class="stat">links <b id="s-links">–</b></span>
     <span class="stat muted small" id="buildinfo" title="When this build was shipped and what was in it (GET /v1/version)"></span>
-    <div class="sepv"></div>
-    <input id="db" placeholder="database (default)" style="width:140px" title="Database / environment">
-    <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
-    <button class="ghost" onclick="openDemo()" title="Load a guided example dataset">🎲 Demo data</button>
-    <button class="ghost" onclick="openVision()" title="Upload an image or PDF for an AI to inspect (stored locally + vectorized)">📎 Vision</button>
-    <button class="ghost" onclick="openToken()" title="API token">🔑</button>
-    <a href="/" title="Classic dashboard"><button class="ghost">▦ Dashboard</button></a>
-    <a href="/ceql" title="CeQL textbook"><button class="ghost">📖 Book</button></a>
+    <div class="grow"></div>
   </header>
 
   <div id="main">
@@ -209,19 +221,24 @@
       </div>
       <div class="toolbar">
         <button class="primary" onclick="runEditor()">▶ Run <span class="kbd">⌘⏎</span></button>
-        <button class="ghost" onclick="runEditor(true)" title="Run selected text / current statement">Run stmt</button>
+        <button class="ghost" onclick="runEditor(true)" title="Run selected text / current statement">Run Stmt</button>
         <button class="ghost" onclick="explainCurrent()" title="Show the plan">🧭 Explain</button>
         <button class="ghost" onclick="formatCeQL()" title="Tidy the query">✦ Format</button>
         <div class="sep"></div>
-        <label>Time travel</label>
+        <label>Time Travel</label>
         <input type="datetime-local" id="asof" style="width:178px" onchange="applyTimeTravel()" title="View the database AS OF this moment">
-        <button class="ghost" onclick="clearTimeTravel()" title="Back to now">live</button>
-        <div class="sep"></div>
+        <button class="ghost" onclick="clearTimeTravel()" title="Back to now">Live</button>
         <button class="ghost" onclick="snapshotNow()" title="Name the current point">📌 Snapshot</button>
+        <div class="sep"></div>
+        <label>Export</label>
         <button class="ghost" onclick="exportData('csv')">⭳ CSV</button>
         <button class="ghost" onclick="exportData('json')">⭳ JSON</button>
+        <div class="sep"></div>
+        <button class="ghost" onclick="openConnect()" title="SDKs &amp; how to connect from any language">🔌 Connect &amp; SDKs</button>
+        <button class="ghost" onclick="openDemo()" title="Load a guided example dataset">🎲 Demo Data</button>
+        <button class="ghost" onclick="openVision()" title="Upload an image or PDF for an AI to inspect (stored locally + vectorized)">📎 Vision</button>
         <div class="grow" style="flex:1"></div>
-        <button class="ghost" onclick="openPalette()">⌘K</button>
+        <button class="ghost" onclick="openPalette()" title="Command palette">⌘K Palette</button>
       </div>
       <div class="ttbanner" id="ttbanner"></div>
       <div class="editor-wrap">
