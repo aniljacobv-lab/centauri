@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/aniljacobv-lab/centauri/internal/ai"
 	"io"
 	"net/http"
 	"net/url"
@@ -272,6 +273,11 @@ func (s *Server) handleVisionStatus(w http.ResponseWriter, r *http.Request) {
 	rast := detectRasteriser()
 	out["rasteriser"] = rast
 	out["pdf_ready"] = rast != ""
+	// The tier preset this machine gets from `setup vision` / `-ai auto`, so
+	// the Vision registration forms default to the embedder that is actually
+	// installed (nomic-embed-text on small, bge-m3 on balanced/max).
+	preset := ai.PresetFor(ai.DetectTier(ai.AvailableMemGB()))
+	out["preset"] = map[string]any{"tier": string(preset.Tier), "vision": preset.Vision.Model, "embed": preset.Embed.Model}
 
 	registered, reachable := false, false
 	if cur := st.Current("model:vision", "config"); len(cur) > 0 {

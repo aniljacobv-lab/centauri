@@ -596,6 +596,11 @@ function openVision(){
   <p class="mini">Then search: <code>SEARCH 'E-3 200A panel'</code> · <code>FACTS OF asset:*</code></p>
   <p class="mini">Registering also powers <b>semantic SEARCH</b> (your query is embedded) and <b>ASK '…'</b> (plain-English answers from your data, with citations) — both use this embedder + chat model.</p>`);
   document.getElementById("modal").classList.add("wide");
+  // Default the form to the tier preset this machine actually installs, so
+  // "Register model:vision" never names an embedder setup didn't pull.
+  api("/v1/vision/status").then(v=>{ const p=v&&v.preset; if(!p) return;
+    const vm=document.getElementById("vmmodel"), ve=document.getElementById("vmembed");
+    if(vm&&p.vision) vm.value=p.vision; if(ve&&p.embed) ve.value=p.embed; }).catch(()=>{});
 }
 async function uploadAsset(){
   const inp=document.getElementById("visionfile"); const note=document.getElementById("visionnote");

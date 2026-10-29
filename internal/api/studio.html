@@ -873,7 +873,11 @@ function palPick(i){ const p=PAL[i]; if(!p) return; closeModal("palmodal"); runI
 // ---------------- token / modals ----------------
 function openConnect(){ document.getElementById("connectmodal").classList.add("on"); }
 function openDemo(){ document.getElementById("demonote").textContent=""; document.getElementById("demomodal").classList.add("on"); }
-function openVision(){ document.getElementById("visionnote").textContent=""; document.getElementById("visionpreview").innerHTML=""; document.getElementById("visionmodal").classList.add("on"); }
+function openVision(){ document.getElementById("visionnote").textContent=""; document.getElementById("visionpreview").innerHTML=""; document.getElementById("visionmodal").classList.add("on");
+  // Default to the tier preset this machine installs (same source as `setup vision`).
+  apiGet("/v1/vision/status").then(v=>{ const p=v&&v.preset; if(!p) return;
+    const vm=document.getElementById("vmmodel"), ve=document.getElementById("vmembed");
+    if(vm&&p.vision) vm.value=p.vision; if(ve&&p.embed) ve.value=p.embed; }).catch(()=>{}); }
 let LAST_ASSET = "";
 async function uploadAsset(){
   const inp=document.getElementById("visionfile"); const note=document.getElementById("visionnote");
