@@ -4,8 +4,11 @@ Centauri's vision feature (let an AI read images / PDFs / electrical drawings)
 needs two local helpers it can't bundle into the binary (they're large and
 updated independently), but it installs and runs them *for* you:
 
-- **Ollama** — runs the multimodal model locally (`llava`) and an embedder
-  (`nomic-embed-text`). This is what "sees" the image.
+- **Ollama** — runs the multimodal model and the embedder locally. The models
+  are the same tier presets the local-AI appliance uses: **Gemma 3** for vision
+  (`gemma3:4b` on a laptop, `gemma3:12b` on a 16 GB GPU, `gemma3:27b` on
+  24 GB+) with `nomic-embed-text` or `bge-m3` as the embedder — see
+  [local-ai.md](local-ai.md). This is what "sees" the image.
 - **A PDF rasteriser** — poppler (`pdftoppm`) or ImageMagick (`magick`) — to turn
   PDF pages into images. *Only needed for PDFs; plain images work without it.*
 
@@ -56,7 +59,7 @@ Then:
 Notes:
 - The model server must be reachable from the Centauri process. The default
   endpoint `http://localhost:11434` means Ollama on the **same host**.
-- The first `ollama pull llava` is a multi-GB download (one-time).
+- The first `ollama pull gemma3:<size>` is a multi-GB download (one-time); `setup vision` prints which tier and model it picked for your hardware.
 - `centauri desktop` manages Ollama's lifecycle (start if needed, stop on exit);
   pass `-ollama=false` to opt out and manage Ollama yourself. `centauri serve`
   (headless/cloud) never auto-manages Ollama.

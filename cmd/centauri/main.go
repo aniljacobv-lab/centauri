@@ -1972,15 +1972,21 @@ func runSetupVision(install bool) {
 	// Ollama: pull the models (this also starts the local server). Pulls only
 	// run with -install; detect mode just reports (so it's a fast, passive
 	// check callers like run-centauri.bat can run on every launch).
+	// The models come from the same tier presets `centauri desktop` /
+	// `serve -ai auto` provision (internal/ai/presets.go), so this path and
+	// the appliance path always agree on which vision model is "ready".
+	preset := ai.PresetFor(ai.DetectTier(ai.AvailableMemGB()))
+	visionModel, embedModel := preset.Vision.Model, preset.Embed.Model
+	fmt.Printf("Hardware tier: %s — vision model %s, embedder %s\n", preset.Tier, visionModel, embedModel)
 	if have("ollama") {
 		if install {
 			fmt.Println("Ollama found — pulling models (large one-time download; safe to leave running):")
-			_ = ai.RunStream("ollama", "pull", "llava")
-			_ = ai.RunStream("ollama", "pull", "nomic-embed-text")
-		} else if ai.ModelPulled("llava") {
-			fmt.Println("Ollama found; the 'llava' model is present.")
+			_ = ai.RunStream("ollama", "pull", visionModel)
+			_ = ai.RunStream("ollama", "pull", embedModel)
+		} else if ai.ModelPulled(visionModel) {
+			fmt.Printf("Ollama found; the '%s' model is present.\n", visionModel)
 		} else {
-			fmt.Println("Ollama found, but the 'llava' model isn't pulled yet.")
+			fmt.Printf("Ollama found, but the '%s' model isn't pulled yet.\n", visionModel)
 		}
 	} else {
 		fmt.Println("Ollama not found — the vision model server.")
@@ -2014,7 +2020,7 @@ func runSetupVision(install bool) {
 	fmt.Println("  2) open  📎 Vision  →  click 'Register model:vision'")
 	fmt.Println("  3) Upload an image/PDF  →  Run ENRICH  →  SEARCH it")
 
-	ready := have("ollama") && ai.ModelPulled("llava") && rasteriser() != ""
+	ready := have("ollama") && ai.ModelPulled(visionModel) && rasteriser() != ""
 	if !ready {
 		if install {
 			// winget/brew just put new tools on PATH that THIS process can't
