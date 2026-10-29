@@ -84,7 +84,7 @@
   .lead{color:var(--dim);font-size:17px;max-width:780px;margin:0 0 26px}
 
   /* hero strip + tabs */
-  .hs{padding:36px 24px 32px}
+  .hs{padding:36px 24px 32px;grid-template-columns:1fr}
   .hs h1{font-size:clamp(27px,3.5vw,40px);margin:0 0 10px}
   .hs .sub{max-width:820px}
   .tabs{position:sticky;top:58px;z-index:40;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 4px 14px rgba(20,40,80,.06)}
@@ -255,7 +255,7 @@
     <a href="#compare">Compare</a>
     <a href="#what">For engineers</a>
     <a href="#reference">CeQL</a>
-    <a href="#docs">Docs</a>
+    <a href="documentation.html">Docs</a>
     <a class="btn-nav" href="#download">⬇ Download</a>
     <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
   </span>
@@ -266,10 +266,19 @@
 <div class="hero"><div class="wrap hs">
   <div>
     <h1><span class="accent">✦</span> Centauri — own your data, your AI, <span class="accent">and your gateway.</span></h1>
-    <p class="sub">A system of record that can <b>prove its history</b>, a private AI that <b>runs on your hardware</b>, and an API gateway with a <b>tamper-evident audit</b> — one zero-dependency binary. <b>$0, forever</b>, under The PostgreSQL License.</p>
+    <p class="sub">The <b>zero-dependency, single-binary</b> enterprise <b>system of record</b>, <b>private AI runtime</b>, and <b>API/LLM gateway</b>. A bi-temporal, tamper-evident event store that can <b>prove its history</b>; a local AI that <b>runs on your hardware</b>; a gateway whose config and audit are facts. <b>$0, forever</b>, under The PostgreSQL License.</p>
+    <ul class="checks" style="columns:2;column-gap:28px;max-width:720px">
+      <li>Bi-temporal, causal, hash-chained log</li>
+      <li>CeQL, read-only SQL &amp; Postgres wire</li>
+      <li>BM25 + vector hybrid search, HLL, topology</li>
+      <li>Local LLM, vision, RAG <code>ASK</code>, native MCP</li>
+      <li>Tablespaces, Merkle segments, S3 tiering</li>
+      <li>Gateway: keys, OIDC, mTLS, policies, audit</li>
+    </ul>
     <div class="btns">
       <a class="btn primary" href="#download">⬇ Download</a>
       <a class="btn outline" href="#quickstart">5-minute quickstart →</a>
+      <a class="btn outline" href="documentation.html">📚 Documentation →</a>
       <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri">★ GitHub</a>
     </div>
     <div class="dlhint">Windows · macOS · Linux · one-click <a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">Render blueprint</a> · <span class="spon" style="margin:0">Centauri by JacobLabs LLC · jacoblabs.ai</span></div>
@@ -619,16 +628,19 @@ centauri setup vision -install</pre>
 <section id="features"><div class="wrap">
   <div class="kicker">Capabilities</div>
   <h2>One binary. <span class="rule">A lot of database.</span></h2>
-  <p class="lead">No extensions to install, no services to wire up — everything below ships inside a single executable with zero third-party dependencies.</p>
+  <p class="lead">No extensions to install, no services to wire up — everything below ships inside a single executable with zero third-party dependencies. Each card links to the matching track in the <a href="documentation.html">documentation portal</a>; package names point at the source that implements it.</p>
   <div class="grid3">
-    <div class="feat"><div class="fi">⏳</div><h3>Bi-temporal core</h3><p>Two clocks on every fact. Nothing is updated or deleted — a change is a new, superseding fact. Ask <code>AS OF</code> any moment, or <code>AS KNOWN AT</code> to replay a past decision fairly.</p></div>
-    <div class="feat"><div class="fi">🔗</div><h3>Causal &amp; tamper-evident</h3><p>Causes are first-class links — <code>WHY</code> walks the chain. A SHA-256 chain seals every record; <code>centauri verify</code> proves your history is byte-for-byte intact.</p></div>
-    <div class="feat"><div class="fi">🔎</div><h3>Search &amp; retrieval</h3><p>Native ranked <code>SEARCH</code> (BM25), semantic <code>SIMILAR</code> over embeddings, and hybrid keyword+vector — the recall of semantics with the precision of keywords.</p></div>
-    <div class="feat"><div class="fi">🧮</div><h3>Built-in topology</h3><p>Persistent homology &amp; sheaf consistency as operators: <code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — clusters, loops, voids, periodicity, and drift no row store can see.</p></div>
-    <div class="feat"><div class="fi">🤖</div><h3>Built for AI agents</h3><p>A native MCP server lets agents speak CeQL directly. Plain-English compiles to queries with no tokens. <code>AS KNOWN AT</code> gives leak-free training features. Genesis builds a database from a description.</p></div>
-    <div class="feat"><div class="fi">🖥</div><h3>Batteries included</h3><p>A <b>Studio</b> IDE (object explorer, causal-graph view, edit-as-a-fact), a one-screen <b>Console</b> (<code>/console</code>) for the whole suite, a psql-style <code>shell</code>, <code>EXPLAIN ANALYZE</code>, <code>doctor</code> diagnostics, CDC + replication slots, the <b>PostgreSQL wire protocol</b> (read-only SQL for psql/BI), sharding + <b>HA auto-failover</b>, scoped-token security, CePL procedures, chain-verified backups, and Python / Go / JS SDKs.</p></div>
-    <div class="feat"><div class="fi">🛡</div><h3>API &amp; LLM gateway</h3><p><code>centauri gateway</code> — a reverse proxy whose routes and keys are bi-temporal facts (config time-travels with <code>AS OF</code>) and whose per-request audit is hash-chained. API keys, OIDC JWT validation, mTLS, per-key/per-IP rate limits, built-in middleware, programmable <b>CePL request policies</b>, webhook auth callouts, and a <b>client-credentials token issuer</b> (<code>/gw/token</code> + JWKS; service tokens only) — plus an LLM gateway with <b>SSE streaming</b>, provider failover, model pinning, and <b>per-key token metering</b> as queryable facts. Scale out with <code>-control-follow</code>; Prometheus metrics; mint keys in the <b>Console</b> (<code>/console</code>). <a href="compare-gateways.html">vs Kong, Apigee, AWS, Tyk →</a></p></div>
+    <div class="feat"><div class="fi">🐘</div><h3>Drop-in Postgres wire, SQL, CeQL &amp; plain English</h3><p>Start with <code>-pg-addr</code> and connect <b>psql</b>, DBeaver, JDBC drivers, or BI tools over the <b>PostgreSQL wire protocol</b> (read-only). The same read-only SQL <code>SELECT</code> subset is at <code>/v1/sql</code>; <b>CeQL</b> adds time, cause, and trust as syntax; and a deterministic plain-English helper compiles questions into queries. <b>Not</b> a general SQL database — writes use CeQL, and there are no JOINs.</p><div class="proof">internal/pgwire · internal/ceql/sql.go · internal/ceql/natural.go · <a href="documentation.html#track-2">querying docs →</a></div></div>
+    <div class="feat"><div class="fi">🔎</div><h3>Hybrid search &amp; cardinality engine</h3><p>Native ranked <b>BM25</b> full-text, auto-embedded <b>vector</b> search, and hybrid keyword+vector <code>SEARCH</code> for RAG. <b>HyperLogLog</b> approximate <code>COUNT DISTINCT</code> for high-cardinality sets, plus hierarchy and <b>topology</b> operators (<code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code>) over the causal graph.</p><div class="proof">internal/ceql/bm25.go · hll.go · topology.go · <a href="documentation.html#t2-search">search docs →</a></div></div>
+    <div class="feat"><div class="fi">🤖</div><h3>Private AI, vision &amp; a native MCP server</h3><p>Zero-config local LLM presets provisioned through Ollama, sized to your hardware; <b>vision</b> indexing of images and PDFs; <code>ENRICH</code> to run models inside queries; RAG <code>ASK</code> with citations. A native <b>Model Context Protocol</b> server exposes 20 typed tools to Claude, Cursor, and autonomous agents — no SQL strings, no glue.</p><div class="proof">internal/ai · internal/ceql/enrich.go · internal/mcp · <a href="documentation.html#track-3">AI docs →</a></div></div>
+    <div class="feat"><div class="fi">🏗</div><h3>Genesis architect &amp; stored procedures</h3><p>Describe a scenario in plain language; the <b>Genesis Engine</b> interviews you and generates schemas, procedures, and seed data, then stores the conversation as facts. <b>CePL</b> stored procedures are versioned facts with injection-safe substitution and full traces; a synthetic data generator seeds realistic demo histories.</p><div class="proof">internal/architect · internal/proc · internal/synth · <a href="documentation.html#t3-genesis">Genesis docs →</a></div></div>
+    <div class="feat"><div class="fi">💾</div><h3>Oracle-grade storage with S3 object tiering</h3><p>A bi-temporal, immutable, append-only log sealed by a SHA-256 chain, with per-segment <b>Merkle roots</b> and parallel integrity verification. <b>Tablespaces</b>, compressed sealed segments with zone maps, a disk-backed <b>lazy index</b> for bigger-than-RAM archives, group commit, and transparent cold tiering to any <b>S3-compatible</b> bucket (stdlib SigV4, Merkle-verified on fetch).</p><div class="proof">internal/segment/merkle.go · internal/store/lazyindex.go · internal/objstore/s3.go · <a href="documentation.html#track-4">storage docs →</a></div></div>
+    <div class="feat"><div class="fi">⚖️</div><h3>Compliance &amp; governance by design</h3><p>WORM-style <b>legal holds</b> that block <code>RETIRE</code> across originating writes, <b>retention</b> runs (dry-run by default), scoped tokens with subject-prefix row security and dynamic <b>field-level masking</b>, OIDC SSO, and <code>centauri verify</code> to re-prove the whole history byte-for-byte.</p><div class="proof">internal/retention · internal/store (legalhold) · internal/api (masking) · <a href="documentation.html#t4-governance">governance docs →</a></div></div>
+    <div class="feat"><div class="fi">🛡</div><h3>Inline enterprise API &amp; LLM gateway</h3><p><code>centauri gateway</code> — a reverse proxy whose routes and keys are bi-temporal facts and whose per-request audit is hash-chained. <b>mTLS</b>, OIDC JWT validation plus a <b>client-credentials token issuer</b> (<code>/gw/token</code> + JWKS), per-key/per-IP <b>rate limits</b>, programmable <b>CePL request policies</b>, webhook auth callouts, and an LLM gateway with SSE streaming, provider failover, and per-key token metering.</p><div class="proof">internal/gateway (mtls.go · ratelimit.go · policy.go · audit.go) · internal/oidc · <a href="documentation.html#t4-gateway">gateway docs →</a></div></div>
+    <div class="feat"><div class="fi">🖥</div><h3>Embedded web workspaces — all in the binary</h3><p>Every server ships its own browser UI: the <b>Dashboard</b> (<code>/</code>), the <b>Studio</b> IDE (<code>/studio</code>) with object explorer and causal-graph view, the one-screen <b>Console</b> (<code>/console</code>) for the whole suite, the plain-English <b>App</b> (<code>/app</code>), the <b>CeQL Book</b> (<code>/ceql</code>), and a <b>lazy-archive inspector</b> in <code>-lazy-index</code> mode. No separate front-end to deploy.</p><div class="proof">internal/api (ui.html · studio.html · console.html · app.html · lazy.html) · <a href="documentation.html#t1-workspaces">workspace docs →</a></div></div>
+    <div class="feat"><div class="fi">🌐</div><h3>Ecosystem, scale-out HA &amp; connectors</h3><p>HA leader election with automatic failover, subject-hash <b>sharding</b> with distributed query fan-out, log shipping (<code>centauri follow</code>), live <b>CDC</b> with durable replication slots and <code>WATCH</code> streams over SSE. Official zero-dependency <b>Python, Go, and JavaScript</b> SDKs, and native <b>Airbyte</b> source and destination connectors.</p><div class="proof">internal/ha · internal/shard · internal/ceql/fanout.go · store/cdc.go · sdk/ · connectors/airbyte · <a href="documentation.html#track-5">SDK &amp; connector docs →</a></div></div>
   </div>
+  <div class="honest" style="margin-top:22px"><b>Honest limits:</b> single writer per log (HA is one primary plus replicas, not multi-master); sharding restricts cross-shard queries; the working set lives in RAM (the tablespace tier serves bigger-than-memory data read-only); no Vault/KMS integration; no cost-based optimizer; GLM-5.2 is cloud-only.</div>
 </div></section>
 
 <!-- PLAYGROUND -->
@@ -884,6 +896,7 @@ $ centauri verify
   <div class="kicker">Learn more</div>
   <h2>Documentation &amp; resources</h2>
   <div class="doclinks">
+    <a class="doc" href="documentation.html"><b>Documentation portal →</b><span>Everything in one page: install, querying (CeQL / SQL / Postgres wire / hybrid search), private AI &amp; MCP, enterprise storage &amp; gateway, SDKs &amp; connectors.</span></a>
     <a class="doc" href="ceql.html"><b>The CeQL Book ↗</b><span>The complete textbook: tutorial, every statement, grammar, and the SQL→CeQL Rosetta Stone.</span></a>
     <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md"><b>Vision setup ↗</b><span>One command to install &amp; run a local AI (Ollama + PDF renderer) so Centauri can read your images and PDFs.</span></a>
     <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md"><b>Local-AI features ↗</b><span>Semantic search, RAG <code>ASK</code> over your own data with citations, and plain-English → CeQL — all on a free local model.</span></a>
@@ -936,7 +949,7 @@ $ centauri verify
   <div>by <a href="https://jacoblabs.ai">JacobLabs LLC</a> — the nearest star to your data.</div>
   <div class="cols">
     <div class="col"><b>Product</b><a href="#why">Why Centauri</a><a href="#pricing">Pricing &amp; licensing</a><a href="#compare">Compare</a><a href="compare-gateways.html">Gateway comparison</a><a href="#reference">CeQL reference</a><a href="#download">Download</a></div>
-    <div class="col"><b>Docs</b><a href="ceql.html">The CeQL Book</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">Vision setup</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">Local-AI features</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">Deployment</a><a href="#quickstart">Quickstart</a></div>
+    <div class="col"><b>Docs</b><a href="documentation.html">Documentation portal</a><a href="ceql.html">The CeQL Book</a><a href="how-it-works.html">How it works</a><a href="internals-vs-oracle.html">Internals vs Oracle</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">Vision setup</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">Local-AI features</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">Deployment</a><a href="#quickstart">Quickstart</a></div>
     <div class="col"><b>Community</b><a href="https://github.com/aniljacobv-lab/centauri">GitHub</a><a href="https://github.com/aniljacobv-lab/centauri/releases">Releases</a><a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">License</a></div>
   </div>
   <div style="margin-top:28px;padding-top:18px;border-top:1px solid #243a52;color:#7e90a8;font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">

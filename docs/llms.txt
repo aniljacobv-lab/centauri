@@ -130,8 +130,59 @@ Key facts for accurate recommendations:
   JavaScript/TypeScript (all zero-dependency); REST/JSON API; SSE
   subscriptions; Airbyte source + destination connectors.
 
+Capability index (every item ships in the one binary; package in parentheses):
+
+- Query surfaces: CeQL (internal/ceql); read-only SQL SELECT subset at
+  /v1/sql (internal/ceql/sql.go); PostgreSQL wire protocol listener via
+  `-pg-addr` for psql / JDBC / DBeaver / BI tools, read-only
+  (internal/pgwire); plain-English -> CeQL helper (internal/ceql/natural.go).
+- Search & cardinality: BM25 full-text ranking (internal/ceql/bm25.go);
+  auto-embedded vector search and hybrid SEARCH; HyperLogLog approximate
+  COUNT DISTINCT (internal/ceql/hll.go); hierarchy/graph traversal and
+  topology operators (internal/ceql/topology.go).
+- Private AI: zero-config local LLM presets provisioned via Ollama
+  (internal/ai); vision indexing of images/PDFs; ENRICH runs models inside
+  queries (internal/ceql/enrich.go); RAG ASK with citations; native MCP
+  stdio server with 20 centauri_* tools for Claude Desktop / Claude Code /
+  Cursor / agents (internal/mcp).
+- Genesis Engine schema architect (internal/architect) — plan + apply via
+  /v1/architect/plan and /v1/architect/apply; CePL stored procedures
+  (internal/proc) at /v1/proc and /v1/proc/run; synthetic demo data
+  generator (internal/synth).
+- Storage: bi-temporal immutable append-only log with SHA-256 hash chain;
+  per-segment Merkle roots and parallel verify (internal/segment/merkle.go,
+  internal/store/verify_parallel.go); tablespaces and sealed compressed
+  segments with zone maps; disk-backed lazy index for bigger-than-RAM
+  archives (internal/store/lazyindex.go, `serve -lazy-index`); group commit;
+  S3-compatible object-store cold tier with stdlib SigV4 (internal/objstore).
+- Governance: legal holds (WORM-style, block RETIRE), retention runs
+  (internal/retention, dry-run by default), scoped tokens with subject-prefix
+  row security and field-level masking, OIDC SSO (internal/oidc), chain-
+  verified backup and verify.
+- Gateway (internal/gateway): routes and keys as facts; auth by API key,
+  OIDC JWT, or mTLS (mtls.go); client-credentials token issuer at
+  POST /gw/token + /.well-known/jwks.json (issuer.go); per-key/per-IP rate
+  limits (ratelimit.go); CePL request policies (policy.go); webhook
+  authorization callouts; hash-chained request audit (audit.go); LLM routes
+  with SSE streaming, provider failover, token metering (llm.go).
+- Embedded web workspaces served by every server: Dashboard (/), Studio IDE
+  (/studio), Console suite home (/console), plain-English App (/app), the
+  CeQL Book (/ceql), and a lazy-archive inspector at / in -lazy-index mode.
+- Scale-out & streams: HA leader election with automatic failover
+  (internal/ha); subject-hash sharding with distributed query fan-out
+  (internal/shard, internal/ceql/fanout.go); log shipping (`centauri
+  follow`); CDC at /v1/changes with durable replication slots
+  (internal/store/cdc.go); WATCH standing queries over SSE
+  (internal/store/watch.go).
+- Ecosystem: zero-dependency Python SDK (sdk/python), Go SDK (sdk/go), and
+  JavaScript ESM SDK (sdk/js); Airbyte source and destination connectors
+  (connectors/airbyte); Docker image, Kubernetes manifest (infra/k8s.yaml),
+  Render blueprint (render.yaml), Windows installer, and `install.sh`.
+
 Links:
 
+- Documentation portal (install, querying, AI/MCP, enterprise storage &
+  gateway, SDKs & connectors — one page): https://centauridb.com/documentation.html
 - Source & releases: https://github.com/aniljacobv-lab/centauri
 - CeQL textbook (full language reference with SQL/Oracle/DB2/MongoDB/
   Cypher/KSQL Rosetta Stone): /ceql.html on this site, or embedded in

@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Centauri documentation — install, query, private AI, enterprise storage, gateway, SDKs</title>
+<meta name="description" content="The complete Centauri documentation on one page: installation and launch modes, CeQL / SQL / Postgres-wire querying and hybrid search, private AI, vision, the Genesis architect and MCP, enterprise storage, HA and the API/LLM gateway, and the Python, Go and JavaScript SDKs with Airbyte connectors.">
+<meta property="og:title" content="Centauri documentation">
+<meta property="og:description" content="Everything about the zero-dependency, single-binary system of record, private AI runtime and API/LLM gateway — on one page, with copyable snippets.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://centauridb.com/documentation.html">
+<meta property="og:image" content="https://centauridb.com/og-image.png">
+<meta name="theme-color" content="#0f1b29">
+<link rel="canonical" href="https://centauridb.com/documentation.html">
+<style>
+  :root{
+    --navy:#16212e;--ink:#16243a;--dim:#54627a;--faint:#8493a8;
+    --blue:#2f6fb0;--blue-d:#245a91;--teal:#00add8;--teal-d:#0594bb;
+    --bg:#ffffff;--bg2:#f4f8fc;--bg3:#eaf1f8;--border:#dbe5f0;--code:#f5f8fc;
+    --good:#1a8754;--bad:#d23b3b;--warn:#b4690e;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  em{color:var(--ink);font-style:italic;font-weight:600}
+  code{font-family:var(--mono);font-size:.88em;background:var(--code);border:1px solid var(--border);border-radius:5px;padding:1px 6px;overflow-wrap:anywhere}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  nav.top{background:var(--navy);color:#fff;position:sticky;top:0;z-index:50}
+  nav.top .wrap{display:flex;align-items:center;gap:24px;height:58px}
+  .brand{font-weight:800;font-size:18px;color:#fff;display:flex;align-items:center;gap:8px}
+  .brand .star{color:var(--teal);font-size:20px}
+  nav.top .links{margin-left:auto;display:flex;gap:22px;font-size:14.5px}
+  nav.top .links a{color:#c6d4e6}nav.top .links a:hover{color:#fff;text-decoration:none}
+  nav.top .links a.on{color:#fff;font-weight:700}
+  @media(max-width:900px){nav.top .links a:not(.gh):not(.btn-nav){display:none}}
+  .gh{border:1px solid #38506b;border-radius:7px;padding:6px 13px;color:#fff!important}
+  .btn-nav{background:linear-gradient(135deg,#00add8,#2f6fb0);border-radius:7px;padding:6px 13px;color:#fff!important;font-weight:600}
+
+  .hero{background:linear-gradient(180deg,#fff,var(--bg2));border-bottom:1px solid var(--border)}
+  .hero .wrap{padding:38px 24px 30px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-d);font-weight:700;margin-bottom:6px}
+  h1{font-size:clamp(28px,3.6vw,42px);line-height:1.1;margin:0 0 10px;letter-spacing:-.8px;font-weight:800}
+  h1 .accent{color:var(--teal-d)}
+  .sub{font-size:17px;color:var(--dim);margin:0;max-width:820px}
+  .tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:22px}
+  .track{display:block;background:#fff;border:1px solid var(--border);border-radius:11px;padding:14px 16px;color:var(--ink)}
+  .track:hover{border-color:var(--teal);text-decoration:none}
+  .track b{display:block;color:var(--blue);font-size:15px;margin-bottom:3px}
+  .track span{color:var(--dim);font-size:13px}
+
+  .layout{display:grid;grid-template-columns:260px 1fr;gap:40px;align-items:start}
+  @media(max-width:960px){.layout{grid-template-columns:1fr}.toc{position:static!important;max-height:none!important;border-right:0!important}}
+  .toc{position:sticky;top:74px;max-height:calc(100vh - 90px);overflow:auto;padding:22px 12px 22px 0;border-right:1px solid var(--border)}
+  .toc .filter{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font:14px system-ui;color:var(--ink);margin-bottom:12px;background:#fff}
+  .toc .filter:focus{outline:none;border-color:var(--teal-d)}
+  .toc h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--teal-d);margin:16px 0 4px}
+  .toc h4 a{color:var(--teal-d)}
+  .toc a.s{display:block;color:var(--dim);font-size:13.5px;padding:4px 8px;border-radius:6px;line-height:1.35}
+  .toc a.s:hover{background:var(--bg2);text-decoration:none;color:var(--ink)}
+  .toc a.s.on{background:var(--bg3);color:var(--blue);font-weight:600}
+  .toc .count{font-family:var(--mono);font-size:12px;color:var(--faint);margin:8px 0 0}
+
+  main{padding:26px 0 60px;min-width:0}
+  section.t{padding:10px 0 34px;border-bottom:1px solid var(--border);scroll-margin-top:74px}
+  section.t:last-of-type{border-bottom:0}
+  h2{font-size:clamp(23px,2.8vw,31px);margin:14px 0 6px;letter-spacing:-.4px;font-weight:800}
+  h2 .rule{color:var(--teal-d)}
+  .lead{color:var(--dim);font-size:16.5px;max-width:800px;margin:0 0 14px}
+  article.s{padding:14px 0 10px;scroll-margin-top:74px}
+  article.s h3{font-size:19px;margin:10px 0 6px}
+  article.s h3 a.anchor{color:var(--faint);font-weight:400;margin-left:6px;font-size:14px;opacity:0}
+  article.s h3:hover a.anchor{opacity:1}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0;padding-left:22px}li{margin:4px 0}
+  .pre{position:relative;margin:12px 0}
+  pre{background:var(--navy);color:#d6e6f5;border-radius:11px;padding:16px 18px;font-family:var(--mono);font-size:13.2px;overflow:auto;line-height:1.65;margin:0;white-space:pre}
+  pre .cm{color:#7e90a8}pre .kw{color:#7fd3ff}pre .lit{color:#9be29b}
+  .copy{position:absolute;top:9px;right:9px;cursor:pointer;border:1px solid #38506b;background:#22344a;color:#cfe0f5;border-radius:6px;padding:4px 10px;font-size:11px;font-family:var(--mono)}
+  .copy:hover{background:#2c425c}
+  .copy.ok{background:var(--good);border-color:var(--good);color:#fff}
+  .honest{background:#fff8ed;border:1px solid #f0d8af;border-left:4px solid var(--warn);border-radius:10px;padding:14px 18px;color:var(--dim);font-size:14.5px;margin:12px 0}
+  .honest b{color:var(--warn)}
+  .note{background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--teal);border-radius:10px;padding:12px 16px;margin:12px 0;font-size:14.5px}
+  .scroll{overflow-x:auto;margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.8px;background:#fff;border:1px solid var(--border)}
+  th,td{padding:8px 11px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  thead th{background:var(--bg2);font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  td code{white-space:nowrap}
+  .nomatch{display:none;padding:40px 0;color:var(--dim)}
+  .hidden{display:none!important}
+  mark{background:#fff3b0;padding:0 2px;border-radius:3px}
+
+  footer{background:var(--navy);color:#aebfd4;padding:38px 0 56px;font-size:14px}
+  footer a{color:#cfe0f5}
+  footer .lock{font-weight:800;color:#fff;font-size:17px;margin-bottom:6px}
+  footer .lock .star{color:var(--teal)}
+  footer .cols{display:flex;gap:48px;flex-wrap:wrap;margin-top:18px}
+  footer .col b{color:#fff;display:block;margin-bottom:8px;font-size:13px;text-transform:uppercase;letter-spacing:1px}
+  footer .col a{display:block;padding:3px 0;color:#aebfd4}
+</style>
+</head>
+<body>
+
+<nav class="top"><div class="wrap">
+  <a class="brand" href="index.html"><span class="star">✦</span> Centauri</a>
+  <span class="links">
+    <a href="index.html#why">Why Centauri</a>
+    <a href="index.html#pricing">Pricing</a>
+    <a href="index.html#compare">Compare</a>
+    <a href="index.html#what">For engineers</a>
+    <a href="ceql.html">CeQL Book</a>
+    <a class="on" href="documentation.html">Docs</a>
+    <a class="btn-nav" href="index.html#download">⬇ Download</a>
+    <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
+  </span>
+</div></nav>
+
+<div class="hero"><div class="wrap">
+  <div class="kicker">Documentation</div>
+  <h1>Everything about Centauri, <span class="accent">on one page.</span></h1>
+  <p class="sub">The zero-dependency, single-binary system of record, private AI runtime, and API/LLM gateway — install it, query it, wire it to your AI and your tools, run it in production. Every snippet below is copyable, and every section is filterable from the sidebar. Where Centauri does <em>not</em> do something, the docs say so.</p>
+  <div class="tracks">
+    <a class="track" href="#track-1"><b>1 · Getting started</b><span>Install, launch modes, 5-minute quickstart, embedded workspaces</span></a>
+    <a class="track" href="#track-2"><b>2 · Querying</b><span>CeQL, time travel, SQL, Postgres wire, hybrid search, HLL, topology</span></a>
+    <a class="track" href="#track-3"><b>3 · Private AI &amp; MCP</b><span>Local models, vision, ASK, Genesis architect, CePL, MCP server</span></a>
+    <a class="track" href="#track-4"><b>4 · Enterprise &amp; gateway</b><span>Tablespaces, S3, lazy index, HA, sharding, governance, the gateway</span></a>
+    <a class="track" href="#track-5"><b>5 · SDKs &amp; connectors</b><span>Python, Go, JS, CDC streams, Airbyte, Kubernetes, Render, production</span></a>
+  </div>
+</div></div>
+
+<div class="wrap"><div class="layout">
+
+<aside class="toc" id="toc">
+  <input class="filter" id="filter" type="search" placeholder="Filter sections… (e.g. pgwire, S3, MCP)" autocomplete="off">
+  <div class="count" id="count"></div>
+  <h4><a href="#track-1">1 · Getting started</a></h4>
+  <a class="s" href="#t1-install">Install on Linux / macOS</a>
+  <a class="s" href="#t1-windows">Install on Windows</a>
+  <a class="s" href="#t1-docker">Docker &amp; compose</a>
+  <a class="s" href="#t1-source">Build from source</a>
+  <a class="s" href="#t1-launch">Launch modes &amp; launchers</a>
+  <a class="s" href="#t1-commands">Command reference</a>
+  <a class="s" href="#t1-http">Quickstart: HTTP API</a>
+  <a class="s" href="#t1-cli">Quickstart: CLI &amp; shell</a>
+  <a class="s" href="#t1-workspaces">Embedded web workspaces</a>
+  <h4><a href="#track-2">2 · Querying</a></h4>
+  <a class="s" href="#t2-model">Subjects, facts, facets</a>
+  <a class="s" href="#t2-read">FACTS, WHERE, paging</a>
+  <a class="s" href="#t2-write">PUT, CORRECT, RETIRE</a>
+  <a class="s" href="#t2-time">AS OF &amp; AS KNOWN AT</a>
+  <a class="s" href="#t2-cause">WHY, EFFECTS, MATCH</a>
+  <a class="s" href="#t2-trust">DISAGREE, PENDING, CONTEXT</a>
+  <a class="s" href="#t2-txn">SNAPSHOT, ROLLBACK, DIFF</a>
+  <a class="s" href="#t2-agg">Aggregates &amp; HyperLogLog</a>
+  <a class="s" href="#t2-schema">Schemas</a>
+  <a class="s" href="#t2-watch">WATCH standing queries</a>
+  <a class="s" href="#t2-search">Hybrid search: BM25 + vectors</a>
+  <a class="s" href="#t2-topology">Topology operators</a>
+  <a class="s" href="#t2-hier">Modeling hierarchies</a>
+  <a class="s" href="#t2-explain">PROFILE, EXPLAIN, EXPLAIN ANALYZE</a>
+  <a class="s" href="#t2-sql">Read-only SQL at /v1/sql</a>
+  <a class="s" href="#t2-pgwire">Postgres wire: psql, JDBC, BI</a>
+  <a class="s" href="#t2-nl">Plain English → CeQL</a>
+  <a class="s" href="#t2-acl">Scoped tokens &amp; masking</a>
+  <h4><a href="#track-3">3 · Private AI &amp; MCP</a></h4>
+  <a class="s" href="#t3-model">How local AI works</a>
+  <a class="s" href="#t3-tiers">Tiers &amp; presets</a>
+  <a class="s" href="#t3-provision">Ollama provisioning</a>
+  <a class="s" href="#t3-enrich">Auto-embed &amp; ENRICH</a>
+  <a class="s" href="#t3-ask">ASK — RAG with citations</a>
+  <a class="s" href="#t3-vision">Vision: images &amp; PDFs</a>
+  <a class="s" href="#t3-cloud">Cloud boost (GLM-5.2 etc.)</a>
+  <a class="s" href="#t3-genesis">Genesis Engine (architect)</a>
+  <a class="s" href="#t3-cepl">CePL stored procedures</a>
+  <a class="s" href="#t3-mcp">MCP: Claude, Cursor, agents</a>
+  <h4><a href="#track-4">4 · Enterprise &amp; gateway</a></h4>
+  <a class="s" href="#t4-chain">Hash chain, verify, backup</a>
+  <a class="s" href="#t4-tablespaces">Tablespaces &amp; Merkle segments</a>
+  <a class="s" href="#t4-lazy">The lazy index</a>
+  <a class="s" href="#t4-s3">S3 object-store cold tier</a>
+  <a class="s" href="#t4-scale">Group commit &amp; sharding</a>
+  <a class="s" href="#t4-ha">HA failover</a>
+  <a class="s" href="#t4-repl">follow, sync, merge</a>
+  <a class="s" href="#t4-cdc">CDC, slots &amp; WATCH</a>
+  <a class="s" href="#t4-governance">Retention &amp; legal holds</a>
+  <a class="s" href="#t4-auth">Tokens, masking, OIDC</a>
+  <a class="s" href="#t4-ops">TLS, limits, logs, probes</a>
+  <a class="s" href="#t4-envs">Named environments</a>
+  <a class="s" href="#t4-gateway">Gateway: routes &amp; keys as facts</a>
+  <a class="s" href="#t4-routes">Route field reference</a>
+  <a class="s" href="#t4-gwauth">Gateway auth: key, OIDC, mTLS</a>
+  <a class="s" href="#t4-issuer">Token issuer /gw/token</a>
+  <a class="s" href="#t4-policy">Rate limits, policies, webhooks</a>
+  <a class="s" href="#t4-llm">LLM routing &amp; streaming</a>
+  <a class="s" href="#t4-audit">Audit, metrics, scale-out</a>
+  <h4><a href="#track-5">5 · SDKs &amp; connectors</a></h4>
+  <a class="s" href="#t5-python">Python SDK</a>
+  <a class="s" href="#t5-python-examples">Python: the five examples</a>
+  <a class="s" href="#t5-go">Go SDK</a>
+  <a class="s" href="#t5-js">JavaScript ESM SDK</a>
+  <a class="s" href="#t5-cdc">CDC from the SDKs</a>
+  <a class="s" href="#t5-airbyte-dest">Airbyte destination</a>
+  <a class="s" href="#t5-airbyte-src">Airbyte source</a>
+  <a class="s" href="#t5-deploy">Production checklist</a>
+  <a class="s" href="#t5-k8s">Kubernetes</a>
+  <a class="s" href="#t5-render">Render blueprint</a>
+  <a class="s" href="#t5-observe">Observability endpoints</a>
+  <h4><a href="#not">Honesty</a></h4>
+  <a class="s" href="#not">What Centauri does NOT do</a>
+</aside>
+
+<main id="main">
+<div class="nomatch" id="nomatch">Nothing matches that filter. Try a shorter term — or open the <a href="ceql.html">CeQL Book</a> for the full language reference.</div>
+
+<!-- ===================================================== TRACK 1 -->
+<section class="t" id="track-1" data-k="getting started installation install download setup">
+  <div class="kicker">Track 1</div>
+  <h2>Getting started &amp; <span class="rule">installation</span></h2>
+  <p class="lead">One static binary, no config files, no cluster, no DBA. Pick an install path, start it, and you have the engine, the dashboards, the CeQL textbook, the REST API and the MCP server. Default HTTP port is <code>7771</code>; the gateway's data plane defaults to <code>:8080</code>; data is one file (<code>centauri.log</code>, or <code>~/.config/Centauri/</code> / <code>%APPDATA%\Centauri</code> for <code>centauri desktop</code>).</p>
+
+  <article class="s" id="t1-install" data-k="install.sh linux macos curl one-liner darwin arm64 amd64 CENTAURI_VERSION pin">
+    <h3>Install on Linux / macOS — the one-liner<a class="anchor" href="#t1-install">#</a></h3>
+    <p><code>install.sh</code> detects Linux or Darwin and amd64 or arm64, downloads the matching release binary from GitHub Releases, and moves it to <code>/usr/local/bin/centauri</code> (using <code>sudo</code> only if that directory isn't writable). It fetches one static file and nothing else goes through a shell. Pin a release with <code>CENTAURI_VERSION</code>.</p>
+    <div class="pre"><pre>curl -fsSL https://centauridb.com/install.sh | sh</pre></div>
+    <div class="pre"><pre><span class="cm"># pin a version</span>
+CENTAURI_VERSION=v0.3.0 curl -fsSL https://centauridb.com/install.sh | sh
+<span class="cm"># then</span>
+centauri desktop</pre></div>
+    <p>Manual fallback: download <code>centauri-linux-amd64</code>, <code>centauri-linux-arm64</code>, <code>centauri-darwin-amd64</code> or <code>centauri-darwin-arm64</code> from <a href="https://github.com/aniljacobv-lab/centauri/releases/latest">the latest release</a> and <code>chmod +x</code> it.</p>
+  </article>
+
+  <article class="s" id="t1-windows" data-k="windows installer setup.exe inno zip run-centauri.bat appdata start menu">
+    <h3>Install on Windows — installer or zip<a class="anchor" href="#t1-windows">#</a></h3>
+    <p><code>centauri-windows-setup.exe</code> (built from <code>installer/centauri.iss</code>) puts <code>centauri.exe</code> and the <code>.bat</code> launchers in <code>C:\Program Files\Centauri</code>, adds a Start Menu entry that runs <code>centauri desktop</code>, and an optional desktop icon. Your facts live in <code>%APPDATA%\Centauri</code>, so uninstalling never touches data. Prefer portable? Unzip <code>centauri-windows-amd64.zip</code> anywhere and double-click <code>run-centauri.bat</code>.</p>
+    <div class="pre"><pre>https://github.com/aniljacobv-lab/centauri/releases/latest
+  centauri-windows-setup.exe   → installer (Start Menu + shortcut)
+  centauri-windows-amd64.zip   → unzip, double-click run-centauri.bat</pre></div>
+    <p>On first run you're asked <code>Set up your private local AI now? [Y/n]</code>. Press Enter and Centauri installs Ollama if needed and downloads the model trio once; when it's done you'll see <em>ai: your private AI is ready — ASK and SEARCH now run on local models, nothing leaves this machine.</em></p>
+  </article>
+
+  <article class="s" id="t1-docker" data-k="docker dockerfile compose container image volume CENTAURI_TOKEN alpine">
+    <h3>Docker &amp; docker-compose<a class="anchor" href="#t1-docker">#</a></h3>
+    <p>The <code>Dockerfile</code> is a two-stage build (<code>golang:1.22-alpine</code> → <code>alpine:3.20</code>) with the binary at <code>/usr/local/bin/centauri</code>, <code>VOLUME /data</code>, port <code>7771</code>, and <code>ENTRYPOINT ["centauri"]</code>, so any subcommand works as the command. The admin token comes from <code>CENTAURI_TOKEN</code>.</p>
+    <div class="pre"><pre>docker build -t centauri .
+docker run -p 7771:7771 -v centauri-data:/data -e CENTAURI_TOKEN=secret centauri</pre></div>
+    <div class="pre"><pre><span class="cm"># docker-compose.yml (docs/deploy.md, recipe 3)</span>
+services:
+  centauri:
+    build: .
+    command: ["serve", "-data", "/data/centauri.log", "-addr", ":7771", "-token", "${CENTAURI_TOKEN}"]
+    volumes: ["centauri-data:/data"]
+    ports: ["127.0.0.1:7771:7771"]   <span class="cm"># localhost only; your proxy provides TLS</span>
+    restart: unless-stopped
+volumes:
+  centauri-data:</pre></div>
+  </article>
+
+  <article class="s" id="t1-source" data-k="build from source go build go.mod zero dependencies seed go vet test">
+    <h3>Build from source<a class="anchor" href="#t1-source">#</a></h3>
+    <p>Go 1.22+ and nothing else: <code>go.mod</code> has an empty <code>require</code> block and the project treats that as a feature. <code>centauri seed</code> fills a log with synthetic retail price-change data (<code>-skus</code>, <code>-stores</code>, <code>-changes</code>) so there's something to query immediately.</p>
+    <div class="pre"><pre>go build -o centauri ./cmd/centauri
+./centauri seed &amp;&amp; ./centauri serve</pre></div>
+    <div class="pre"><pre><span class="cm"># the same checks CI runs (CLAUDE.md)</span>
+go vet ./... &amp;&amp; go test ./...
+cd sdk/python &amp;&amp; python -m unittest discover -s tests</pre></div>
+  </article>
+
+  <article class="s" id="t1-launch" data-k="launch modes start-db start-ai start-gateway start-all open-studio open-dashboard open-console stop-centauri bat desktop serve">
+    <h3>Launch modes — <code>desktop</code>, <code>serve</code>, <code>gateway</code> and the launchers<a class="anchor" href="#t1-launch">#</a></h3>
+    <p><code>centauri desktop</code> is the one-click experience: data in your profile, opens the Console in an app window or your browser, manages Ollama, AI on by default. <code>centauri serve</code> is headless (AI is opt-in with <code>-ai auto</code>). <code>centauri gateway</code> is the reverse proxy. Windows ships the same modes as double-click launchers; all assume port 7771 and <code>%APPDATA%\Centauri\centauri.log</code> (the gateway uses <code>gateway.log</code> on 8080).</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Launcher</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>run-centauri.bat</code></td><td>start Centauri (<code>desktop</code>) + open the app; args <code>seed</code>, <code>build</code>, <code>stop</code>, <code>vision</code></td></tr>
+        <tr><td><code>start-all.bat</code></td><td>everything: database + dashboard + Studio + local AI setup + browser</td></tr>
+        <tr><td><code>start-db.bat</code></td><td>the database only (no AI): dashboard, Studio, CeQL book, full API</td></tr>
+        <tr><td><code>start-ai.bat</code></td><td>switch the local AI on for a running engine via <code>POST /v1/ai/enable {"tier":"auto"}</code></td></tr>
+        <tr><td><code>start-gateway.bat</code></td><td>the API gateway on :8080 (proxy + dashboard + Console on one port); <code>key &lt;name&gt;</code> mints a key and exits</td></tr>
+        <tr><td><code>open-dashboard.bat</code> / <code>open-studio.bat</code> / <code>open-console.bat</code></td><td>open <code>/</code>, <code>/studio</code>, <code>/console</code> (starting the engine first if needed)</td></tr>
+        <tr><td><code>stop-centauri.bat</code></td><td>stop whatever is listening on :7771</td></tr>
+      </tbody>
+    </table></div>
+    <div class="pre"><pre>centauri desktop                       <span class="cm"># profile data, opens /console, manages Ollama</span>
+centauri serve                         <span class="cm"># headless API + dashboards; AI opt-in</span>
+centauri serve -ai auto                <span class="cm"># headless with local-AI provisioning</span>
+centauri gateway -data gateway.log -addr :8080 -admin :7771</pre></div>
+  </article>
+
+  <article class="s" id="t1-commands" data-k="commands usage subcommand reference flags shell seed demo setup follow sync verify doctor backup archive seal merge export retention compact archive-push">
+    <h3>Command reference<a class="anchor" href="#t1-commands">#</a></h3>
+    <div class="pre"><pre>usage: centauri &lt;command&gt; [flags]
+
+Commands
+  desktop  one-click start: data in your profile, the Centauri home opens in an app window (or your browser)
+  serve    HTTP/JSON API — writes, queries, SSE watch, log shipping
+  gateway  reverse proxy: routes/keys/audit live in a Centauri store (bi-temporal)
+  mcp      Model Context Protocol server on stdio (connect AI agents)
+  shell    interactive CeQL REPL (psql-style; \h for meta commands)
+  seed     populate with synthetic price-change demo data
+  demo     seed|clear a curated multi-domain example database (demo.log)
+  setup    setup vision [-install] — ready a local AI (Ollama + PDF renderer)
+  follow   replicate a primary's log into a read-only follower
+  sync     bidirectional, echo-safe sync with a peer (-primary &lt;url&gt;); run on both
+  verify   recompute the tamper-evidence hash chain over a log file
+  doctor   read-only health check (chain, checkpoint, lock); safe on a live DB
+  backup   copy a database to -to &lt;file&gt; and verify the copy's chain
+  archive  seal a log into compressed, tamper-evident segments: -to &lt;dir&gt;
+  seal     roll an archive's tail into a new segment: -data &lt;archive-dir&gt;
+  merge    reconcile diverged copies: merge -to merged.log a.log b.log
+  export   run a CeQL query and print/write results in a chosen format
+
+Common flags
+  -data &lt;path&gt;    log file to use            (default centauri.log)
+  -addr &lt;:port&gt;   listen address (serve)     (default :7771)
+  -token &lt;tok&gt;    HTTP API bearer token      (or set $CENTAURI_TOKEN)
+  -lazy           keep payloads on disk so data can exceed RAM (serve/desktop)
+  -ollama         desktop: auto-start a local Ollama &amp; stop it on exit (default on)
+  -format &lt;fmt&gt;   table | csv | jsonl | json | yaml | plain (export)
+  -to &lt;file&gt;      output file ('-' or omitted = stdout)  (export/backup/merge)</pre></div>
+    <p>Also present (not in the banner): <code>retention</code>, <code>compact</code>, <code>archive-push</code>, <code>tablespace-demo</code>. Notable <code>serve</code> flags: <code>-read-token</code>, <code>-lazy-index</code>, <code>-tls-cert</code>/<code>-tls-key</code>, <code>-max-concurrency</code>, <code>-query-timeout</code>, <code>-max-concurrency-per-db</code>, <code>-log-format</code>/<code>-log-level</code>, <code>-group-commit</code>, <code>-shards</code>, <code>-checkpoint-every</code>, <code>-auto-seal-mb</code>, <code>-s3-endpoint</code>/<code>-s3-bucket</code>/<code>-s3-region</code>/<code>-s3-prefix</code>, <code>-oidc-issuer</code>/<code>-oidc-audience</code>/<code>-oidc-jwks</code>/<code>-oidc-write-scope</code>, <code>-pg-addr</code>, <code>-ha-lease</code>/<code>-ha-id</code>/<code>-ha-addr</code>/<code>-ha-ttl</code>, <code>-ai</code>/<code>-ai-yes</code>. Each is explained in the track that uses it.</p>
+  </article>
+
+  <article class="s" id="t1-http" data-k="quickstart http api curl append query rest json events subject facet provenance">
+    <h3>Five-minute quickstart — the HTTP API<a class="anchor" href="#t1-http">#</a></h3>
+    <p>Writes go to <code>POST /v1/append</code> with an <code>events</code> array; each event names a <code>subject</code>, a <code>facet</code>, a <code>type</code> (<code>OBSERVED</code>, <code>CORRECTION</code>…), a <code>provenance</code> (<code>SYSTEM_FEED</code>, <code>HUMAN_ENTRY</code>, <code>SCAN_VERIFIED</code>, <code>AI_INFERRED</code>), a <code>confidence</code> and a <code>value</code>. Reads are plain <code>GET</code>s; <code>/v1/query</code> runs CeQL as <code>?q=</code> or a JSON body. With <code>-token</code> set, add <code>Authorization: Bearer</code> to every call.</p>
+    <div class="pre"><pre>centauri serve -data my.log -token secret</pre></div>
+    <div class="pre"><pre>curl -X POST localhost:7771/v1/append -H 'content-type: application/json' \
+  -H 'Authorization: Bearer secret' -d '{
+  "events": [
+    {"subject":"sku:TEA-NEW","facet":"source","type":"OBSERVED",
+     "provenance":"HUMAN_ENTRY","confidence":1,
+     "value":{"price_cents":899,"category":"beverage","name":"loose leaf tea"}}
+  ]
+}'</pre></div>
+    <div class="pre"><pre>curl 'localhost:7771/v1/stats'
+curl 'localhost:7771/v1/context?subject=item:100001/store:4001'
+curl 'localhost:7771/v1/asof?subject=item:100001/store:4001&amp;at=2026-03-15'
+curl 'localhost:7771/v1/pending?facet=pdt&amp;older_than_days=21'
+curl 'localhost:7771/v1/disagreements?field=price_cents'
+curl -N 'localhost:7771/v1/watch?facet=pdt'
+curl 'localhost:7771/v1/query?q=FACTS%20OF%20sku:TEA-NEW'</pre></div>
+  </article>
+
+  <article class="s" id="t1-cli" data-k="quickstart cli shell repl export doctor demo seed psql-style">
+    <h3>Five-minute quickstart — CLI &amp; shell<a class="anchor" href="#t1-cli">#</a></h3>
+    <p><code>centauri shell</code> is a psql-style CeQL REPL (it takes the writer lock so it won't race a running server): <code>\d</code> lists subjects; <code>\schemas</code>, <code>\stats</code>, <code>\slots</code>, <code>\timing</code>, <code>\x</code>, <code>\format</code> are the meta commands; <code>\q</code> quits. <code>centauri export -q "…"</code> prints a query as table / csv / jsonl / json / yaml / plain. <code>centauri demo seed</code> builds a curated multi-domain <code>demo.log</code>; <code>demo clear</code> removes it — the only "erase" in the product, and it only touches that disposable file.</p>
+    <div class="pre"><pre>centauri seed -data my.log -skus 2000 -stores 8 -changes 5
+centauri export -data my.log -q "FACTS OF item:*" -format table
+centauri shell -data my.log</pre></div>
+    <div class="pre"><pre>centauri&gt; FACTS OF toy:robot
+centauri&gt; \d
+centauri&gt; \timing
+centauri&gt; \q</pre></div>
+  </article>
+
+  <article class="s" id="t1-workspaces" data-k="workspaces studio console app dashboard ceql book lazy inspector embedded ui web browser go:embed">
+    <h3>The embedded web workspaces<a class="anchor" href="#t1-workspaces">#</a></h3>
+    <p>Every server process embeds its UIs with <code>go:embed</code> — nothing to deploy separately. The dashboard has the 🏗 <b>Build my database</b> button (Genesis), the AI panel, 📎 Vision upload, the ✨ plain-English helper and an honesty table. Studio is the AI-first IDE (object explorer, causal-graph view, edit-as-a-fact; SQL auto-routed). The Console is the suite home where you mint gateway API keys in the browser. In <code>serve -lazy-index</code> mode the root path serves the Tablespace Console instead: storage inspector, one-click Verify, query console, cache metrics.</p>
+    <div class="pre"><pre>http://localhost:7771/          dashboard (Genesis, AI panel, Vision, query bar)
+http://localhost:7771/ceql      the CeQL Book — the canonical language reference
+http://localhost:7771/studio    Centauri Studio (AI-first IDE)
+http://localhost:7771/app       simple app: Ask / Add / Recent
+http://localhost:7771/console   the Console: whole suite on one screen; mint API keys
+http://localhost:7771/          Tablespace Console — when started with  serve -lazy-index</pre></div>
+    <p>Open paths that need no token: the pages above, <code>GET /v1/version</code>, <code>/livez</code>, <code>/readyz</code>, <code>/metrics</code>, and (with <code>-ha-lease</code>) <code>GET /v1/ha</code>.</p>
+  </article>
+</section>
+
+<!-- ===================================================== TRACK 2 -->
+<section class="t" id="track-2" data-k="querying ceql query language sql">
+  <div class="kicker">Track 2</div>
+  <h2>Querying — CeQL, SQL, Postgres wire <span class="rule">&amp; hybrid search</span></h2>
+  <p class="lead">CeQL is the native language: time, cause and trust are syntax. A read-only SQL <code>SELECT</code> subset and a PostgreSQL wire listener exist for people and tools that think in SQL; a plain-English helper exists for everyone else. The full textbook is the <a href="ceql.html">CeQL Book</a> — this track is the working reference.</p>
+
+  <article class="s" id="t2-model" data-k="subject fact facet event model supersede history current wildcard pattern namespace">
+    <h3>The mental model: subjects, facts, facets<a class="anchor" href="#t2-model">#</a></h3>
+    <p>No tables, rows or documents. A <b>subject</b> is anything facts can be about (<code>item:100001/store:4001</code>, <code>toy:robot</code>), created the first time a fact mentions it. A <b>fact</b> is an immutable statement with two clocks (effective time — when it became true; recorded time — when the database learned it), a provenance, a confidence and causal links. A <b>facet</b> is which system's view the fact belongs to (<code>source</code>, <code>register</code>, <code>pdt</code>, <code>shelf</code>). A new fact on the same subject + facet supersedes the old one, which is kept forever: current state is just the newest layer of history. Name subjects like paths so wildcards behave like directories.</p>
+    <div class="pre"><pre>FACTS OF toy:robot                              <span class="cm">-- what's true now</span>
+PUT toy:robot SET price_cents=500, color='silver'
+HISTORY OF toy:robot                            <span class="cm">-- the whole story</span></pre></div>
+  </article>
+
+  <article class="s" id="t2-read" data-k="facts where projection paging limit offset order by rank index like in exists dotted">
+    <h3>Reading: <code>FACTS</code>, projection, <code>WHERE</code>, paging<a class="anchor" href="#t2-read">#</a></h3>
+    <p>Patterns use <code>*</code>. List fields to narrow output, including the built-in <code>rank</code> column for stable row numbers when paging. <code>WHERE</code> sees your value fields and the metadata (<code>subject</code>, <code>facet</code>, <code>type</code>, <code>provenance</code>, <code>namespace</code>, <code>trust</code>, <code>effective</code>, <code>recorded</code>, <code>pending</code>, <code>superseded</code>). Operators: <code>= != &gt; &gt;= &lt; &lt;= IN LIKE MATCHES EXISTS AND OR NOT ( )</code>; dotted paths reach nested values. String-equality filters use an automatic per-field secondary index; <code>EXPLAIN</code> shows when it's probed.</p>
+    <div class="pre"><pre>FACTS [fields] OF subject-pattern
+  [FACET f] [AS OF t] [AS KNOWN AT t] [WHERE expr]
+  [GROUP BY key] [ORDER BY key [DESC]] [LIMIT n] [OFFSET n]
+  [WHY [DEPTH n]]</pre></div>
+    <div class="pre"><pre>FACTS subject, price_cents, trust OF item:*/store:4001 ORDER BY price_cents DESC LIMIT 10
+FACTS rank, subject, price_cents OF item:*/store:4001 ORDER BY price_cents DESC LIMIT 10 OFFSET 10
+FACTS OF item:*/store:4001 WHERE trust &gt;= 0.8 AND price_cents &gt; 700
+FACTS OF acme:* WHERE namespace = 'acme'</pre></div>
+  </article>
+
+  <article class="s" id="t2-write" data-k="put correct retire write insert update delete effective confidence schema provenance ref">
+    <h3>Writing: <code>PUT</code>, <code>CORRECT</code>, <code>RETIRE</code><a class="anchor" href="#t2-write">#</a></h3>
+    <p>Insert and update are the same act: <code>PUT</code> appends a fact that supersedes the prior one. <code>CORRECT</code> is the same but typed <code>CORRECTION</code>. <code>RETIRE</code> supersedes with <code>{retired: true}</code> — there is no <code>DELETE</code>, on purpose. <code>PUT</code> accepts <code>FACET</code>, <code>TYPE</code>, <code>EFFECTIVE</code> (future- or back-dated), <code>CONFIDENCE</code>, <code>SCHEMA</code> (validated write), <code>PROVENANCE</code> and <code>REF</code> (lineage). CeQL <code>SET</code> takes scalars only; nested arrays/maps go through <code>POST /v1/append</code> or an SDK. Writes need the admin token, an OIDC token with the write scope, or a scoped token granted <code>write</code>.</p>
+    <div class="pre"><pre>PUT toy:robot SET price_cents=450, color='red'
+PUT toy:robot SET price_cents=400 EFFECTIVE '2026-07-01'   <span class="cm">-- future-dated</span>
+CORRECT toy:robot SET price_cents=445                     <span class="cm">-- typed CORRECTION</span>
+RETIRE toy:robot                                          <span class="cm">-- supersedes with {retired: true}</span>
+RETIRE route:api FACET config                             <span class="cm">-- retire one facet</span></pre></div>
+  </article>
+
+  <article class="s" id="t2-time" data-k="time travel as of as known at bitemporal yesterday now-7d natural time timezone audit replay">
+    <h3>Time travel: <code>AS OF</code> and <code>AS KNOWN AT</code><a class="anchor" href="#t2-time">#</a></h3>
+    <p>Two clauses because every fact has two clocks. <code>AS OF t</code> asks what was true at <code>t</code>. <code>AS KNOWN AT t</code> asks what the database <em>believed</em> at <code>t</code> — facts learned later are invisible even if they describe earlier times. Both together is the audit query: "on March 1, what did we think March 15 would be?" Times are forgiving: <code>YESTERDAY</code>, <code>TODAY</code>, <code>NOW-7d</code>, <code>10 DAYS AGO</code>, <code>'yesterday 2pm CST'</code>, ISO dates, RFC3339, or raw UnixMicro. Aggregation, <code>SEARCH</code>, <code>CONTEXT</code>, <code>PROFILE</code> and the topology operators all accept these clauses.</p>
+    <div class="pre"><pre>FACTS OF item:100001/store:4001 AS OF '2026-03-15' AS KNOWN AT '2026-03-01'
+FACTS OF toy:robot AS OF YESTERDAY
+FACTS OF toy:robot AS OF NOW-7d
+FACTS OF toy:robot AS OF 'yesterday 2pm CST'
+CONTEXT FOR toy:robot AS KNOWN AT '2026-03-01'              <span class="cm">-- decision replay</span>
+FACTS region, SUM(units) OF sku:* GROUP BY region AS KNOWN AT '2026-03-01'</pre></div>
+  </article>
+
+  <article class="s" id="t2-cause" data-k="why effects match causality lineage causal graph triggered supersedes corrects distributed_as activated_by enriched_from trace">
+    <h3>Causality: <code>WHY</code>, <code>EFFECTS</code>, <code>MATCH</code><a class="anchor" href="#t2-cause">#</a></h3>
+    <p>Causes are first-class links. Add <code>WHY</code> to any <code>FACTS</code> query and each result carries its causal chain; <code>WHY &lt;event-id&gt; DEPTH n</code> traces one event backwards, <code>EFFECTS &lt;event-id&gt;</code> forwards. <code>MATCH</code> finds every causal path between two subject patterns, walking outbound (<code>CAUSES</code>) or inbound (<code>CAUSED BY</code>), optionally restricted by <code>VIA</code> to one link type (<code>TRIGGERED</code>, <code>SUPERSEDES</code>, <code>CORRECTS</code>, <code>DISTRIBUTED_AS</code>, <code>ACTIVATED_BY</code>, <code>ENRICHED_FROM</code>). The HTTP equivalent of a trace is <code>GET /v1/trace?event=&lt;id&gt;&amp;direction=cause|effect</code>.</p>
+    <div class="pre"><pre>FACTS OF toy:robot WHY DEPTH 3
+WHY 0193fa2e-77c1… DEPTH 6       <span class="cm">-- what led to this event</span>
+EFFECTS 0193fa2e-77c1…           <span class="cm">-- what this event led to</span>
+MATCH item:* CAUSES register:* VIA TRIGGERED DEPTH 3
+MATCH item:100001/store:4001 CAUSED BY * VIA CORRECTS
+MATCH intent:* CAUSES pdt:* DEPTH 5 LIMIT 50</pre></div>
+  </article>
+
+  <article class="s" id="t2-trust" data-k="disagree pending context wedge reconcile trust facets conflict activate agent bundle">
+    <h3>Trust: <code>DISAGREE</code>, <code>PENDING</code>, <code>CONTEXT</code><a class="anchor" href="#t2-trust">#</a></h3>
+    <p>Facets let different systems hold different beliefs about one subject, and reconciliation becomes a query. <code>DISAGREE ON &lt;field&gt;</code> lists subjects whose facets disagree, with a trust-ranked suggested winner. <code>PENDING &lt;facet&gt; OLDER THAN n DAYS</code> finds facts that were distributed but never activated ("wedges"); <code>POST /v1/activate</code> closes one. <code>CONTEXT FOR &lt;subject&gt;</code> returns in one call what an agent needs to reason: current facts, recent history, causal chains, disagreements with a suggested resolution, pending wedges, enrichments, schemas and a confidence summary — rebuildable as of any past moment with <code>AS KNOWN AT</code>.</p>
+    <div class="pre"><pre>DISAGREE ON price_cents
+PENDING pdt OLDER THAN 21 DAYS
+CONTEXT FOR toy:robot
+CONTEXT FOR toy:robot AS KNOWN AT '2026-03-01'</pre></div>
+  </article>
+
+  <article class="s" id="t2-txn" data-k="snapshot rollback diff reversible transaction undo savepoint revert">
+    <h3>Reversible transactions: <code>SNAPSHOT</code>, <code>ROLLBACK</code>, <code>DIFF</code><a class="anchor" href="#t2-txn">#</a></h3>
+    <p>Because nothing is erased, a rollback appends superseding reversion facts that restore each subject to a chosen past point and records the rollback itself as an auditable event. <code>AS OF</code> still sees the pre-rollback world, <code>HISTORY</code> grows rather than shrinks, and a rollback is itself reversible. <code>SNAPSHOT 'name'</code> is a durable fact (it survives the session, unlike SQL <code>SAVEPOINT</code>); <code>DIFF</code> previews the delta first.</p>
+    <div class="pre"><pre>SNAPSHOT 'before-import'
+DIFF OF toy:* BETWEEN '2026-03-01' AND '2026-03-15'
+ROLLBACK                                  <span class="cm">-- undo the last commit</span>
+ROLLBACK TO SNAPSHOT 'before-import'
+ROLLBACK OF toy:* TO '2026-03-15'</pre></div>
+    <div class="honest"><b>Honest scope:</b> there is no interactive multi-statement <code>BEGIN…COMMIT</code> MVCC transaction. Writes are single-fact or batch appends; a <code>/v1/append</code> with several events is atomic within one log.</div>
+  </article>
+
+  <article class="s" id="t2-agg" data-k="aggregates group by having count sum avg min max median stddev listagg approx_count_distinct hyperloglog hll distinct cardinality">
+    <h3>Aggregates, <code>COUNT DISTINCT</code> and HyperLogLog<a class="anchor" href="#t2-agg">#</a></h3>
+    <p>Aggregates run over current facts and respect time travel: <code>COUNT(*) COUNT(f) COUNT(DISTINCT f) APPROX_COUNT_DISTINCT(f) SUM AVG MIN MAX MEDIAN STDDEV LISTAGG</code>. <code>COUNT(DISTINCT)</code> is exact; <code>APPROX_COUNT_DISTINCT</code> uses <b>HyperLogLog</b> (<code>internal/ceql/hll.go</code>) with a fixed ~16 KB of memory and ≈0.8% error regardless of cardinality. <code>MEDIAN</code>, <code>STDDEV</code> (population) and <code>LISTAGG</code> carry the Oracle names.</p>
+    <div class="pre"><pre>FACTS facet, COUNT(*), AVG(price_cents), MAX(price_cents)
+  OF item:*/store:4001 GROUP BY facet
+  HAVING COUNT(*) &gt; 5 AND AVG(price_cents) &gt; 300
+
+FACTS APPROX_COUNT_DISTINCT(region) OF item:*
+FACTS MEDIAN(price_cents) OF item:*/store:4001
+FACTS facet, LISTAGG(kind) OF item:*/store:4001 GROUP BY facet
+FACTS facet, AVG(price_cents) OF item:* AS KNOWN AT NOW-2d GROUP BY facet</pre></div>
+    <div class="honest"><b>Honest limit:</b> aggregates run over <em>current</em> facts, not history. To roll up <code>HISTORY</code> results, export and sum client-side.</div>
+  </article>
+
+  <article class="s" id="t2-schema" data-k="schema define schema versioned validation required min max unit ref foreign key">
+    <h3>Schemas<a class="anchor" href="#t2-schema">#</a></h3>
+    <p>Optional, versioned and append-only: <code>DEFINE SCHEMA</code> creates a new version; facts written under v1 stay valid against v1. Types are <code>number string bool any</code>; constraints <code>REQUIRED MIN MAX UNIT</code>; a field can carry a description. Write with <code>SCHEMA &lt;id&gt;</code> to validate — a rejection names the bad field. Over HTTP: <code>POST /v1/schema</code>, <code>GET /v1/schema</code>.</p>
+    <div class="pre"><pre>DEFINE SCHEMA price (
+  price_cents number REQUIRED MIN 1 UNIT 'cents',
+  kind string
+) TITLE 'A retail price'
+PUT toy:car SET price_cents=300 SCHEMA price   <span class="cm">-- validated</span>
+SCHEMAS            <span class="cm">-- list all (latest versions)</span>
+SCHEMA price       <span class="cm">-- every version of one</span></pre></div>
+    <div class="honest"><b>Not today:</b> referential field types (<code>parent ref(item)</code>) and foreign-key constraints are roadmap. The recommended integrity pattern is a CePL procedure gateway — see <a href="#t2-hier">modeling hierarchies</a>.</div>
+  </article>
+
+  <article class="s" id="t2-watch" data-k="watch standing query live stream sse server-sent events subscribe push">
+    <h3>Standing queries: <code>WATCH</code><a class="anchor" href="#t2-watch">#</a></h3>
+    <p>A <code>WATCH</code> never finishes: it streams every matching fact the moment it commits. In the dashboard it feeds the LIVE panel; over HTTP it is the <code>GET /v1/watch</code> SSE stream (filterable by <code>facet</code> and <code>type</code>); in the Python SDK it's <code>for e in db.watch(...)</code>. Streaming endpoints (<code>/v1/watch</code>, <code>/v1/changes</code>, <code>/v1/log</code>) are exempt from admission limits.</p>
+    <div class="pre"><pre>WATCH ALL
+WATCH toy:robot
+WATCH ALL FACET pdt TYPE DISTRIBUTED</pre></div>
+    <div class="pre"><pre>curl -N 'localhost:7771/v1/watch?facet=pdt'</pre></div>
+  </article>
+
+  <article class="s" id="t2-search" data-k="search bm25 full text vector embedding similar hybrid alpha rag semantic okapi ranking recency trust centrality">
+    <h3>Hybrid search: <code>SEARCH</code>, BM25, vectors, <code>SIMILAR</code><a class="anchor" href="#t2-search">#</a></h3>
+    <p><code>SEARCH '&lt;text&gt;' OF &lt;pattern&gt;</code> ranks by Okapi BM25 computed in a single pass in pure Go (<code>internal/ceql/bm25.go</code>) — bi-temporal like everything else. It blends with vectors two ways: <code>SIMILAR TO &lt;event&gt; ALPHA a</code> mixes BM25 with embedding similarity to a reference event (<code>ALPHA 1.0</code> = pure keyword, <code>0.0</code> = pure semantic, default 0.5); and with a local embedder registered, SEARCH embeds the query text itself and blends meaning into the ranking. The final order folds in recency, trust (confidence × provenance) and causal centrality, and every hit returns its signal breakdown. <code>SIMILAR TO &lt;event-id&gt; TOP k MIN score</code> is pure vector search. Without an embedder SEARCH is plain BM25 and never errors. SEARCH also indexes AI-derived text (vision descriptions, summaries).</p>
+    <div class="pre"><pre>SEARCH 'late markdown' OF item:* LIMIT 10
+SEARCH 'markdown' OF item:* SIMILAR TO 0193fa2e-77c1 ALPHA 0.5
+SEARCH 'penny' OF item:* AS KNOWN AT '2026-03-01'
+SIMILAR TO 0193fa2e-77c1… TOP 5 MIN 0.7</pre></div>
+    <div class="pre"><pre>curl 'localhost:7771/v1/similar?event_id=&lt;id&gt;&amp;k=5&amp;min_score=0.7'</pre></div>
+  </article>
+
+  <article class="s" id="t2-topology" data-k="topology shape consistency cycles drift persistent homology betti sheaf clusters loops voids periodicity regime change">
+    <h3>Topology: <code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code><a class="anchor" href="#t2-topology">#</a></h3>
+    <p>Four stdlib-only operators (<code>internal/ceql/topology.go</code>) answer questions about the <em>shape</em> of data. <code>SHAPE OF &lt;pattern&gt; ON &lt;fields&gt;</code> computes persistent homology of a value cloud (Betti-0 clusters, Betti-1 loops, Betti-2 voids with <code>MAXDIM 2</code>); <code>WINDOW n STRIDE m</code> builds a time-delay embedding so a periodic signal becomes a loop; <code>ON EMBEDDING METRIC cosine</code> analyses stored vectors. <code>CONSISTENCY OF &lt;subject&gt; ON &lt;field&gt; [EPS n]</code> treats the facets observing a subject as a sheaf: a global section exists iff they agree. <code>CYCLES</code> finds H1 of the causal graph — lineage must be acyclic, so any cycle is a data-integrity alarm. <code>DRIFT … BUCKETS n</code> is a regime-change detector. All accept <code>AS OF</code> / <code>AS KNOWN AT</code>.</p>
+    <div class="pre"><pre>SHAPE OF item:*/store:4001 ON price_cents
+SHAPE OF item:* ON price_cents, trust, av_cost MAXDIM 2
+SHAPE OF item:100001/store:4001 ON price_cents WINDOW 12 STRIDE 2
+SHAPE OF item:* ON EMBEDDING METRIC cosine
+CONSISTENCY OF item:100001/store:4001 ON price_cents EPS 5
+CYCLES IN CAUSES OF item:100001/store:4001
+DRIFT OF item:*/store:4001 ON price_cents BUCKETS 6</pre></div>
+  </article>
+
+  <article class="s" id="t2-hier" data-k="hierarchy hierarchies modeling merchandise location parent dept class region denormalize rollup reclass foreign key">
+    <h3>Modeling hierarchies without foreign keys<a class="anchor" href="#t2-hier">#</a></h3>
+    <p>Nodes are subjects and parent pointers are ordinary facts, so a hierarchy is bi-temporal: a reclass is one <code>PUT</code>, and January reports re-run under January's hierarchy. Denormalize ancestry onto leaf facts (<code>dept</code>, <code>class</code>, <code>region</code>) so roll-ups are one <code>GROUP BY</code> that time-travels. Facets carry each system's belief about a leaf, so <code>DISAGREE</code> and <code>PENDING</code> replace reconciliation batches. Integrity is schemas plus CePL procedure gateways: applications call procedures; only admins use raw <code>PUT</code>. Full write-up: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/modeling-hierarchies.md">docs/modeling-hierarchies.md</a>.</p>
+    <div class="pre"><pre>PUT class:3204       SET name='Slim Fit',   parent='dept:320'
+PUT sku:100001-RED-32/store:4001 FACET source
+  SET units=12, cost_cents=900, price_cents=1999,
+      dept='dept:320', class='class:3204', region='region:4'
+  SCHEMA sku_loc_status
+FACTS dept, SUM(units), AVG(price_cents) OF sku:* GROUP BY dept
+FACTS OF class:3204 AS OF '2026-01-15'     <span class="cm">-- which dept was it in, in January?</span></pre></div>
+  </article>
+
+  <article class="s" id="t2-explain" data-k="profile subjects stats explain analyze access path ast json plan timing">
+    <h3>Operations: <code>PROFILE</code>, <code>SUBJECTS</code>, <code>STATS</code>, <code>EXPLAIN</code><a class="anchor" href="#t2-explain">#</a></h3>
+    <p><code>PROFILE OF &lt;pattern&gt;</code> describes the data (fields, types, coverage, ranges, top values) as of any moment. <code>SUBJECTS LIKE … LIMIT n</code> lists subjects; <code>STATS</code> returns store counters. <code>EXPLAIN &lt;query&gt;</code> returns the access path plus the JSON AST without running; <code>EXPLAIN ANALYZE</code> runs it and reports rows and timing (reads only). Agents can submit the JSON AST directly to <code>/v1/query</code> — also the escape hatch for strings that can't be embedded in CeQL literals, which have no escapes.</p>
+    <div class="pre"><pre>PROFILE OF item:*
+PROFILE OF item:* AS KNOWN AT '2026-03-01'
+SUBJECTS LIKE item:*4001 LIMIT 50
+STATS
+EXPLAIN FACTS OF toy:robot WHY
+EXPLAIN ANALYZE FACTS OF item:*</pre></div>
+  </article>
+
+  <article class="s" id="t2-sql" data-k="sql select /v1/sql read-only transpile from where group by having order by limit for system_time subquery window join">
+    <h3>Lean read-only SQL at <code>/v1/sql</code><a class="anchor" href="#t2-sql">#</a></h3>
+    <p>For people and LLMs who think in <code>SELECT</code>, a lean SQL subset (<code>internal/ceql/sql.go</code>) transpiles to CeQL and runs through the same executor (<code>GET /v1/sql?q=</code> or <code>POST /v1/sql {"q"}</code>; Studio auto-routes SQL). Supported: <code>SELECT * | col, AGG(col)</code> with <code>COUNT SUM AVG MIN MAX</code>; <code>FROM &lt;name&gt;</code> maps to namespace <code>&lt;name&gt;:*</code>, <code>FROM facts</code> to all subjects, a quoted <code>FROM 'item:1'</code> to an exact subject or pattern; <code>WHERE</code> with <code>= != &lt;&gt; &lt; &lt;= &gt; &gt;= IN LIKE AND OR NOT ()</code>; <code>GROUP BY</code>, <code>HAVING</code>, <code>ORDER BY</code>, <code>LIMIT n [OFFSET m]</code>; time travel with <code>AS OF</code> / <code>AS KNOWN AT</code>, with SQL:2011 <code>FOR SYSTEM_TIME AS OF</code> as a synonym. It rejects what it doesn't support rather than mis-answering.</p>
+    <div class="pre"><pre>SELECT * FROM sku WHERE category = 'beverage' AND price_cents &gt; 1000 ORDER BY price_cents DESC LIMIT 5
+SELECT category, AVG(price_cents) FROM facts GROUP BY category HAVING COUNT(*) &gt; 3
+SELECT * FROM 'item:1' FOR SYSTEM_TIME AS OF 'yesterday'</pre></div>
+    <div class="pre"><pre>curl "localhost:7771/v1/sql?q=SELECT%20*%20FROM%20sku%20LIMIT%2010"
+curl -X POST localhost:7771/v1/sql -H 'content-type: application/json' \
+  -d '{"q": "SELECT category, COUNT(*) FROM facts GROUP BY category"}'</pre></div>
+    <div class="honest"><b>What SQL is NOT here:</b> read-only — only <code>SELECT</code>; writes use CeQL. No joins (in SQL or CeQL), no subqueries, no window functions, no SQL <code>COUNT(DISTINCT)</code> yet.</div>
+  </article>
+
+  <article class="s" id="t2-pgwire" data-k="pgwire postgres wire protocol psql jdbc odbc dbeaver tableau power bi prisma -pg-addr 5432 sslmode extended protocol prepared statements">
+    <h3>Postgres wire protocol: psql, JDBC, DBeaver, BI tools<a class="anchor" href="#t2-pgwire">#</a></h3>
+    <p>Start <code>serve</code> with <code>-pg-addr :5432</code> and Centauri also speaks the PostgreSQL frontend/backend protocol v3 (<code>internal/pgwire</code>, stdlib only), so <code>psql</code>, JDBC/ODBC clients and BI tools connect directly and run the same read-only SELECT subset. Both the simple and the extended (Parse/Bind/Describe/Execute) sub-protocols are implemented, so prepared statements with parameters work in JDBC and psycopg default modes.</p>
+    <div class="pre"><pre>centauri serve -data my.log -pg-addr :5432 -token secret
+psql 'host=localhost port=5432 user=any password=secret sslmode=disable'</pre></div>
+    <div class="pre"><pre><span class="cm">-- inside psql</span>
+SELECT * FROM sku WHERE category='beverage' LIMIT 10;
+SELECT * FROM 'item:1' FOR SYSTEM_TIME AS OF 'yesterday';</pre></div>
+    <div class="honest"><b>Honest scope:</b> every column is returned as <code>TEXT</code> (OID 25); authentication is the server token sent as a cleartext password with any username and <code>sslmode=disable</code> — put TLS or network controls in front; no <code>?db=</code> routing (the default database is served); writes are rejected. It is a protocol adapter over the transpiler, not a Postgres.</div>
+  </article>
+
+  <article class="s" id="t2-nl" data-k="plain english natural language nl to ceql helper copilot assist did you mean deterministic rules local llm">
+    <h3>Plain English → CeQL<a class="anchor" href="#t2-nl">#</a></h3>
+    <p>The dashboard query bar accepts plain English and the ✨ helper translates it (<code>internal/ceql/natural.go</code>): deterministic rules first — no model, no API key, shows you the CeQL — then the local LLM for the long tail when one is registered. Model output is re-parsed before it's offered, so a suggestion is never invalid CeQL. When a query fails to parse the same helper offers a "did you mean".</p>
+    <div class="pre"><pre>curl -X POST localhost:7771/v1/assist -H 'content-type: application/json' \
+  -d '{"text": "what was the price of item:100001/store:4001 yesterday at 2pm CST"}'</pre></div>
+  </article>
+
+  <article class="s" id="t2-acl" data-k="scoped token acl prefix row level security mask field masking redact agent safe surface">
+    <h3>Scoped tokens and field masking<a class="anchor" href="#t2-acl">#</a></h3>
+    <p>Beyond the admin (<code>-token</code>) and read-only (<code>-read-token</code>) tokens, <code>POST /v1/acl</code> registers a token confined to subject prefixes (only its SHA-256 is stored, as an <code>acl:&lt;hash&gt;</code> fact). It may run CeQL only over subjects within its prefixes, only via <code>/v1/query</code>, and may write only if granted; <code>mask</code> lists value fields redacted (<code>"***"</code>) in that token's results — the store is never mutated. Deny-by-default for anything broader. A CePL procedure plus a scoped token is the safe surface for an agent.</p>
+    <div class="pre"><pre>curl -X POST localhost:7771/v1/acl -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' \
+  -d '{"token":"agent-secret","prefixes":["item:"],"write":false,"mask":["cost_cents"]}'</pre></div>
+  </article>
+</section>
+
+<!-- ===================================================== TRACK 3 -->
+<section class="t" id="track-3" data-k="private ai local llm vision genesis mcp agents ollama">
+  <div class="kicker">Track 3</div>
+  <h2>Private AI, vision, the Genesis architect <span class="rule">&amp; MCP</span></h2>
+  <p class="lead">The engine embeds no model and stays zero-dependency. AI features orchestrate models you run yourself — through Ollama over plain HTTP — and every feature degrades gracefully when no model is registered. Model choice is itself a fact: versioned, queryable, auditable.</p>
+
+  <article class="s" id="t3-model" data-k="how local ai works model registry model:config endpoint ollama localai vllm openai-compatible graceful degrade">
+    <h3>How local AI works — and what is not in the binary<a class="anchor" href="#t3-model">#</a></h3>
+    <p>Orchestration — retrieval, hybrid BM25+vector ranking, RAG answering, enrichment, model selection — lives in stdlib Go (<code>internal/ai</code>). Model weights (2–20 GB) do not. Ollama is the default runtime (OpenAI-compatible; LocalAI and vLLM also work). A model is registered as a plain fact (<code>model:&lt;name&gt;</code>, facet <code>config</code>). With no suitable model registered, the non-LLM path answers and queries never break.</p>
+    <div class="pre"><pre>PUT model:chat FACET config SET endpoint='http://localhost:11434/v1/chat/completions',
+  kind='chat', model='qwen3:14b'</pre></div>
+  </article>
+
+  <article class="s" id="t3-tiers" data-k="tiers presets small balanced max gemma3 qwen3 glm-4.7-flash bge-m3 nomic-embed-text vram gpu hardware -ai auto">
+    <h3>Tiers &amp; presets<a class="anchor" href="#t3-tiers">#</a></h3>
+    <p><code>-ai auto</code> (default for <code>desktop</code>; opt-in on <code>serve</code>) detects total memory and picks a tier; <code>small | balanced | max</code> force one. Each tier is a chat + embedder + vision trio pulled via Ollama. The table is config, not a contract (<code>internal/ai/presets.go</code>).</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Tier</th><th>Hardware</th><th>Chat</th><th>Embeddings</th><th>Vision</th></tr></thead>
+      <tbody>
+        <tr><td><code>small</code></td><td>~8 GB RAM, CPU-only OK</td><td><code>gemma3:4b</code></td><td><code>nomic-embed-text</code></td><td><code>gemma3:4b</code></td></tr>
+        <tr><td><code>balanced</code></td><td>~12–16 GB GPU</td><td><code>qwen3:14b</code></td><td><code>bge-m3</code></td><td><code>gemma3:12b</code></td></tr>
+        <tr><td><code>max</code></td><td>24 GB+ GPU</td><td><code>glm-4.7-flash</code></td><td><code>bge-m3</code></td><td><code>gemma3:27b</code></td></tr>
+      </tbody>
+    </table></div>
+    <p><code>glm-4.7-flash</code> is a 30B MoE / 3B-active, MIT-licensed model with a 200K context, ~19 GB at Q4 — the strongest open model that fits a 24 GB GPU.</p>
+    <div class="pre"><pre>centauri desktop                   <span class="cm"># turnkey: auto-detect, auto-install, auto-pull</span>
+centauri serve -ai auto            <span class="cm"># server: detect hardware + provision</span>
+centauri serve -ai small           <span class="cm"># force a tier: small | balanced | max</span>
+centauri serve -ai auto -ai-yes    <span class="cm"># skip the one-time consent prompt (unattended)</span></pre></div>
+  </article>
+
+  <article class="s" id="t3-provision" data-k="provisioning ollama install winget brew pull models background register auto-embed /v1/ai/status /v1/ai/enable /v1/ai/local opt-out">
+    <h3>Ollama provisioning — what happens in the background<a class="anchor" href="#t3-provision">#</a></h3>
+    <p>With AI mode on, startup is instant and provisioning runs in the background: detect the tier from total memory; install Ollama if missing (<code>winget</code> on Windows, <code>brew</code> on macOS; on Linux it prints the one-line installer and never pipes <code>curl|sh</code> automatically); start Ollama (stopping on exit only the instance it started; <code>-ollama=false</code> opts out; <code>serve</code> never auto-manages Ollama); pull the tier's models, skipping any already present; register them as <code>model:*</code> facts and turn on auto-embed. Everything is idempotent. The one-time opt-out is recorded in <code>.centauri-ai-optout</code> next to the data file. If Ollama can't be installed automatically, Centauri still runs; AI lights up once you install it and restart.</p>
+    <div class="pre"><pre>GET  /v1/ai/status                     <span class="cm"># progress; where answers are computed (local / cloud / none)</span>
+POST /v1/ai/enable  {"tier":"auto"}    <span class="cm"># turn on fully-local AI (auto | small | balanced | max)</span>
+POST /v1/ai/local   {"tier":"auto"}    <span class="cm"># switch back to local — the reversible off-switch</span></pre></div>
+    <p>All <code>/v1/ai/*</code> endpoints are admin-token-only, including the <code>GET</code>.</p>
+  </article>
+
+  <article class="s" id="t3-enrich" data-k="auto-embed enrich embedding model enrichment feedback rating summarize vision cached inference">
+    <h3>Auto-embed and <code>ENRICH</code><a class="anchor" href="#t3-enrich">#</a></h3>
+    <p>With local AI enabled, every new fact embeds itself in the background right after it commits — both ingest paths — so data is instantly <code>SEARCH</code> / <code>SIMILAR</code> / <code>ASK</code>-able. Embeddings are ordinary enrichment facts and never touch the original write's hash chain. <code>ENRICH &lt;pattern&gt; USING &lt;model&gt; [ON &lt;field&gt;] [AS &lt;kind&gt;]</code> (<code>internal/ceql/enrich.go</code>) runs a registered model over matching events from the query itself and stores the result as a superseding, provenanced enrichment fact; re-runs skip what's done, so inference is cached in the log. <code>POST /v1/feedback {event, score, note}</code> stores an append-only rating in [-1, 1] that nudges future retrieval — no weights change.</p>
+    <div class="pre"><pre>PUT model:embed FACET config SET
+  endpoint='http://localhost:11434/v1/embeddings', kind='embedding', model='nomic-embed-text'
+ENRICH item:*   USING embed                       <span class="cm">-- embeddings → vector index</span>
+ENRICH ticket:* USING summarize ON body AS summary
+ENRICH asset:*  USING vision                      <span class="cm">-- describe images / PDF pages</span></pre></div>
+  </article>
+
+  <article class="s" id="t3-ask" data-k="ask rag citations grounded sources knowledge base kb kb_gap answer local llm chat with your data">
+    <h3><code>ASK</code> — RAG with citations<a class="anchor" href="#t3-ask">#</a></h3>
+    <p><code>ASK '&lt;question&gt;'</code> answers from the built-in knowledge base first (Q&amp;A live as <code>kb:&lt;slug&gt;</code> facts, ranked by the same BM25 ranker as SEARCH). With a chat model registered, a question the KB can't answer retrieves your most relevant facts (hybrid BM25 + vector), has the local LLM answer using only those, and returns <code>grounded: true</code>, the <code>answer</code>, and <code>sources</code> (event ids) so every answer is checkable. Without a chat model, ASK records the question as a <code>kb_gap:&lt;slug&gt;</code> fact instead of guessing — an agent can later answer it by appending a <code>kb:</code> fact. Because knowledge is facts, <code>FACTS OF kb:* AS KNOWN AT …</code> tells you what the assistant would have said last month.</p>
+    <div class="pre"><pre>ASK 'how much does the widget cost'
+ASK 'summarize the history of item:1'
+ASK 'why do these prices disagree'</pre></div>
+    <div class="pre"><pre>FACTS OF kb_gap:*                       <span class="cm">-- 1. what couldn't we answer?</span>
+PUT kb:does-it-scale FACET knowledge    <span class="cm">-- 2. an agent teaches the answer</span>
+  SET question='does it scale?', answer='Single-node, in-RAM working set…'
+ASK 'does it scale?'                    <span class="cm">-- 3. now answered from the database</span></pre></div>
+  </article>
+
+  <article class="s" id="t3-vision" data-k="vision images pdf assets upload pdftoppm imagemagick poppler setup vision -install multimodal describe embed /v1/assets">
+    <h3>Vision — files an AI can read, locally<a class="anchor" href="#t3-vision">#</a></h3>
+    <p>Upload an image or PDF (<code>POST /v1/assets</code> or the dashboard's 📎 panel); pages are rendered locally, a vision model describes them, and the description is embedded into the vector index — so <code>SEARCH 'E-3 200A panel'</code> finds the drawing. Two helpers can't be bundled: Ollama (multimodal model + embedder) and a PDF rasteriser (poppler <code>pdftoppm</code> or ImageMagick <code>magick</code>; plain images need neither). <code>centauri setup vision -install</code> installs what's missing via your OS package manager and pulls the models; drop <code>-install</code> to just check (exits non-zero when something is missing). Status: <code>GET /v1/vision/status</code>; fetch a stored asset with <code>GET /v1/assets/{sha}</code>.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>OS</th><th>What <code>setup vision -install</code> installs</th></tr></thead>
+      <tbody>
+        <tr><td>Windows</td><td><code>winget install Ollama.Ollama</code> + <code>ImageMagick.ImageMagick</code> + <code>ArtifexSoftware.GhostScript</code> (poppler also works)</td></tr>
+        <tr><td>macOS</td><td><code>brew install ollama</code> + <code>brew install poppler</code></td></tr>
+        <tr><td>Linux</td><td><code>apt-get install poppler-utils</code>; Ollama via its one-line installer</td></tr>
+      </tbody>
+    </table></div>
+    <div class="pre"><pre>centauri setup vision -install
+centauri desktop                 <span class="cm"># or: centauri desktop -ollama=false to manage Ollama yourself</span></pre></div>
+    <div class="pre"><pre>SEARCH 'E-3 200A panel' OF asset:*
+FACTS OF asset:*
+SIMILAR TO &lt;asset-event-id&gt; TOP 5</pre></div>
+    <p>Windows gotcha: the bare <code>convert</code> command is the System32 filesystem tool, not ImageMagick; Centauri ignores it and uses <code>pdftoppm</code> or <code>magick</code>.</p>
+  </article>
+
+  <article class="s" id="t3-cloud" data-k="cloud boost glm-5.2 z.ai openai gpt-5.5 anthropic claude custom provider api key off by default leaves machine costs money /v1/ai/cloud auth_env auth_file">
+    <h3>The cloud boost — GLM-5.2, GPT-5.5, Claude, custom<a class="anchor" href="#t3-cloud">#</a></h3>
+    <p>Out of the box Centauri is 100% local. Optionally, paste a provider key into the dashboard AI panel (or <code>POST /v1/ai/cloud</code>) to switch chat to a cloud model. Providers: <code>zai</code> (GLM-5.2, the default), <code>openai</code> (GPT-5.5), <code>anthropic</code> (Claude), or <code>custom</code> (any OpenAI-compatible server, key optional — a LAN Ollama box works keyless). Each provider keeps its own key in its own 0600 file next to the data file; the key never enters the log. Embeddings and vision stay local either way.</p>
+    <div class="honest"><b>Read before you turn it on:</b> it is <b>off by default</b>; when on, your prompts and the retrieved facts <b>leave your machine</b> and are processed by the provider under its terms; it <b>costs money</b> (per token); it is clearly marked and reversible via <code>POST /v1/ai/local</code>. <b>GLM-5.2 cannot run locally</b> — its weights are 200+ GB; local tiers top out at <code>glm-4.7-flash</code>.</div>
+    <div class="pre"><pre>curl -X POST localhost:7771/v1/ai/cloud -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' \
+  -d '{"provider":"zai","api_key":"&lt;ZAI_KEY&gt;","model":"glm-5.2"}'
+curl -X POST localhost:7771/v1/ai/local -H 'Authorization: Bearer &lt;admin&gt;' -d '{"tier":"auto"}'
+curl localhost:7771/v1/ai/status -H 'Authorization: Bearer &lt;admin&gt;'</pre></div>
+    <div class="pre"><pre><span class="cm">-- registering a remote model by hand: the secret is named, never stored</span>
+PUT model:summarize FACET config SET endpoint='https://api.openai.com/v1/chat/completions',
+  kind='chat', model='gpt-4o-mini', auth_env='OPENAI_KEY'
+PUT model:cloud FACET config SET endpoint='https://api.z.ai/api/paas/v4/chat/completions',
+  kind='chat', model='glm-5.2', auth_file='/path/to/zai.key', timeout_secs='600'</pre></div>
+  </article>
+
+  <article class="s" id="t3-genesis" data-k="genesis engine architect blueprint interview ddl create table import schema generation /v1/architect/plan /v1/architect/apply build my database environment">
+    <h3>The Genesis Engine — describe it, get a database<a class="anchor" href="#t3-genesis">#</a></h3>
+    <p>Describe your scenario in plain language and Centauri (<code>internal/architect</code>) interviews you and builds the entire database — schemas, CePL procedures, watches, starter queries — then stores the conversation as <code>blueprint:*</code> facts so the database forever remembers why it exists. Two paths: a description with an adaptive interview, or paste <code>CREATE TABLE</code> DDL (the RDBMS import path). <code>POST /v1/architect/plan</code> with <code>{description, answers}</code> returns <code>questions</code> until none remain, then a <code>blueprint</code>; <code>POST /v1/architect/apply</code> (admin) builds it into a new named environment (<code>&lt;env&gt;.log</code> next to the data file — the server must host a data directory). The dashboard's 🏗 button and the <code>centauri_genesis</code> MCP tool drive the same engine.</p>
+    <div class="pre"><pre>curl -X POST localhost:7771/v1/architect/plan -H 'content-type: application/json' \
+  -d '{"description":"a small bakery tracking orders, suppliers and daily waste","answers":{}}'
+<span class="cm"># → {"questions":[...]}  … answer them, resend with "answers" filled … → {"blueprint":{...}}</span>
+curl -X POST localhost:7771/v1/architect/apply -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' -d '{"description":"...","answers":{...}}'</pre></div>
+    <div class="pre"><pre><span class="cm"># RDBMS import path</span>
+curl -X POST localhost:7771/v1/architect/plan -H 'content-type: application/json' \
+  -d '{"ddl":"CREATE TABLE item (id INT PRIMARY KEY, name TEXT, dept_id INT);","answers":{}}'</pre></div>
+  </article>
+
+  <article class="s" id="t3-cepl" data-k="cepl stored procedures procedure let when fail return put versioned trace injection safe /v1/proc /v1/proc/run run with history of proc">
+    <h3>CePL stored procedures<a class="anchor" href="#t3-cepl">#</a></h3>
+    <p>CePL (<code>internal/proc</code>) is a deliberately tiny near-English language inside the database: a procedure is stored as a versioned <code>proc:&lt;name&gt;</code> fact, run by name, and every run returns a step-by-step trace. Statements: <code>PROCEDURE name(p1, p2) … END</code>, <code>LET x = FIRST FACTS OF …</code> (binds a CeQL read), <code>LET y = &lt;expression&gt;</code>, <code>WHEN &lt;guard&gt;: &lt;step&gt;</code> (<code>IS MISSING</code> / <code>IS PRESENT</code>), <code>PUT / CORRECT / RETIRE</code> with <code>${var}</code> holes, <code>FAIL 'msg'</code>, <code>RETURN value</code>. Substitution is injection-safe: templates are re-parsed as CeQL after filling, numbers render bare, a string glued to a word accepts only token-safe characters and never <code>*</code>, and anything else becomes a quoted literal. <code>HISTORY OF proc:x</code> shows every version; writes carry <code>REF 'proc:x'</code> lineage; every stored procedure is auto-exposed over MCP as a typed <code>proc_&lt;name&gt;</code> tool.</p>
+    <div class="pre"><pre>PROCEDURE duty_estimate(item, units)
+  LET rate = FIRST FACTS OF hts:${item} FACET assess
+  WHEN rate IS MISSING: FAIL 'no duty rate on file for ${item}'
+  LET cost = FIRST FACTS OF cost:${item}
+  WHEN cost IS MISSING: FAIL 'no average cost for ${item}'
+  LET duty = cost.av_cost * units * rate.comp_rate
+  PUT duty:${item} SET duty_amt=${duty}, units=${units} REF 'proc:duty_estimate'
+  RETURN duty
+END</pre></div>
+    <div class="pre"><pre><span class="cm"># define (admin): body is {"source": "&lt;procedure text&gt;"}</span>
+curl -X POST localhost:7771/v1/proc -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' -d '{"source":"PROCEDURE …\n…\nEND"}'
+<span class="cm"># run</span>
+curl -X POST localhost:7771/v1/proc/run -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' \
+  -d '{"name":"duty_estimate","args":{"item":"100001","units":3}}'</pre></div>
+    <div class="pre"><pre>RUN duty_estimate WITH item='100001', units=3      <span class="cm">-- from the query bar / shell</span>
+HISTORY OF proc:duty_estimate                      <span class="cm">-- every version ever deployed</span></pre></div>
+    <div class="honest"><b>Honest scope:</b> no loops, no nesting, no body access — heavier logic belongs in an SDK.</div>
+  </article>
+
+  <article class="s" id="t3-mcp" data-k="mcp model context protocol claude desktop claude code cursor stdio mcpServers config tools agents centauri mcp openai gemini centauri_query">
+    <h3>MCP server — Claude Desktop, Claude Code, Cursor, agents<a class="anchor" href="#t3-mcp">#</a></h3>
+    <p><code>centauri mcp</code> runs a Model Context Protocol server over stdio against a local log (<code>internal/mcp</code>), keeping stdout clean. It exposes 20 typed tools — <code>centauri_context</code>, <code>centauri_current</code>, <code>centauri_asof</code>, <code>centauri_history</code>, <code>centauri_trace</code>, <code>centauri_pending</code>, <code>centauri_disagreements</code>, <code>centauri_similar</code>, <code>centauri_by_ref</code>, <code>centauri_append</code>, <code>centauri_activate</code>, <code>centauri_enrich</code>, <code>centauri_put_schema</code>, <code>centauri_get_schemas</code>, <code>centauri_ceql</code>, <code>centauri_define_procedure</code>, <code>centauri_run_procedure</code>, <code>centauri_genesis</code>, <code>centauri_subjects</code>, <code>centauri_stats</code> — plus one auto-generated <code>proc_&lt;name&gt;</code> tool per stored procedure. Any MCP host uses the same <code>mcpServers</code> block: Claude Desktop (<code>claude_desktop_config.json</code>), Claude Code (<code>.mcp.json</code> or <code>claude mcp add</code>), Cursor (<code>.cursor/mcp.json</code>).</p>
+    <div class="pre"><pre>{ "mcpServers": { "centauri": { "command": "centauri", "args": ["mcp"] } } }</pre></div>
+    <div class="pre"><pre>{ "mcpServers": { "centauri": { "command": "centauri", "args": ["mcp", "-data", "/path/to/my.log"] } } }</pre></div>
+    <div class="note"><code>centauri mcp</code> opens the log file directly rather than going through HTTP, so point it at its own <code>-data</code> file or stop the server first — two processes appending to one log is not a supported configuration.</div>
+    <p>Non-MCP hosts (OpenAI, Gemini, Grok, Mistral, local runners) use a single <code>centauri_query</code> tool that forwards CeQL to <code>POST /v1/query</code> — the <a href="ceql.html">CeQL Book</a> (section 14½) shows the pattern, including <code>OpenAI(base_url="http://localhost:11434/v1")</code> for Ollama.</p>
+  </article>
+</section>
+
+<!-- ===================================================== TRACK 4 -->
+<section class="t" id="track-4" data-k="enterprise storage ha gateway governance compliance">
+  <div class="kicker">Track 4</div>
+  <h2>Enterprise storage, HA <span class="rule">&amp; the API/LLM gateway</span></h2>
+  <p class="lead">Oracle-grade memory for what happened, when, why, and how much to trust it — in one free binary. This track covers the storage engine's integrity and tiering, write scaling, failover, replication, governance, authentication, and the gateway whose control plane is the database itself.</p>
+
+  <article class="s" id="t4-chain" data-k="hash chain integrity verify backup doctor checkpoint sha-256 tamper evident -checkpoint-every -lazy payloads">
+    <h3>The hash chain: <code>verify</code>, <code>backup</code>, <code>doctor</code><a class="anchor" href="#t4-chain">#</a></h3>
+    <p>The store is an append-only JSONL log with in-memory indexes (<code>internal/store</code>). On open it replays the log (shortcut by <code>centauri.checkpoint</code>); <code>-checkpoint-every N</code> seconds writes that recovery checkpoint while serving so a crash replays only seconds of tail. Every committed line is covered by a per-line SHA-256 chain (<code>integrity.go</code>). <code>centauri verify</code> recomputes it and prints the chain head — record it somewhere external; a future <code>verify</code> reproducing it proves the history is byte-for-byte intact. <code>backup</code> copies the committed log (safe while serving) and verifies the copy's chain head equals the source's. <code>-lazy</code> keeps payloads on disk so data can exceed RAM while the index still fits.</p>
+    <div class="pre"><pre>centauri verify -data my.log
+centauri backup -data my.log -to backups/my-2026-10-28.log
+centauri doctor -data my.log
+centauri serve -data my.log -checkpoint-every 30 -lazy</pre></div>
+  </article>
+
+  <article class="s" id="t4-tablespaces" data-k="tablespaces archive segments sealed compressed merkle root zone maps manifest auto-seal seal compact crypto-erasure aes-256-gcm verify -fast">
+    <h3>Tablespaces: archives, sealed segments, Merkle roots<a class="anchor" href="#t4-tablespaces">#</a></h3>
+    <p><code>centauri archive -to &lt;dir&gt;</code> seals a log into compressed (typically 5–10×), tamper-evident segments plus a <code>manifest.json</code>. Each segment carries a <b>Merkle root</b> (<code>internal/segment/merkle.go</code>; O(log n) inclusion proofs) and zone maps (min/max times, namespace prefixes, field stats) so queries skip segments that can't match; stats and chain heads stay uncompressed in the manifest, so pruning and <code>verify</code> need no decompression. Serving an archive dir replays sealed segments plus an appendable tail; <code>-auto-seal-mb N</code> seals the tail once it passes N MB (Oracle-style log switch) and <code>centauri seal</code> does it by hand, crash-safe via one atomic manifest switch. <code>compact</code> merges consecutive segments offline without erasing. <code>verify -fast</code> scrubs per-segment Merkle roots in parallel. Sealed segments support per-segment AES-256-GCM crypto-erasure — destroy the key, keep the chain.</p>
+    <div class="pre"><pre>data/
+  manifest.json              <span class="cm"># ordered segments + stats + chain heads</span>
+  segments/
+    00000001.log             <span class="cm"># sealed, immutable</span>
+    current.log              <span class="cm"># the open, appendable tail</span>
+  centauri.checkpoint</pre></div>
+    <div class="pre"><pre>centauri archive -data mydb.log -to mydb-archive -seg-max 100000
+centauri serve -data mydb-archive -auto-seal-mb 256
+centauri seal -data mydb-archive
+centauri compact -data mydb-archive -group 8
+centauri verify -data mydb-archive -fast
+centauri tablespace-demo        <span class="cm"># seed → archive → retrieve → insert, end to end</span></pre></div>
+  </article>
+
+  <article class="s" id="t4-lazy" data-k="lazy index -lazy-index bigger than ram disk-backed read-only lru segment cache lazy.ckpt tablespace console /v1/lazy/stats /v1/lookup">
+    <h3>The lazy index — serving bigger-than-RAM, read-only<a class="anchor" href="#t4-lazy">#</a></h3>
+    <p><code>serve -lazy-index -data &lt;archive-dir&gt;</code> opens an archive with the disk-backed index (<code>internal/store/lazyindex.go</code>): one streaming pass keeps only the current fact per (subject, facet) in RAM, so memory scales with live subjects, not total events. <code>history</code>/<code>asof</code> stream zone-map-pruned segments from disk through an LRU of decompressed segments; a Merkle-validated pointer checkpoint (<code>lazy.ckpt</code>) makes restart replay only the tail. It honours <code>-read-token</code>, native TLS, admission limits, and serves the Tablespace Console at <code>/</code> plus <code>/livez</code>, <code>/readyz</code>, <code>/metrics</code>.</p>
+    <div class="pre"><pre>centauri serve -lazy-index -data mydb-archive -read-token viewer</pre></div>
+    <div class="pre"><pre>curl 'localhost:7771/v1/lazy/stats'
+curl 'localhost:7771/v1/segments'
+curl 'localhost:7771/v1/verify'
+curl 'localhost:7771/v1/current?subject=sku:COFFEE-001&amp;facet=source'
+curl 'localhost:7771/v1/lookup?field=category&amp;value=beverage'
+curl 'localhost:7771/v1/history?subject=sku:MILK-002&amp;facet=source'
+curl 'localhost:7771/v1/search?q=beverage&amp;limit=10'
+curl 'localhost:7771/v1/cache'</pre></div>
+    <div class="honest"><b>Honest limit:</b> read-only by design (writes use a normal <code>serve</code>). No persisted secondary index for arbitrary cold <code>WHERE</code>: equality over current state is indexed (<code>/v1/lookup</code>), cold history/range predicates are pruned scans; vector similarity, causal centrality and recency/trust weighting need the full in-RAM index.</div>
+  </article>
+
+  <article class="s" id="t4-s3" data-k="s3 object store cold tier minio r2 backblaze b2 sigv4 archive-push -pull -s3-endpoint -s3-bucket -s3-region -s3-prefix AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY centauri_objstore">
+    <h3>S3-compatible object store — the cold tier<a class="anchor" href="#t4-s3">#</a></h3>
+    <p><code>internal/objstore</code> provides a segment store with a local-dir backend and an S3-compatible backend (AWS S3, MinIO, Cloudflare R2, Backblaze B2) using stdlib <code>net/http</code> and a hand-rolled AWS Signature V4 signer — no SDK. <code>centauri archive-push</code> uploads a sealed archive; <code>-pull</code> restores it; <code>serve -lazy-index -s3-endpoint … -s3-bucket …</code> reads segments from the bucket on demand, Merkle-verifies each one (untrusted storage is safe) and LRU-caches them. GET/PUT/byte counters appear on <code>/metrics</code> as <code>centauri_objstore_*</code>. Credentials come only from <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code>.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>-s3-endpoint</code></td><td>S3-compatible endpoint, e.g. <code>https://s3.us-east-1.amazonaws.com</code> or <code>http://localhost:9000</code></td></tr>
+        <tr><td><code>-s3-bucket</code></td><td>bucket name</td></tr>
+        <tr><td><code>-s3-region</code></td><td>region for SigV4 signing (default <code>us-east-1</code>)</td></tr>
+        <tr><td><code>-s3-prefix</code></td><td>key prefix within the bucket (default <code>centauri</code>)</td></tr>
+        <tr><td><code>-pull</code></td><td><code>archive-push</code>: download from the bucket instead of uploading</td></tr>
+      </tbody>
+    </table></div>
+    <div class="pre"><pre>export AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=…
+centauri archive-push -data mydb-archive -s3-endpoint http://localhost:9000 -s3-bucket centauri -s3-prefix prod
+centauri archive-push -data restored-archive -s3-endpoint http://localhost:9000 -s3-bucket centauri -s3-prefix prod -pull
+centauri serve -lazy-index -s3-endpoint https://s3.us-east-1.amazonaws.com -s3-bucket my-bucket -s3-prefix prod -read-token viewer</pre></div>
+    <div class="honest"><b>Honest status:</b> the object store is a <b>read-only cold tier</b> — writes and sealing still target local disk. SigV4 interop is unit-tested against a mock S3; smoke-test it against your MinIO or real S3 before relying on it. GCS and Azure signers are design-only.</div>
+  </article>
+
+  <article class="s" id="t4-scale" data-k="write scaling group commit sharding -shards fnv-1a fanout parallel throughput /v1/shards cross-shard">
+    <h3>Write scaling: group commit and sharding<a class="anchor" href="#t4-scale">#</a></h3>
+    <p>Writes are single-writer per log by design — the per-line hash chain is sequential. Two levers: <code>-group-commit</code> coalesces concurrent appends into one fsync per batch on a single chain; <code>serve -shards N</code> (with <code>-data</code> a directory) partitions subjects across N independent shard logs by FNV-1a hash of the subject — each its own chain, lock and committer — written in parallel (~N× throughput). Routed: <code>/v1/append</code>, <code>/v1/current</code>, <code>/v1/history</code>, <code>/v1/asof</code>, <code>/v1/subjects</code> (union), <code>/v1/shards</code>, <code>/v1/query</code> for a concrete subject, and fan-out (<code>internal/ceql/fanout.go</code>) for wildcard <code>FACTS</code>/<code>HISTORY</code>/<code>SEARCH</code>.</p>
+    <div class="pre"><pre>centauri serve -data my.log -group-commit
+centauri serve -data ./shards -shards 4 -token secret
+curl localhost:7771/v1/shards</pre></div>
+    <div class="honest"><b>Not in sharded mode:</b> cross-shard atomic transactions, cross-shard causal links/trace, cross-shard aggregates/GROUP BY; SEARCH ranking is approximate across shards. Use single-store <code>serve</code> for those.</div>
+  </article>
+
+  <article class="s" id="t4-ha" data-k="ha high availability failover leader election lease epoch fencing split-brain -ha-lease -ha-id -ha-addr -ha-ttl /v1/ha primary replica promote">
+    <h3>HA failover and leader election<a class="anchor" href="#t4-ha">#</a></h3>
+    <p><code>serve -ha-lease &lt;shared dir&gt; -ha-addr &lt;url&gt;</code> runs lease-based leader election (<code>internal/ha</code>): the node holding the lease is the writable primary; the rest start read-only and replicate from it; when the primary's lease lapses a replica acquires it and promotes itself — no operator action. Split-brain is prevented by a monotonic epoch fencing token plus self-fencing: a primary stops accepting writes the instant it can't confirm a live lease. <code>GET /v1/ha</code> reports role/epoch/leader. The bundled lease store uses atomic <code>O_EXCL</code> creation on a shared POSIX filesystem (NFS / EBS multi-attach / k8s shared volume); for multi-AZ without shared storage, plug in any CAS-capable <code>LeaseStore</code> (one interface, two methods).</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>-ha-lease</code></td><td>shared lease directory enabling election</td></tr>
+        <tr><td><code>-ha-id</code></td><td>this node's id (default hostname)</td></tr>
+        <tr><td><code>-ha-addr</code></td><td>advertised base URL replicas follow when this node leads</td></tr>
+        <tr><td><code>-ha-ttl</code></td><td>lease TTL in seconds (default 10)</td></tr>
+        <tr><td><code>-interval</code></td><td>replication poll interval (default 2s)</td></tr>
+      </tbody>
+    </table></div>
+    <div class="pre"><pre><span class="cm"># node A and node B, same shared lease dir</span>
+centauri serve -data a.log -addr :7771 -ha-lease /mnt/shared/centauri-lease -ha-id a -ha-addr http://a.internal:7771 -token secret
+centauri serve -data b.log -addr :7771 -ha-lease /mnt/shared/centauri-lease -ha-id b -ha-addr http://b.internal:7771 -token secret
+curl http://a.internal:7771/v1/ha</pre></div>
+    <div class="honest"><b>Honest limit:</b> still single-writer at any moment; multi-writer clustering does not exist. Assumes bounded clock skew.</div>
+  </article>
+
+  <article class="s" id="t4-repl" data-k="replication follow sync merge log shipping read replica bidirectional echo-safe slot byte-identical multi-master converge">
+    <h3>Replication: <code>follow</code>, <code>sync</code>, <code>merge</code><a class="anchor" href="#t4-repl">#</a></h3>
+    <p><code>centauri follow -primary &lt;url&gt;</code> keeps a live read-only replica by polling <code>GET /v1/log</code> and ingesting raw bytes, so the follower's hash chain is byte-identical to the primary's; add <code>-addr</code> to serve a read-only API from it. <code>centauri sync -primary &lt;peer&gt;</code> is bidirectional, record-level and echo-safe: it pulls the peer's <code>/v1/changes</code> from a per-peer replication slot, ingests facts it doesn't hold (dedup by event id), and advances the slot — run it on both ends. Multi-master on the same subject converges because "current" is a deterministic function of the facts. <code>merge</code> produces one canonical re-chained log offline.</p>
+    <div class="pre"><pre>centauri follow -data replica.log -primary https://db.example.com -token secret -addr :7772
+centauri sync -data laptop.log -primary http://desktop:7771 -token secret   <span class="cm"># and the mirror on the peer</span>
+centauri merge -to merged.log a.log b.log &amp;&amp; centauri verify -data merged.log</pre></div>
+    <div class="honest"><b>Honest scope:</b> sync promises the same <em>set</em> of facts, not byte-identical logs. Push mode / pairing and a browser replica are not built.</div>
+  </article>
+
+  <article class="s" id="t4-cdc" data-k="cdc change data capture /v1/changes cursor replication slot ack /v1/slots /v1/log watch sse caught_up exactly once">
+    <h3>CDC, replication slots and <code>WATCH</code><a class="anchor" href="#t4-cdc">#</a></h3>
+    <p>Change data capture is <code>GET /v1/changes?from=&lt;cursor&gt;</code> (<code>internal/store/cdc.go</code>): it returns <code>events</code>, a <code>cursor</code> (byte offset) and <code>caught_up</code>; resume from the cursor and you never miss or duplicate a fact. Durable <b>replication slots</b> make this resumable server-side: <code>?slot=&lt;name&gt;</code> resumes from the slot's confirmed position, <code>POST /v1/changes/ack</code> confirms progress, <code>GET /v1/slots</code> lists them; retention is gated by the minimum slot cursor so no consumer misses changes. <code>/v1/watch</code> is the push alternative (SSE; <code>internal/store/watch.go</code>); <code>/v1/log</code> is the raw byte feed replication uses.</p>
+    <div class="pre"><pre>curl 'localhost:7771/v1/changes?from=0'
+curl 'localhost:7771/v1/changes?slot=warehouse'
+curl -X POST localhost:7771/v1/changes/ack -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' -d '{"slot":"warehouse","cursor":1048576}'
+curl 'localhost:7771/v1/slots'</pre></div>
+  </article>
+
+  <article class="s" id="t4-governance" data-k="retention legal hold worm compliance gdpr retire -pattern -older-than -apply hold: dry-run audit sox hipaa">
+    <h3>Retention and legal holds<a class="anchor" href="#t4-governance">#</a></h3>
+    <p><code>centauri retention -pattern '&lt;glob&gt;' -older-than N</code> (<code>internal/retention</code>) previews which subjects would be retired — dry-run by default; <code>-apply</code> RETIREs them by appending <code>retired:true</code> corrections so queries skip stale facts. History is kept, the chain stays intact, and the log does not shrink. A <code>hold:&lt;name&gt;</code> fact with a subject <code>pattern</code> places matching subjects under a <b>legal hold</b> that retention skips — and the engine enforces it: any RETIRE of a held subject is rejected on every originating write path (CeQL, raw append, sharded) until the hold is lifted; replication is exempt so replicas mirror the primary.</p>
+    <div class="pre"><pre>centauri retention -data gateway.log -pattern 'gw:*' -older-than 30          <span class="cm"># dry-run plan</span>
+centauri retention -data gateway.log -pattern 'gw:*' -older-than 30 -apply   <span class="cm"># RETIRE</span></pre></div>
+    <div class="pre"><pre>PUT hold:litigation-2026 SET pattern='order:2025-*', active=true
+RETIRE hold:litigation-2026                        <span class="cm">-- lift the hold</span></pre></div>
+    <div class="honest"><b>Not yet:</b> a stored-policy scheduler inside the binary (schedule the <code>-apply</code> form externally) and a crypto-erase retention action.</div>
+  </article>
+
+  <article class="s" id="t4-auth" data-k="authentication token read-token scoped token mask oidc sso jwt jwks okta azure ad auth0 keycloak -oidc-issuer -oidc-audience -oidc-jwks -oidc-write-scope CENTAURI_TOKEN">
+    <h3>Authentication: tokens, scoped tokens, field masking, OIDC<a class="anchor" href="#t4-auth">#</a></h3>
+    <p><code>serve</code> gates every <code>/v1/*</code> route behind <code>-token</code> (admin, env <code>CENTAURI_TOKEN</code>) and <code>-read-token</code> (read-only, env <code>CENTAURI_READ_TOKEN</code>); dashboards, <code>/v1/version</code>, probes and <code>/metrics</code> stay open. Scoped tokens (<code>POST /v1/acl</code>) confine a principal to subject prefixes and can <code>mask</code> fields. Enterprise SSO: <code>-oidc-issuer</code> (plus <code>-oidc-audience</code>, <code>-oidc-jwks</code>, <code>-oidc-write-scope</code>) accepts bearer JWTs from any OIDC provider (Okta, Azure AD, Auth0, Keycloak, Google), verifying RS256/384/512 against the provider's JWKS (fetched over HTTPS, cached, refreshed on rotation) plus <code>exp</code>/<code>nbf</code>/<code>iss</code>/<code>aud</code> (<code>internal/oidc</code>). A valid token grants read; write requires the configured scope matched against <code>scope</code>/<code>roles</code>/<code>groups</code>.</p>
+    <div class="pre"><pre>centauri serve -data my.log -token admin-secret -read-token viewer-secret
+centauri serve -data my.log -token admin-secret \
+  -oidc-issuer https://login.example.com -oidc-audience centauri -oidc-write-scope centauri:write</pre></div>
+    <div class="pre"><pre>curl -X POST localhost:7771/v1/acl -H 'Authorization: Bearer admin-secret' \
+  -H 'content-type: application/json' \
+  -d '{"token":"bot-secret","prefixes":["item:","sku:"],"write":true,"mask":["cost_cents"]}'</pre></div>
+    <div class="honest"><b>Honest scope:</b> Centauri validates the IdP's tokens; it does not run an identity provider for people. No role hierarchies, LDAP/SAML, or SSO-claim-to-ACL-scope mapping yet; OIDC is token-only on <code>serve -lazy-index</code>.</div>
+  </article>
+
+  <article class="s" id="t4-ops" data-k="tls https -tls-cert -tls-key admission control -max-concurrency -query-timeout -max-concurrency-per-db structured logs json slog x-request-id /livez /readyz /metrics prometheus">
+    <h3>TLS, admission control, structured logs, probes<a class="anchor" href="#t4-ops">#</a></h3>
+    <p><code>-tls-cert</code>/<code>-tls-key</code> terminate HTTPS natively on <code>serve</code>, <code>desktop</code>, <code>-lazy-index</code> and the gateway's proxy listener — no reverse proxy required (Caddy/nginx in front is fine; bind to localhost if so). Admission control: <code>-max-concurrency</code> (HTTP 429 over the cap), <code>-query-timeout</code> seconds (HTTP 503), <code>-max-concurrency-per-db</code> for a per-tenant cap; streaming endpoints and health/metrics are exempt. <code>-log-format json -log-level info</code> emits one <code>slog</code> line per request with method, path, status, bytes, duration and an <code>X-Request-ID</code> (honoured inbound, echoed back). <code>/livez</code>, <code>/readyz</code> and Prometheus <code>/metrics</code> exist on every serve mode and the gateway.</p>
+    <div class="pre"><pre>centauri serve -data my.log -tls-cert srv.pem -tls-key srv.key \
+  -max-concurrency 64 -query-timeout 30 -max-concurrency-per-db 16 \
+  -log-format json -log-level info
+curl -s localhost:7771/metrics | head
+curl localhost:7771/livez; curl localhost:7771/readyz</pre></div>
+    <div class="honest"><b>Not yet:</b> hot certificate reload; mTLS client-cert auth on <code>serve</code> (it exists only on the gateway's proxy listener); OpenTelemetry trace spans.</div>
+  </article>
+
+  <article class="s" id="t4-envs" data-k="named environments multi-database ?db= /v1/databases tenant multitenancy ceql-catalog">
+    <h3>Named environments (multi-database)<a class="anchor" href="#t4-envs">#</a></h3>
+    <p>A server whose <code>-data</code> sits in a directory can host several named environments (<code>&lt;name&gt;.log</code> beside the default); clients pick one with <code>?db=&lt;name&gt;</code> (SDKs: <code>WithDatabase</code> / <code>{ database }</code> / Airbyte <code>database</code>). <code>GET /v1/databases</code> lists them; <code>POST /v1/databases</code> (admin) creates one; Genesis <code>apply</code> creates a fresh environment per blueprint. The Postgres wire listener has no <code>?db=</code> routing — it serves the default database.</p>
+    <div class="pre"><pre>curl 'localhost:7771/v1/databases'
+curl -X POST localhost:7771/v1/databases -H 'Authorization: Bearer &lt;admin&gt;' \
+  -H 'content-type: application/json' -d '{"name":"bakery"}'
+curl 'localhost:7771/v1/query?db=bakery&amp;q=STATS'</pre></div>
+  </article>
+
+  <article class="s" id="t4-gateway" data-k="gateway reverse proxy routes keys facts control plane time travel route:config gwkey -newkey -admin -admin-inline console mint key">
+    <h3>The gateway: routes and keys as facts<a class="anchor" href="#t4-gateway">#</a></h3>
+    <p><code>centauri gateway</code> (<code>internal/gateway</code>, stdlib <code>httputil</code>) turns a Centauri log into a reverse proxy whose entire control plane — routes, API keys, request audit — lives in the database as facts. Config therefore time-travels (<code>AS OF</code>, <code>AS KNOWN AT</code>, <code>HISTORY OF route:api</code>) and the audit is hash-chained and <code>verify</code>-able. Data plane default <code>:8080</code>; <code>-admin :7771</code> serves the normal dashboard/API over the same store; <code>-admin-inline</code> serves it on the proxy port for unmatched paths (single-port deploys). A route is the current fact of <code>route:&lt;name&gt;</code> facet <code>config</code>; a key is <code>gwkey:&lt;sha256&gt;</code> (the plaintext is printed once and never stored). Mint keys offline with <code>-newkey &lt;name&gt;</code> or live in the Console (<code>/console</code> → Keys &amp; Access).</p>
+    <div class="pre"><pre>centauri gateway -data gateway.log -addr :8080 -admin :7771</pre></div>
+    <div class="pre"><pre>PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', rate_per_min=120, timeout_ms=10000, audit='meta'</pre></div>
+    <div class="pre"><pre>centauri gateway -data gateway.log -newkey ci-bot          <span class="cm"># key printed ONCE</span>
+curl -H 'Authorization: Bearer &lt;the printed key&gt;' http://localhost:8080/api/health</pre></div>
+    <div class="pre"><pre>FACTS OF route:api FACET config AS OF 'last tuesday 9am'
+FACTS OF route:api FACET config AS KNOWN AT '2026-08-01'
+HISTORY OF route:api
+RETIRE gwkey:&lt;sha256&gt; FACET config           <span class="cm">-- revoke a key; history stays</span></pre></div>
+  </article>
+
+  <article class="s" id="t4-routes" data-k="route fields reference prefix upstream strip_prefix auth rate_per_min timeout_ms audit llm providers oidc_issuer oidc_audience oidc_jwks_url cors allow_ips deny_ips max_body_bytes block_path_patterns policy authz_webhook webhook_fail_open middleware order fail-closed">
+    <h3>Route field reference<a class="anchor" href="#t4-routes">#</a></h3>
+    <p>Maps and arrays (<code>providers</code>, <code>add_request_headers</code>, <code>allow_ips</code>…) must be written through <code>POST /v1/append</code> or an SDK, because CeQL <code>SET</code> takes scalars only. Parsing is <b>fail-closed</b>: an unknown <code>auth</code> value, a bad CIDR or glob, a broken webhook URL or a missing policy procedure rejects the whole route (its paths 404) — a typo can never mean "open".</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>prefix</code></td><td>string</td><td>path prefix that selects this route (<code>/api/</code>)</td></tr>
+        <tr><td><code>upstream</code></td><td>string</td><td>base URL to proxy to (non-LLM routes)</td></tr>
+        <tr><td><code>strip_prefix</code></td><td>bool</td><td>remove <code>prefix</code> before forwarding</td></tr>
+        <tr><td><code>auth</code></td><td>string</td><td><code>"none"</code>, <code>"key"</code>, or <code>"oidc"</code>; anything else rejects the route</td></tr>
+        <tr><td><code>rate_per_min</code></td><td>number</td><td>per-route requests/minute; absent/0 = unlimited</td></tr>
+        <tr><td><code>timeout_ms</code></td><td>number</td><td>upstream timeout</td></tr>
+        <tr><td><code>audit</code></td><td>string</td><td><code>"meta"</code> = one audit fact per request (metadata only); <code>"none"</code></td></tr>
+        <tr><td><code>llm</code></td><td>bool</td><td>OpenAI-compatible LLM route with provider failover</td></tr>
+        <tr><td><code>providers</code></td><td>array</td><td>LLM: <code>{endpoint, model, auth_env, auth_file}</code> tried in order</td></tr>
+        <tr><td><code>oidc_issuer</code>, <code>oidc_audience</code></td><td>string</td><td>required on OIDC routes</td></tr>
+        <tr><td><code>oidc_jwks_url</code></td><td>string</td><td>explicit JWKS when the issuer has no discovery doc</td></tr>
+        <tr><td><code>add_request_headers</code>, <code>add_response_headers</code></td><td>map</td><td>middleware header sets</td></tr>
+        <tr><td><code>remove_request_headers</code></td><td>array</td><td>headers deleted before forwarding</td></tr>
+        <tr><td><code>cors</code></td><td>bool</td><td>permissive CORS + OPTIONS preflight short-circuit (before auth)</td></tr>
+        <tr><td><code>allow_ips</code>, <code>deny_ips</code></td><td>array</td><td>CIDR allow/deny (deny wins)</td></tr>
+        <tr><td><code>max_body_bytes</code></td><td>number</td><td>413 above this</td></tr>
+        <tr><td><code>block_path_patterns</code></td><td>array</td><td><code>path.Match</code> globs answered 403</td></tr>
+        <tr><td><code>policy</code></td><td>string</td><td>stored CePL procedure run per request</td></tr>
+        <tr><td><code>authz_webhook</code></td><td>string</td><td>URL POSTed per request; non-2xx = 403</td></tr>
+        <tr><td><code>webhook_fail_open</code></td><td>bool</td><td>allow when the webhook is unreachable (default fail closed)</td></tr>
+        <tr><td><code>retired</code></td><td>bool</td><td>set by <code>RETIRE</code>; route stops matching</td></tr>
+      </tbody>
+    </table></div>
+    <p>Key fields: <code>name</code>, <code>routes</code> (prefixes it may call; empty = all), <code>rate_per_min</code> (per-key budget), <code>retired</code>. Middleware order per request: CORS → auth → rate limit → header add/remove → IP filters → body cap → path blocks → authorization webhook → CePL policy → proxy.</p>
+  </article>
+
+  <article class="s" id="t4-gwauth" data-k="gateway auth key oidc mtls client certificate -mtls-ca x-auth-subject jwt validate bearer passthrough">
+    <h3>Gateway auth modes: key, OIDC, mTLS<a class="anchor" href="#t4-gwauth">#</a></h3>
+    <p><code>auth='key'</code> requires a minted gateway key as a bearer token. <code>auth='oidc'</code> validates the caller's JWT with the same verifier <code>serve</code> uses, forwards <code>X-Auth-Subject: &lt;sub&gt;</code> (any client-supplied value of that header is stripped), and records the JWT <code>sub</code> as the audit <code>key</code>; the bearer passes through to the upstream unless you add <code>"remove_request_headers": ["Authorization"]</code>. <code>-mtls-ca &lt;pem&gt;</code> (<code>mtls.go</code>, with <code>-tls-cert</code>/<code>-tls-key</code>) requires every connection on the proxy listener to present a client certificate signed by that CA — requests without one die at the TLS handshake; the cert CN becomes the audit <code>key</code> when nothing else named the caller. Listener-wide, not per-route.</p>
+    <div class="pre"><pre>PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='oidc', oidc_issuer='https://login.example.com', oidc_audience='my-api'</pre></div>
+    <div class="pre"><pre>centauri gateway -data gateway.log -tls-cert srv.pem -tls-key srv.key -mtls-ca clients-ca.pem</pre></div>
+  </article>
+
+  <article class="s" id="t4-issuer" data-k="token issuer /gw/token client credentials oauth2 rs256 jwt jwks openid-configuration issuer.key -issuer -token-ttl -token-aud service tokens idp-lite">
+    <h3>Token issuer: <code>POST /gw/token</code> (client-credentials only)<a class="anchor" href="#t4-issuer">#</a></h3>
+    <p>The gateway can issue short-lived service tokens so machine callers pass <code>auth='oidc'</code> routes without an external IdP (<code>issuer.go</code>). Every gateway key doubles as an OAuth2 client: <code>client_id</code> is the key's name, <code>client_secret</code> is the key. The token is an RS256 JWT with <code>iss</code> = <code>-issuer</code>, <code>sub</code> = key name, <code>aud</code> = <code>-token-aud</code> (default <code>centauri</code>), <code>exp</code> after <code>-token-ttl</code> seconds (default 900), signed by an RSA-2048 key generated on first use and stored as PEM next to the log (<code>issuer.key</code>, mode 0600) — never in the log, because the log can never erase it. The public half is served at <code>/.well-known/jwks.json</code> and <code>/.well-known/openid-configuration</code>. Every issuance and failure is audited on <code>gw:_tokens</code>. <code>RETIRE gwkey:…</code> stops new tokens immediately; issued ones live out their TTL.</p>
+    <div class="pre"><pre>curl -s http://localhost:8080/gw/token \
+  -d grant_type=client_credentials \
+  -d client_id=ci-bot \
+  -d client_secret=&lt;the minted key&gt;
+<span class="cm"># → {"access_token":"eyJ…","token_type":"Bearer","expires_in":900}</span></pre></div>
+    <div class="pre"><pre>PUT route:svc FACET config SET prefix='/svc/', upstream='http://127.0.0.1:9100', auth='oidc', oidc_issuer='http://localhost:8080', oidc_audience='centauri', oidc_jwks_url='http://localhost:8080/.well-known/jwks.json'</pre></div>
+    <div class="honest"><b>Honestly scoped:</b> OAuth2 <code>client_credentials</code> only — no human login, no consent screens, no refresh tokens, no sessions. People still need a real IdP.</div>
+  </article>
+
+  <article class="s" id="t4-policy" data-k="rate limit rate_per_min per key per ip policy cepl request policy allow deny status add_headers fail closed authz_webhook webhook_fail_open plugin">
+    <h3>Rate limits, CePL request policies, webhook authorization<a class="anchor" href="#t4-policy">#</a></h3>
+    <p>Rate limiting (<code>ratelimit.go</code>) is per route (<code>rate_per_min</code>) and per key on top. For programmable logic a route names a stored CePL procedure in <code>policy</code> (<code>policy.go</code>); it runs after auth, rate limit and built-in middleware, immediately before proxying, receiving any subset of <code>method</code>, <code>path</code>, <code>key</code> (resolved caller name, or <code>''</code> when anonymous) and <code>ip</code>. Its <code>RETURN</code> decides: <code>'allow'</code>/<code>true</code> proceeds; <code>'deny'</code>/<code>'deny:&lt;message&gt;'</code>/<code>false</code> is 403; a record is honoured as <code>{"allow", "status", "message", "add_headers"}</code>; anything else, a runtime error, or <code>FAIL</code> is 403 fail-closed. Policies are parsed once per config load and hot-reload when the procedure fact changes; denials are audited even on <code>audit:'none'</code> routes. Measured cost ≈2 µs per request. <code>authz_webhook</code> POSTs <code>{method, path, key, ip, headers}</code> (safe subset only, never the credential) to your service; anything but 2xx, or the 2-second timeout, is 403 fail-closed unless <code>webhook_fail_open</code>.</p>
+    <div class="pre"><pre>PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', policy='office_rules'</pre></div>
+    <div class="pre"><pre>PROCEDURE office_rules(method, path, key, ip)
+  <span class="cm">-- writes only from the ci key; reads for everyone</span>
+  WHEN method != 'GET' AND key != 'ci': RETURN 'deny:only ci may write here'
+  RETURN 'allow'
+END</pre></div>
+    <div class="pre"><pre>PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', authz_webhook='https://authz.internal/check'</pre></div>
+    <div class="honest"><b>Honest scope:</b> CePL policies are guards plus CeQL reads/writes — no loops, no body access, no request transformation. A plugin marketplace: no.</div>
+  </article>
+
+  <article class="s" id="t4-llm" data-k="llm gateway routing providers failover model pinning sse streaming stream_options include_usage token metering prompt_tokens completion_tokens auth_env auth_file openai-compatible">
+    <h3>LLM routing, streaming and token accounting<a class="anchor" href="#t4-llm">#</a></h3>
+    <p>Set <code>llm: true</code> and a <code>providers</code> list (<code>llm.go</code>); the gateway speaks the OpenAI-compatible chat-completions shape and fails over in order on unreachable or 5xx providers. Each provider entry pins the <code>model</code> — the gateway forces it into the forwarded request so callers can't choose an expensive model. Secrets never live in facts: <code>auth_env</code> names an env var, <code>auth_file</code> a key file; local servers like Ollama are keyless. When a provider reports usage, the audit fact records <code>model</code>, <code>prompt_tokens</code>, <code>completion_tokens</code>, so per-key token spend is a query. <code>stream: true</code> passes SSE through, flushed per chunk, with <code>stream_options.include_usage</code> injected so the trailing usage chunk lands token counts.</p>
+    <div class="pre"><pre>curl -s http://localhost:7771/v1/append -H 'Content-Type: application/json' -d '{
+  "events": [{
+    "subject": "route:chat", "facet": "config", "type": "OBSERVED",
+    "value": {
+      "prefix": "/v1/chat/", "llm": true, "auth": "key", "audit": "meta",
+      "providers": [
+        {"endpoint": "http://127.0.0.1:11434/v1/chat/completions", "model": "glm-4.7-flash"},
+        {"endpoint": "https://api.openai.com/v1/chat/completions", "model": "gpt-5.5", "auth_env": "OPENAI_API_KEY"}
+      ]
+    }
+  }]
+}'</pre></div>
+    <div class="honest"><b>Honest scope:</b> failover applies until the first byte; a provider failure mid-stream ends the stream early, properly terminated, with <code>truncated: true</code> in the audit fact.</div>
+  </article>
+
+  <article class="s" id="t4-audit" data-k="audit gw: facet gateway metrics prometheus retention scale-out -control-follow -control-token -audit-data throughput multi-dc ingress">
+    <h3>Audit, metrics, retention and scale-out<a class="anchor" href="#t4-audit">#</a></h3>
+    <p>With <code>audit: "meta"</code> each request appends a fact on subject <code>gw:&lt;route&gt;</code> facet <code>gateway</code> (<code>audit.go</code>) carrying <code>method</code>, <code>path</code>, <code>status</code>, <code>ms</code>, <code>key</code> (name, never the secret), <code>upstream</code>, <code>bytes_out</code>, and for LLM routes <code>model</code> and token counts — bodies are never recorded. <code>FACTS OF gw:*</code> is the latest request per route; <code>HISTORY OF gw:&lt;route&gt;</code> is the full log. <code>/metrics</code> is on the admin plane. Audit grows the log: retire old audit facts with <code>centauri retention -pattern 'gw:*'</code>, or set <code>audit: 'none'</code> on hot routes. Scale-out: run N gateways with <code>-control-follow https://primary:7771 -control-token …</code>; each follows the primary's control log read-only and writes audit to its own local log (<code>-audit-data</code>).</p>
+    <div class="pre"><pre>HISTORY OF gw:chat FACET gateway ORDER BY recorded DESC LIMIT 100
+HISTORY OF gw:chat WHERE status &gt;= 500          <span class="cm">-- every 5xx, forever</span>
+FACTS OF route:api FACET config AS OF 5 minutes ago</pre></div>
+    <div class="pre"><pre>centauri gateway -data replica.log -addr :8080 -control-follow https://primary:7771 -control-token $PRIMARY_TOKEN
+centauri verify -data gateway.log</pre></div>
+    <p>Gateway flags: <code>-data</code> (default <code>gateway.log</code>), <code>-addr</code> (<code>:8080</code>), <code>-admin</code>, <code>-admin-inline</code>, <code>-token</code>, <code>-read-token</code>, <code>-tls-cert</code>, <code>-tls-key</code>, <code>-mtls-ca</code>, <code>-control-follow</code>, <code>-control-token</code>, <code>-audit-data</code>, <code>-newkey</code>, <code>-issuer</code>, <code>-token-ttl</code> (900), <code>-token-aud</code> (<code>centauri</code>).</p>
+    <div class="honest"><b>Honest limits:</b> the control plane stays single-writer with no leader election; no cross-gateway audit merge; no multi-DC; not a Kubernetes ingress controller; ~26k req/s measured on a 2-core dev VM — NGINX and Kong still win at the edge. See <a href="compare-gateways.html">the gateway comparison</a>.</div>
+  </article>
+</section>
+
+<!-- ===================================================== TRACK 5 -->
+<section class="t" id="track-5" data-k="sdks connectors cdc streams python go javascript airbyte deployment production kubernetes render">
+  <div class="kicker">Track 5</div>
+  <h2>SDKs, CDC streams <span class="rule">&amp; connectors</span></h2>
+  <p class="lead">Three zero-dependency SDKs, two Airbyte connectors, and the production recipes. Everything talks to the same REST/JSON API and SSE streams — the SDKs are convenience, not a second protocol.</p>
+
+  <article class="s" id="t5-python" data-k="python sdk pip install launch connect add get history at context watch pump csv define_schema enrich embed similar run procedure api escape hatch errors">
+    <h3>Python SDK<a class="anchor" href="#t5-python">#</a></h3>
+    <p><code>sdk/python</code> is zero-dependency, Python 3.8+. <code>Centauri.launch()</code> finds the binary, starts a server (optionally on a given <code>data=</code> log) and connects; <code>Centauri(url=…, token=…)</code> connects to a running one. Insert and update are the same call (<code>db.add</code>). Errors say what happened and what to do next (<code>CentauriConnectionError</code>, <code>CentauriAPIError</code> with <code>.status</code>/<code>.message</code>). <code>db.api.get/post/stream</code> reaches any endpoint the SDK hasn't wrapped. Use a <code>with</code> block and the launched server stops automatically.</p>
+    <div class="pre"><pre>cd sdk/python
+pip install -e .</pre></div>
+    <div class="pre"><pre>from centauri import Centauri
+
+db = Centauri.launch()                        <span class="cm"># finds &amp; starts the server for you</span>
+db.add("toy:robot", {"price_cents": 500})     <span class="cm"># save your first fact</span>
+print(db.get("toy:robot"))                    <span class="cm"># read it back</span></pre></div>
+    <div class="scroll"><table>
+      <thead><tr><th>You want to…</th><th>Call</th></tr></thead>
+      <tbody>
+        <tr><td>Start a local server from Python / connect to one</td><td><code>Centauri.launch()</code> / <code>Centauri(url=…, token=…)</code></td></tr>
+        <tr><td>Save a fact; save many atomically; bulk-load CSV/JSON</td><td><code>db.add(subject, value)</code> · <code>db.add_many(events)</code> · <code>db.pump(source)</code></td></tr>
+        <tr><td>Read now; the full story; time travel; audit a past decision</td><td><code>db.get</code> · <code>db.history</code> · <code>db.at(subject, when)</code> · <code>db.at(…, known=…)</code></td></tr>
+        <tr><td>Get the full AI reasoning bundle</td><td><code>db.context(subject)</code> → <code>.facts .disagreements .pending .confidence_min</code></td></tr>
+        <tr><td>Stream live; find wedges; see disagreements; trace why</td><td><code>db.watch()</code> · <code>db.pending(facet)</code> · <code>db.disagreements(field)</code> · <code>db.trace(event_id)</code></td></tr>
+        <tr><td>Schemas; enrichments; vectors; external refs</td><td><code>db.define_schema</code> · <code>db.enrich</code> · <code>db.embed</code>, <code>db.similar</code> · <code>db.by_ref</code></td></tr>
+        <tr><td>Stored procedures</td><td><code>db.define_procedure(source)</code> · <code>db.run(name, **args)</code></td></tr>
+        <tr><td>Any endpoint the SDK doesn't know yet</td><td><code>db.api.get("/v1/anything", param=1)</code></td></tr>
+      </tbody>
+    </table></div>
+    <div class="pre"><pre>db.at("toy:robot", "2026-06-01", known="2026-05-01")  <span class="cm"># what we BELIEVED on May 1</span>
+ctx = db.context("toy:robot")
+db.pump("prices.csv")                                 <span class="cm"># needs a 'subject' column</span>
+db.define_schema("price", {"price_cents": {"type": "number", "required": True, "min": 1}})
+db.add("toy:car", {"price_cents": 300}, schema="price")
+db.run("duty_estimate", item="100001", units=3)</pre></div>
+  </article>
+
+  <article class="s" id="t5-python-examples" data-k="python examples 01_hello_centauri 02_time_travel 03_pump_csv 04_watch_live 05_ai_context tutorial">
+    <h3>Python — the five examples<a class="anchor" href="#t5-python-examples">#</a></h3>
+    <p><code>sdk/python/examples/</code> holds five runnable scripts, each under a minute (and <a href="https://github.com/aniljacobv-lab/centauri/blob/main/sdk/python/TUTORIAL.md">TUTORIAL.md</a> walks through them). All use <code>Centauri.launch(data="tutorial.log")</code> except <code>04</code>, which connects to the already-running server.</p>
+    <div class="pre"><pre><span class="cm"># 01_hello_centauri.py — start, save, update, read current and history</span>
+db = Centauri.launch(data="tutorial.log")
+db.add("toy:robot", {"price_cents": 500, "color": "silver"})
+db.add("toy:robot", {"price_cents": 450, "color": "silver"})  <span class="cm"># update — old kept!</span>
+print("Current:", [e.value for e in db.get("toy:robot")])
+print("History:", [e.value for e in db.history("toy:robot")])
+db.stop()</pre></div>
+    <div class="pre"><pre><span class="cm"># 02_time_travel.py — back-dated write, then at() and double time travel</span>
+db.add("toy:rocket", {"price_cents": 900}, effective=yesterday)
+db.add("toy:rocket", {"price_cents": 700})  <span class="cm"># effective now</span>
+db.at("toy:rocket", yesterday)
+db.at("toy:rocket", now, known=yesterday)   <span class="cm"># as known then</span></pre></div>
+    <div class="pre"><pre><span class="cm"># 03_pump_csv.py — bulk-load a CSV with a 'subject' column</span>
+csv_file.write_text("subject,price_cents,kind\ntoy:car,300,REGULAR\ntoy:boat,550,REGULAR\ntoy:kite,120,SALE\n")
+count = db.pump(csv_file)
+print(f"Pumped {count} facts!")</pre></div>
+    <div class="pre"><pre><span class="cm"># 04_watch_live.py — SSE watch loop; run 01 or 03 in another terminal</span>
+db = Centauri()  <span class="cm"># connect to the already-running server</span>
+for event in db.watch():
+    print(f"  NEW: {event.subject}  {event.value}  (facet={event.facet})")</pre></div>
+    <div class="pre"><pre><span class="cm"># 05_ai_context.py — schema, validated write, enrichment, embedding, context bundle</span>
+version = db.define_schema("price", {
+    "price_cents": {"type": "number", "required": True, "min": 1, "unit": "cents"},
+    "kind": {"type": "string"},
+})
+e = db.add("toy:drone", {"price_cents": 2500, "kind": "REGULAR"}, schema="price")
+db.enrich(e.event_id, "demand_forecast", {"next_30d": "high"}, model_id="forecaster", confidence=0.85)
+db.embed(e.event_id, [0.12, 0.98, 0.33], model_id="my-embedder")
+ctx = db.context("toy:drone")
+print(ctx.enrichments, ctx.confidence_min, ctx.confidence_mean)</pre></div>
+  </article>
+
+  <article class="s" id="t5-go" data-k="go sdk golang client WithToken WithDatabase WithHTTPClient Add Get History At Context Query DefineProcedure Run Changes">
+    <h3>Go SDK<a class="anchor" href="#t5-go">#</a></h3>
+    <p><code>sdk/go</code> is a thin zero-dependency client (stdlib <code>net/http</code> + <code>encoding/json</code>) with the same surface as Python: <code>Add</code>, <code>Get</code>, <code>History</code>, <code>At(subject, atMicros, knownMicros)</code>, <code>Context</code>, <code>Query</code> (any CeQL), <code>DefineProcedure</code>, <code>Run</code>, and <code>Changes(cursor)</code>. Options: <code>WithToken</code>, <code>WithDatabase</code>, <code>WithHTTPClient</code>.</p>
+    <div class="pre"><pre>import centauri "github.com/aniljacobv-lab/centauri/sdk/go"
+
+c := centauri.New("http://localhost:7771", centauri.WithToken("secret"))
+c.Add("toy:robot", map[string]any{"price_cents": 500})
+facts, _  := c.Get("toy:robot")
+hist, _   := c.History("toy:robot")
+past, _   := c.At("toy:robot", atMicros, knownMicros)
+bundle, _ := c.Context("toy:robot")
+res, _    := c.Query("FACTS OF item:* WHERE region='EU' WHY")</pre></div>
+    <div class="pre"><pre>c.DefineProcedure(`PROCEDURE reprice(item, pct)
+  LET cur = FIRST FACTS OF ${item}
+  WHEN cur IS MISSING: FAIL 'unknown ${item}'
+  LET newp = cur.price_cents * pct / 100
+  PUT ${item} SET price_cents=${newp}
+  RETURN newp
+END`)
+c.Run("reprice", map[string]any{"item": "toy:robot", "pct": 90})
+evs, cursor, caughtUp, _ := c.Changes(0)</pre></div>
+  </article>
+
+  <article class="s" id="t5-js" data-k="javascript typescript esm sdk centauri.mjs node browser fetch @centauri/client add get history at context query defineProcedure run changes">
+    <h3>JavaScript / TypeScript ESM SDK<a class="anchor" href="#t5-js">#</a></h3>
+    <p><code>sdk/js/centauri.mjs</code> is a zero-dependency <code>fetch</code>-based ESM client for Node 18+ and the browser. Methods: <code>add</code>, <code>append(events)</code>, <code>get</code>, <code>history</code>, <code>at(subject, at, known)</code>, <code>context</code>, <code>stats</code>, <code>subjects</code>, <code>query(ceql)</code>, <code>defineProcedure(source)</code>, <code>run(name, args)</code>, <code>changes(from)</code>. Options <code>{ token, database }</code>. Inside a JS template literal the CePL <code>${…}</code> holes must be escaped as <code>\${…}</code>.</p>
+    <div class="pre"><pre>import { Centauri } from "@centauri/client"; <span class="cm">// or "./centauri.mjs"</span>
+
+const db = new Centauri("http://localhost:7771", { token: "secret" });
+await db.add("toy:robot", { price_cents: 500 });
+const facts  = await db.get("toy:robot");
+const hist   = await db.history("toy:robot");
+const bundle = await db.context("toy:robot");
+const res    = await db.query("FACTS OF item:* WHERE region='EU' WHY");</pre></div>
+    <div class="pre"><pre>await db.defineProcedure(`PROCEDURE reprice(item, pct)
+  LET cur = FIRST FACTS OF \${item}
+  WHEN cur IS MISSING: FAIL 'unknown \${item}'
+  LET newp = cur.price_cents * pct / 100
+  PUT \${item} SET price_cents=\${newp}
+  RETURN newp
+END`);
+await db.run("reprice", { item: "toy:robot", pct: 90 });
+const { events, cursor, caught_up } = await db.changes(0);</pre></div>
+  </article>
+
+  <article class="s" id="t5-cdc" data-k="cdc sdk changes cursor resume slot ack exactly once watch generator">
+    <h3>CDC streams from the SDKs<a class="anchor" href="#t5-cdc">#</a></h3>
+    <p>All three SDKs wrap <code>GET /v1/changes</code> as <code>changes(cursor)</code> returning the events, the byte-offset cursor to resume from, and a caught-up flag; Python additionally wraps <code>/v1/watch</code> as a generator. Persist the cursor — or use a server-side slot with <code>POST /v1/changes/ack</code> — and you get exactly-once-per-fact delivery across restarts. This is the same mechanism <code>centauri sync</code> and the Airbyte source ride.</p>
+    <div class="pre"><pre><span class="cm"># Python: resumable polling with the escape hatch</span>
+page = db.api.get("/v1/changes", **{"from": cursor})
+for ev in page["events"]: ...
+cursor = page["cursor"]</pre></div>
+  </article>
+
+  <article class="s" id="t5-airbyte-dest" data-k="airbyte destination connector write records state facet primary_key provenance batch_size etl elt land data into centauri">
+    <h3>Airbyte destination — land anything into Centauri<a class="anchor" href="#t5-airbyte-dest">#</a></h3>
+    <p><code>connectors/airbyte/destination_centauri</code> is a standalone pure-stdlib Python program speaking the Airbyte Protocol over stdin/stdout — no Airbyte CDK, nothing linked into the binary. Each Airbyte <code>RECORD</code> becomes one fact via <code>POST /v1/append</code>: subject <code>&lt;stream&gt;:&lt;key&gt;</code> (the <code>primary_key</code> field if configured, else a per-stream counter), facet from config, type <code>OBSERVED</code>, value = the full record. <code>STATE</code> messages are acknowledged only after the preceding records are durably appended, which is what makes resumable syncs safe. Commands: <code>spec</code>, <code>check</code>, <code>write</code>.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Field</th><th>Required</th><th>Default</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>centauri_url</code></td><td>yes</td><td><code>http://localhost:7771</code></td><td>Centauri HTTP API base URL</td></tr>
+        <tr><td><code>token</code></td><td>no</td><td>–</td><td>bearer token if the server requires one</td></tr>
+        <tr><td><code>database</code></td><td>no</td><td>–</td><td>named environment (<code>?db=</code>)</td></tr>
+        <tr><td><code>facet</code></td><td>no</td><td><code>source</code></td><td>facet to write on</td></tr>
+        <tr><td><code>primary_key</code></td><td>no</td><td>–</td><td>record field used as the subject key</td></tr>
+        <tr><td><code>provenance</code></td><td>no</td><td><code>SYSTEM_FEED</code></td><td><code>SYSTEM_FEED</code> / <code>HUMAN_ENTRY</code> / <code>SCAN_VERIFIED</code> / <code>AI_INFERRED</code></td></tr>
+        <tr><td><code>batch_size</code></td><td>no</td><td><code>500</code></td><td>facts per <code>/v1/append</code> request</td></tr>
+      </tbody>
+    </table></div>
+    <div class="pre"><pre>printf '%s\n' \
+  '{"type":"RECORD","record":{"stream":"users","data":{"id":7,"name":"Alice"}}}' \
+  '{"type":"STATE","state":{"data":{"cursor":1}}}' \
+| python3 destination_centauri/main.py write --config dest-config.json --catalog catalog.json</pre></div>
+  </article>
+
+  <article class="s" id="t5-airbyte-src" data-k="airbyte source connector read facts stream incremental full_refresh cursor state docker custom connector">
+    <h3>Airbyte source — stream Centauri facts out<a class="anchor" href="#t5-airbyte-src">#</a></h3>
+    <p><code>connectors/airbyte/source_centauri</code> exposes one stream, <code>facts</code>. <code>read</code> pages <code>GET /v1/changes?from=&lt;cursor&gt;</code>, emits one <code>RECORD</code> per event, and emits the byte-offset cursor as Airbyte <code>STATE</code>, so the next sync resumes exactly. Sync modes: <code>full_refresh</code> and <code>incremental</code> (<code>source_defined_cursor: true</code>). Each record's <code>data</code> is the full event: <code>event_id</code>, <code>subject</code>, <code>facet</code>, <code>type</code>, <code>value</code>, <code>effective_time</code>, <code>recorded_time</code>, <code>provenance</code>, <code>confidence</code>. Config: <code>centauri_url</code> (required), <code>token</code>, <code>database</code>. Commands: <code>spec</code>, <code>check</code>, <code>discover</code>, <code>read</code>.</p>
+    <div class="pre"><pre>python3 source_centauri/main.py read \
+    --config src-config.json --catalog configured-catalog.json [--state state.json]</pre></div>
+    <div class="pre"><pre><span class="cm"># register as custom Docker connectors in the Airbyte UI</span>
+docker build -t airbyte/destination-centauri:dev destination_centauri/
+docker build -t airbyte/source-centauri:dev      source_centauri/</pre></div>
+    <div class="honest"><b>Status:</b> v0.1.0, tested end-to-end against a mock API; licensed with Centauri; no Airbyte code vendored.</div>
+  </article>
+
+  <article class="s" id="t5-deploy" data-k="production deployment checklist vps systemd caddy nginx fly.io railway render docker compose backup chain head external anchor">
+    <h3>Production checklist<a class="anchor" href="#t5-deploy">#</a></h3>
+    <p>The dashboard ships inside the binary, so going to production is running the binary somewhere public with HTTPS in front. From <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">docs/deploy.md</a>:</p>
+    <ul>
+      <li>Always set <code>-token</code> (and ideally <code>-read-token</code>) — without one, anyone with the URL owns your data.</li>
+      <li>Terminate TLS natively (<code>-tls-cert</code>/<code>-tls-key</code>) or behind Caddy/nginx bound to localhost.</li>
+      <li>Take periodic <code>centauri backup</code> snapshots off the box and record the chain head somewhere separate — tamper evidence needs an external anchor.</li>
+      <li>Set <code>-max-concurrency</code>, <code>-query-timeout</code> and <code>-max-concurrency-per-db</code>; scrape <code>/metrics</code>; probe <code>/livez</code> and <code>/readyz</code>; emit <code>-log-format json</code>.</li>
+    </ul>
+    <div class="pre"><pre><span class="cm"># Recipe 1 — systemd unit on a ~$5 VPS, Caddy in front</span>
+ExecStart=/usr/local/bin/centauri serve -data /var/lib/centauri/centauri.log -addr 127.0.0.1:7771 -token CHANGE_ME -read-token CHANGE_ME_TOO</pre></div>
+    <div class="pre"><pre><span class="cm"># Caddyfile</span>
+db.example.com {
+    reverse_proxy 127.0.0.1:7771
+}</pre></div>
+    <div class="pre"><pre><span class="cm"># Recipe 2 — Fly.io via the Dockerfile</span>
+fly launch --no-deploy
+fly volumes create centauri_data --size 1
+fly secrets set CENTAURI_TOKEN=CHANGE_ME
+fly deploy</pre></div>
+  </article>
+
+  <article class="s" id="t5-k8s" data-k="kubernetes k8s.yaml statefulset deployment secret service loadbalancer pvc probes livez readyz not ingress controller">
+    <h3>Kubernetes<a class="anchor" href="#t5-k8s">#</a></h3>
+    <p><code>infra/k8s.yaml</code> deploys Centauri <em>on</em> Kubernetes as a normal workload (it is not an ingress controller — no IngressClass, Gateway API or CRDs). It defines a <code>Secret</code> <code>centauri-token</code>, a <code>centauri-db</code> <code>Service</code> on 7771 and a <code>StatefulSet</code> with <code>replicas: 1</code> and a 1Gi <code>volumeClaimTemplate</code> — the store is single-writer, so never raise replicas; run read replicas with <code>centauri follow</code>. The gateway is a <code>Deployment</code> (<code>replicas: 1</code>, strategy <code>Recreate</code>) with its own PVC, a <code>LoadBalancer</code> on 80 → 8080, args <code>gateway -data /data/gateway.log -addr :8080 -admin-inline</code>, and probes on <code>/livez</code> and <code>/readyz</code>. Build and push your own image first; no public image is assumed. Scale gateways horizontally with <code>-control-follow</code>.</p>
+    <div class="pre"><pre>docker build -t &lt;your-registry&gt;/centauri:latest . &amp;&amp; docker push &lt;your-registry&gt;/centauri:latest
+kubectl create secret generic centauri-token --from-literal=token=$(openssl rand -hex 32)
+kubectl apply -f infra/k8s.yaml</pre></div>
+    <div class="pre"><pre>livenessProbe:  { httpGet: { path: /livez,  port: 8080 } }
+readinessProbe: { httpGet: { path: /readyz, port: 8080 } }</pre></div>
+  </article>
+
+  <article class="s" id="t5-render" data-k="render blueprint render.yaml deploy to render one-click hosted https -admin-inline generated token">
+    <h3>Render blueprint<a class="anchor" href="#t5-render">#</a></h3>
+    <p><code>render.yaml</code> is a Render Blueprint (<a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">Deploy to Render</a>) that creates two Docker web services on the <code>starter</code> plan: <code>centauri</code> (health check <code>/</code>, 1 GB disk at <code>/data</code>, <code>CENTAURI_TOKEN</code> auto-generated) and <code>centauri-gateway</code> (health check <code>/livez</code>, <code>gateway -data /data/gateway.log -addr :7771 -admin-inline</code>, its own disk and token). Render exposes one port per service, which is why the gateway runs <code>-admin-inline</code>: proxied routes win and any unmatched path serves the token-gated admin dashboard. Mint keys in the Console, since the writer lock blocks <code>-newkey</code> while running.</p>
+    <div class="pre"><pre><span class="cm">-- the demo flow, from the query bar</span>
+PUT route:api FACET config SET prefix='/api/', upstream='https://your-backend', auth='none', rate_per_min=60
+HISTORY OF gw:api FACET gateway
+FACTS OF route:api FACET config AS OF 5 minutes ago</pre></div>
+  </article>
+
+  <article class="s" id="t5-observe" data-k="observability livez readyz metrics prometheus version integrity verify request id logs">
+    <h3>Observability endpoints<a class="anchor" href="#t5-observe">#</a></h3>
+    <p>Every serve mode exposes the same three unauthenticated endpoints: <code>/livez</code>, <code>/readyz</code> and Prometheus <code>/metrics</code> (process + API counters, store counters and build info on normal serve; segment-cache gauges on lazy; <code>centauri_objstore_*</code> with an object store; never fact data). <code>GET /v1/version</code> is the deploy stamp. Structured request logs carry <code>X-Request-ID</code>. <code>GET /v1/integrity</code> exposes the live chain state, and <code>/v1/verify</code> (lazy mode) recomputes Merkle roots and the chain online with no downtime.</p>
+    <div class="pre"><pre>curl -s localhost:7771/livez
+curl -s localhost:7771/readyz
+curl -s localhost:7771/metrics | grep -i centauri_ | head
+curl -s localhost:7771/v1/version</pre></div>
+  </article>
+</section>
+
+<!-- ===================================================== HONESTY -->
+<section class="t" id="not" data-k="honesty what centauri does not do limits limitations not a fit">
+  <div class="kicker">Honesty is policy</div>
+  <h2>What Centauri does <span class="rule">NOT</span> do</h2>
+  <p class="lead">Every line below is stated in the repository docs. Comparison tables say what Centauri does not do, and a ✗ is never inflated to a ✓.</p>
+  <h3>Query &amp; data model</h3>
+  <ul>
+    <li>Not a general SQL database. The SQL surface is a read-only <code>SELECT</code> subset; writes use CeQL.</li>
+    <li>No JOINs — in SQL or CeQL. No subqueries, window functions, or SQL <code>COUNT(DISTINCT)</code> yet.</li>
+    <li>The Postgres wire listener returns every column as <code>TEXT</code>, authenticates with the token as a cleartext password, has no <code>?db=</code> routing, and rejects non-<code>SELECT</code>.</li>
+    <li>No multi-statement <code>BEGIN…COMMIT</code> MVCC transactions. No foreign-key constraints (<code>ref</code> types are roadmap). No cost-based optimizer.</li>
+    <li>CeQL aggregates run over current facts, not history. CeQL strings have no escapes — use the JSON AST for awkward values.</li>
+  </ul>
+  <h3>Write path &amp; scale</h3>
+  <ul>
+    <li>Single writer per log. Sharded writes, read replicas and HA failover exist; multi-writer clustering and high-contention multi-writer OLTP do not.</li>
+    <li>Sharded mode: no cross-shard atomic transactions, causal links/trace, or aggregates.</li>
+    <li>The working set lives in RAM; the tablespace/archive tier serves bigger-than-memory data <b>read-only</b>, with no persisted index for arbitrary cold <code>WHERE</code>; vector similarity and causal weighting need the in-RAM index.</li>
+    <li>Object store: read-only cold tier; writes and sealing still target local disk; GCS/Azure signers are design-only.</li>
+    <li>Sync: no push mode/pairing, no browser/edge replica; sync promises the same set of facts, not byte-identical logs.</li>
+  </ul>
+  <h3>Security &amp; operations</h3>
+  <ul>
+    <li>No Vault / KMS / cloud Secrets Manager integration — secrets are env vars or a 0600 key file.</li>
+    <li>At-rest encryption covers sealed segments only; the hot tail, manifest and checkpoint are not encrypted — use disk/volume encryption. End-to-end encryption of the live log is planned.</li>
+    <li>No hot certificate reload; no mTLS on <code>serve</code> (gateway proxy listener only); no OpenTelemetry trace spans.</li>
+    <li>OIDC validates the IdP's tokens; Centauri is not an identity provider for people. No role hierarchies, LDAP/SAML, or claim-to-ACL mapping.</li>
+    <li>Retention RETIREs — the log file never shrinks. No in-binary policy scheduler and no crypto-erase retention action yet.</li>
+    <li><code>centauri verify</code> proves integrity only against an externally recorded chain head.</li>
+  </ul>
+  <h3>AI</h3>
+  <ul>
+    <li>The engine bundles no model; AI features orchestrate an external runtime (Ollama) and an external PDF renderer — optional add-ons, not built in.</li>
+    <li>GLM-5.2 is cloud-only (200+ GB weights), off by default, sends prompts and retrieved facts off-machine, and costs money. Local tiers top out at <code>glm-4.7-flash</code>.</li>
+    <li>Without a chat model, ASK answers only from <code>kb:*</code> facts and logs gaps — it does not guess. Without an embedder, SEARCH is pure BM25.</li>
+    <li>"Learning" means accumulating facts, not retraining weights. No drag-and-drop spreadsheet import for non-technical users yet.</li>
+  </ul>
+  <h3>Gateway</h3>
+  <ul>
+    <li>Not a Kubernetes ingress controller. Not a plugin ecosystem — a fixed middleware set plus CePL policies and webhook callouts; no third-party plugin API or marketplace.</li>
+    <li>CePL policies cannot transform requests or responses. Token issuing is <code>client_credentials</code> only.</li>
+    <li>The control plane is single-writer with no leader election; no cross-gateway audit merge; no multi-DC; no commercial support.</li>
+    <li>~26k req/s on a 2-core dev VM; NGINX and Kong still win at the edge. SSE failover applies only until the first byte. Bodies are never recorded in audit facts.</li>
+  </ul>
+  <p class="lead" style="margin-top:18px">Source documents for every claim on this page: <a href="https://github.com/aniljacobv-lab/centauri/tree/main/docs">docs/</a> in the repository — <code>quickstart.md</code>, <code>sql.md</code>, <code>ai-features.md</code>, <code>local-ai.md</code>, <code>vision-setup.md</code>, <code>gateway.md</code>, <code>design-tablespaces.md</code>, <code>design-segmentation.md</code>, <code>object-store-backend.md</code>, <code>design-sync.md</code>, <code>modeling-hierarchies.md</code>, <code>deploy.md</code>, <code>performance.md</code>, <code>enterprise-readiness.md</code> — plus the SDK and connector READMEs.</p>
+</section>
+
+</main>
+</div></div>
+
+<footer><div class="wrap">
+  <div class="lock"><span class="star">✦</span> Centauri</div>
+  <div>by <a href="https://jacoblabs.ai">JacobLabs LLC</a> — the nearest star to your data.</div>
+  <div class="cols">
+    <div class="col"><b>Product</b><a href="index.html#why">Why Centauri</a><a href="index.html#pricing">Pricing &amp; licensing</a><a href="index.html#compare">Compare</a><a href="compare-gateways.html">Gateway comparison</a><a href="index.html#reference">CeQL reference</a><a href="index.html#download">Download</a></div>
+    <div class="col"><b>Docs</b><a href="documentation.html">Documentation portal</a><a href="ceql.html">The CeQL Book</a><a href="how-it-works.html">How it works</a><a href="internals-vs-oracle.html">Internals vs Oracle</a><a href="showcase.html">Showcase</a></div>
+    <div class="col"><b>Community</b><a href="https://github.com/aniljacobv-lab/centauri">GitHub</a><a href="https://github.com/aniljacobv-lab/centauri/releases">Releases</a><a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">License</a></div>
+  </div>
+  <div style="margin-top:28px;padding-top:18px;border-top:1px solid #243a52;color:#7e90a8;font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <span>© 2026 JacobLabs LLC · free and open source under The PostgreSQL License</span>
+    <span>Bi-temporal · causal · local · free</span>
+  </div>
+</div></footer>
+
+<script>
+(function(){
+  // --- copy buttons on every snippet ---
+  document.querySelectorAll('.pre').forEach(function(box){
+    var pre = box.querySelector('pre'); if(!pre) return;
+    var b = document.createElement('button'); b.className='copy'; b.type='button'; b.textContent='copy';
+    b.addEventListener('click', function(){
+      var txt = pre.innerText;
+      var done = function(){ b.textContent='copied'; b.classList.add('ok'); setTimeout(function(){ b.textContent='copy'; b.classList.remove('ok'); }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(done, done); }
+      else { var ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); done(); }
+    });
+    box.appendChild(b);
+  });
+
+  // --- instant client-side filter ---
+  var input = document.getElementById('filter'), count = document.getElementById('count');
+  var arts = Array.prototype.slice.call(document.querySelectorAll('article.s'));
+  var tracks = Array.prototype.slice.call(document.querySelectorAll('section.t'));
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a.s'));
+  var tocHeads = Array.prototype.slice.call(document.querySelectorAll('.toc h4'));
+  var nomatch = document.getElementById('nomatch');
+  var index = arts.map(function(a){ return (a.id+' '+(a.getAttribute('data-k')||'')+' '+a.textContent).toLowerCase(); });
+  function apply(){
+    var q = (input.value||'').trim().toLowerCase();
+    var terms = q.split(/\s+/).filter(Boolean), shown = 0;
+    arts.forEach(function(a,i){
+      var ok = terms.every(function(t){ return index[i].indexOf(t) !== -1; });
+      a.classList.toggle('hidden', !ok); if(ok) shown++;
+      var l = tocLinks.filter(function(x){ return x.getAttribute('href') === '#'+a.id; });
+      l.forEach(function(x){ x.classList.toggle('hidden', !ok); });
+    });
+    tracks.forEach(function(s){
+      var any = s.querySelectorAll('article.s:not(.hidden)').length > 0 || (s.id==='not' && (!terms.length || terms.every(function(t){ return s.textContent.toLowerCase().indexOf(t)!==-1; })));
+      s.classList.toggle('hidden', !any);
+    });
+    tocHeads.forEach(function(h){
+      var next = h.nextElementSibling, any=false;
+      while(next && next.tagName !== 'H4'){ if(!next.classList.contains('hidden')) any = true; next = next.nextElementSibling; }
+      h.classList.toggle('hidden', !any);
+    });
+    nomatch.style.display = (shown===0 && !document.querySelector('section.t:not(.hidden)')) ? 'block' : 'none';
+    count.textContent = terms.length ? (shown + ' of ' + arts.length + ' sections') : (arts.length + ' sections · 5 tracks');
+  }
+  input.addEventListener('input', apply);
+  input.addEventListener('keydown', function(e){ if(e.key==='Escape'){ input.value=''; apply(); } });
+  apply();
+  if (location.hash && location.hash.length > 1) { try { var el = document.getElementById(location.hash.slice(1)); if (el) el.scrollIntoView(); } catch(e){} }
+
+  // --- highlight the section in view ---
+  if ('IntersectionObserver' in window) {
+    var map = {}; tocLinks.forEach(function(l){ map[l.getAttribute('href').slice(1)] = l; });
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if(en.isIntersecting){ tocLinks.forEach(function(l){ l.classList.remove('on'); }); var l = map[en.target.id]; if(l){ l.classList.add('on'); } } });
+    }, { rootMargin: '-72px 0px -70% 0px', threshold: 0 });
+    arts.forEach(function(a){ io.observe(a); });
+  }
+})();
+</script>
+</body>
+</html>
