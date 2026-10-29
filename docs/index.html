@@ -1,1344 +1,333 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Centauri — system of record, private AI, and API gateway in one free binary</title>
-<meta name="description" content="Centauri is a free, open-source system of record with a built-in private AI and an API/LLM gateway. Bi-temporal, tamper-evident, zero dependencies — $0 forever under the MIT License, on hardware you already have.">
-<meta property="og:title" content="Centauri — provable history, private AI, and an auditable API gateway. $0, forever.">
-<meta property="og:description" content="A system of record that can prove its history, a private AI that runs on your hardware, and an API/LLM gateway with a tamper-evident audit — one zero-dependency binary, free under the MIT License.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://centauridb.com/">
-<meta property="og:image" content="https://centauridb.com/og-image.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:site_name" content="Centauri">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Centauri — Your own AI">
-<meta name="twitter:description" content="Your own private AI that runs on your computer and knows your business from your own files. Ask in plain English, get answers with citations, nothing leaves your machine. Open source, one binary, free.">
-<meta name="twitter:image" content="https://centauridb.com/og-image.png">
-<meta name="theme-color" content="#0f1b29">
 <link rel="canonical" href="https://centauridb.com/">
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Centauri",
- "applicationCategory":"DeveloperApplication","operatingSystem":"Windows, Linux, macOS",
- "description":"Open-source bi-temporal, causal, AI-first event database with the CeQL query language, topology operators, BM25 search, MCP server, and the Genesis Engine.",
- "license":"https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE",
- "releaseNotes":"https://github.com/aniljacobv-lab/centauri/releases",
- "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
- "url":"https://github.com/aniljacobv-lab/centauri"}
-</script>
+<meta property="og:url" content="https://centauridb.com/">
+<meta property="og:title" content="Centauri — your own AI, plus a memory that never forgets">
+<meta property="og:image" content="https://centauridb.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<title>Centauri — your own AI, plus a memory that never forgets. Free, one binary.</title>
+<meta name="description" content="Every Centauri capability, shown three ways: for founders, for the C-suite, and for developers. Your own private AI plus an immutable, tamper-evident system of record — one binary, no cloud.">
 <style>
   :root{
-    --navy:#16212e;--ink:#16243a;--dim:#54627a;--faint:#8493a8;
-    --blue:#2f6fb0;--blue-d:#245a91;--teal:#00add8;--teal-d:#0594bb;
-    --bg:#ffffff;--bg2:#f4f8fc;--bg3:#eaf1f8;--border:#dbe5f0;--code:#f5f8fc;
-    --good:#1a8754;--bad:#d23b3b;--warn:#b4690e;
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+    --ink:#0e1116; --ink2:#3a4254; --muted:#697086; --line:#e6e8ee;
+    --bg:#ffffff; --bg2:#f7f8fb; --card:#ffffff;
+    --accent:#4f46e5; --accent2:#7c3aed; --ok:#0a7f5b; --warn:#b4690e;
+    --found:#0a7f5b; --csuite:#1d4ed8; --dev:#7c3aed;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
-  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
-  em{color:var(--ink);font-style:italic;font-weight:600}
-  code{font-family:var(--mono);font-size:.88em;background:var(--code);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
-  .kw{color:var(--blue);font-weight:600}.cm{color:var(--faint)}.lit{color:var(--good)}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3{line-height:1.2;letter-spacing:-.01em}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
 
-  nav{background:var(--navy);color:#fff;position:sticky;top:0;z-index:50}
-  nav .wrap{display:flex;align-items:center;gap:24px;height:58px}
-  .brand{font-weight:800;font-size:18px;color:#fff;display:flex;align-items:center;gap:8px}
-  .brand .star{color:var(--teal);font-size:20px}
-  nav .links{margin-left:auto;display:flex;gap:22px;font-size:14.5px}
-  nav .links a{color:#c6d4e6}nav .links a:hover{color:#fff;text-decoration:none}
-  @media(max-width:900px){nav .links a:not(.gh){display:none}}
-  .gh{border:1px solid #38506b;border-radius:7px;padding:6px 13px;color:#fff!important}
-  .btn-nav{background:linear-gradient(135deg,#00add8,#2f6fb0);border-radius:7px;padding:6px 13px;color:#fff!important;font-weight:600}
-  .btn-nav:hover{filter:brightness(1.08)}
-  .announce{background:var(--blue);color:#fff;text-align:center;font-size:14px;padding:9px 16px}
-  .announce a{color:#fff;font-weight:700;text-decoration:underline}
+  /* hero */
+  .hero{background:linear-gradient(180deg,#fff, var(--bg2));border-bottom:1px solid var(--line)}
+  .hero .wrap{padding:64px 22px 48px}
+  .hero h1{font-size:clamp(34px,5vw,52px);margin:.2em 0 .25em}
+  .hero h1 .accent{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{font-size:clamp(17px,2.2vw,20px);color:var(--ink2);max-width:760px;margin:0 0 22px}
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .pill{font-size:13px;font-weight:600;background:#eef0f6;color:#3a4254;border:1px solid var(--line);border-radius:999px;padding:6px 12px}
 
-  .hero{background:linear-gradient(180deg,#fff,var(--bg2));border-bottom:1px solid var(--border)}
-  .hero .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center;padding:56px 24px}
-  @media(max-width:880px){.hero .wrap{grid-template-columns:1fr}.heroart{order:-1;max-width:340px}}
-  h1{font-size:clamp(32px,4.4vw,50px);line-height:1.08;margin:0 0 8px;letter-spacing:-1px;font-weight:800}
-  h1 .accent{color:var(--teal-d)}
-  .sub{font-size:18px;color:var(--dim);margin:0 0 20px;max-width:560px}
-  .checks{list-style:none;padding:0;margin:0 0 24px}
-  .checks li{position:relative;padding:4px 0 4px 28px;font-size:15.5px}
-  .checks li::before{content:"✓";position:absolute;left:0;top:4px;color:var(--teal-d);font-weight:800}
-  .btns{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:9px;font-weight:700;font-size:16px;border:1.5px solid transparent;cursor:pointer}
-  .btn:hover{text-decoration:none}
-  .btn.primary{background:var(--teal);color:#06222b;border-color:var(--teal)}
-  .btn.primary:hover{background:var(--teal-d);border-color:var(--teal-d);color:#fff}
-  .btn.outline{background:#fff;color:var(--ink);border-color:var(--border)}
-  .btn.outline:hover{border-color:var(--blue);color:var(--blue)}
-  .dlhint{font-size:13px;color:var(--faint);margin-top:12px}
-  .spon{margin-top:16px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+  /* sticky audience nav */
+  nav.tracks{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.9);backdrop-filter:saturate(1.4) blur(8px);border-bottom:1px solid var(--line)}
+  nav.tracks .wrap{display:flex;gap:8px;flex-wrap:wrap;padding:10px 22px}
+  nav.tracks a{font-weight:700;font-size:14px;color:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:#fff}
+  nav.tracks a:hover{text-decoration:none;border-color:var(--accent);color:var(--accent)}
 
-  section{padding:54px 0}
-  .alt{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-  h2{font-size:clamp(23px,2.8vw,31px);margin:0 0 8px;letter-spacing:-.4px;font-weight:800}
-  h2 .rule{color:var(--teal-d)}
-  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-d);font-weight:700;margin-bottom:6px}
-  .lead{color:var(--dim);font-size:17px;max-width:780px;margin:0 0 26px}
+  section{padding:54px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .badge{font-size:13px;font-weight:800;color:#fff;border-radius:8px;padding:5px 10px}
+  .b-found{background:var(--found)} .b-csuite{background:var(--csuite)} .b-dev{background:var(--dev)}
+  section h2{font-size:clamp(26px,3.4vw,34px);margin:6px 0 4px}
+  .lead{color:var(--ink2);font-size:18px;max-width:780px;margin:0 0 26px}
 
-  /* hero strip + tabs */
-  .hs,.hero .wrap.hs{padding:36px 24px 32px;grid-template-columns:1fr}
-  .hs h1{font-size:clamp(27px,3.5vw,40px);margin:0 0 10px}
-  .hs .sub{max-width:820px}
-  .tabs{position:sticky;top:58px;z-index:40;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 4px 14px rgba(20,40,80,.06)}
-  .tabs .wrap{display:flex;gap:2px;overflow-x:auto}
-  .tabbtn{appearance:none;background:none;border:0;border-bottom:3px solid transparent;padding:15px 18px 12px;font:700 15px system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;color:var(--dim);cursor:pointer;white-space:nowrap}
-  .tabbtn:hover{color:var(--ink)}
-  .tabbtn.active{color:var(--teal-d);border-bottom-color:var(--teal)}
-  .tabpane{display:none}
-  .tabpane.active{display:block}
-  .proof{margin-top:11px;font-family:var(--mono);font-size:12px;color:var(--teal-d)}
-  .honest ul{margin:8px 0 0;padding-left:20px}
-  .honest li{margin:6px 0}
-  .srcnote{font-size:12.5px;color:var(--faint);margin-top:10px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+  .card .ic{font-size:22px}
+  .card h3{font-size:16px;margin:8px 0 4px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
 
-  /* ASK box */
-  .ask{background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 34px rgba(20,40,80,.08);overflow:hidden}
-  .ask-head{background:var(--navy);color:#fff;padding:14px 20px;font-weight:700;display:flex;align-items:center;gap:9px}
-  .ask-head .b{margin-left:auto;font-family:var(--mono);font-size:11px;color:#8fb6d8;font-weight:500}
-  .ask-body{padding:20px}
-  .ask-in{display:flex;gap:10px}
-  .ask-in input{flex:1;border:1px solid var(--border);border-radius:9px;padding:13px 15px;font:15px system-ui;color:var(--ink)}
-  .ask-in input:focus{outline:none;border-color:var(--teal-d)}
-  .ask-in button{border:0;background:var(--teal);color:#06222b;font-weight:700;border-radius:9px;padding:0 22px;cursor:pointer}
-  .ask-in button:hover{background:var(--teal-d);color:#fff}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  .chip{font-size:13px;color:var(--blue);background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:5px 12px;cursor:pointer}
-  .chip:hover{background:#dfeaf6}
-  .answer{margin-top:16px;border-left:3px solid var(--teal);background:var(--bg2);border-radius:0 9px 9px 0;padding:14px 18px;font-size:15.5px;display:none}
-  .answer.show{display:block}
-  .answer .q{font-family:var(--mono);font-size:12.5px;color:var(--faint);margin-bottom:6px}
-  .answer .ceql{font-family:var(--mono);font-size:13.5px;background:var(--navy);color:#d6e6f5;border-radius:8px;padding:11px 14px;margin-top:10px;overflow:auto}
-  .answer .ceql .kw{color:#7fd3ff}.answer .ceql .lit{color:#9be29b}
+  /* full capability matrix */
+  .pillar{margin-bottom:22px}
+  .pillar h3{font-size:18px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .pillar .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block}
+  .caps{display:flex;flex-wrap:wrap;gap:8px}
+  .cap{font-size:13.5px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;color:#2b3142}
+  .cap b{color:var(--ink)}
 
-  /* quickstart */
-  .qs{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
-  @media(max-width:820px){.qs{grid-template-columns:1fr}}
-  pre{background:var(--navy);color:#d6e6f5;border-radius:11px;padding:18px;font-family:var(--mono);font-size:13.5px;overflow:auto;line-height:1.7;margin:0}
-  pre .cm{color:#7e90a8}pre .kw{color:#7fd3ff}pre .lit{color:#9be29b}
+  .fit{background:var(--bg2)}
+  .fit .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:880px){.fit .cols{grid-template-columns:1fr}}
+  .fit .box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}
+  .fit h3{margin:0 0 8px}
+  .fit ul{margin:0;padding-left:18px;color:var(--ink2)}
 
-  /* feature grid */
-  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
-  .feat{background:#fff;border:1px solid var(--border);border-radius:11px;padding:22px;transition:.15s}
-  .feat:hover{border-color:var(--teal);box-shadow:0 6px 22px rgba(20,40,80,.07)}
-  .feat .fi{width:38px;height:38px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:11px}
-  .feat h3{margin:0 0 7px;font-size:18px}
-  .feat p{margin:0;color:var(--dim);font-size:14.5px}
-
-  /* demos */
-  .demo{border-radius:12px;overflow:hidden;background:#fff;border:1px solid var(--border)}
-  .demo-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12.5px;color:var(--dim);background:var(--bg2)}
-  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-  .demo-body{padding:22px}
-  label.fld{display:block;font-family:var(--mono);font-size:11.5px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:0 0 8px}
-  input[type=range]{width:100%;accent-color:var(--blue);height:4px;cursor:pointer}
-  .ceql-out{font-family:var(--mono);font-size:14px;background:var(--code);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-top:16px;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word}
-  .result{display:flex;align-items:baseline;gap:13px;margin-top:14px;flex-wrap:wrap}
-  .result .big{font-size:34px;font-weight:800;font-family:var(--mono);color:var(--good)}
-  .result .note{color:var(--dim);font-size:14px}
-  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-  @media(max-width:680px){.twocol{grid-template-columns:1fr}}
-  .axis{position:relative;height:54px;margin:6px 0 20px}
-  .axis .track{position:absolute;top:24px;left:0;right:0;height:3px;background:var(--border);border-radius:2px}
-  .axis .ev{position:absolute;top:18px;width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid var(--teal-d);transform:translateX(-50%);transition:.15s}
-  .axis .ev.active{background:var(--teal-d);box-shadow:0 0 0 4px rgba(0,173,216,.2)}
-  .axis .vh{position:absolute;top:6px;bottom:6px;width:2px;background:var(--blue);transform:translateX(-50%)}
-  .axis .vh::after{content:'AS OF';position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:var(--blue);white-space:nowrap}
-  .axis .lbl{position:absolute;top:40px;font-family:var(--mono);font-size:10px;color:var(--faint);transform:translateX(-50%)}
-  .nlrow input{width:100%;background:var(--code);border:1px solid var(--border);border-radius:9px;color:var(--ink);font:15px var(--mono);padding:13px 14px}
-  .nlrow input:focus{outline:none;border-color:var(--blue);background:#fff}
-  .demochips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  .demochips .chip{font-family:var(--mono);font-size:12.5px;color:var(--dim);background:#fff}
-  .chain{display:flex;align-items:stretch;overflow-x:auto;padding-bottom:6px}
-  .block{flex:0 0 auto;width:148px;background:var(--code);border:1px solid var(--border);border-radius:10px;padding:11px}
-  .block.broken{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
-  .block .bn{font-family:var(--mono);font-size:11px;color:var(--faint)}
-  .block input{width:100%;background:#fff;border:1px solid var(--border);border-radius:6px;color:var(--ink);font:12.5px var(--mono);padding:6px;margin:7px 0}
-  .block .h{font-family:var(--mono);font-size:11px;color:var(--good);word-break:break-all}
-  .block.broken .h{color:var(--bad)}
-  .link{flex:0 0 auto;display:flex;align-items:center;color:var(--faint);font-family:var(--mono);padding:0 4px}
-  .verify{margin-top:14px;font-family:var(--mono);font-size:13.5px;padding:11px 15px;border-radius:9px}
-  .verify.ok{background:#e9f7ef;border:1px solid #b6e0c8;color:var(--good)}
-  .verify.fail{background:#fdeaea;border:1px solid #f3c2c2;color:var(--bad)}
-
-  /* reference table */
-  .scroll{overflow-x:auto}
-  table.ref{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
-  .ref th,.ref td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
-  .ref thead th{background:var(--bg2);font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
-  .ref td.s{font-family:var(--mono);color:var(--blue);font-weight:600;white-space:nowrap}
-  .ref td.ex{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
-  .ref tr:hover td{background:#fafcff}
-  .reftag{display:inline-block;font-family:var(--mono);font-size:10px;color:#fff;background:var(--teal-d);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle}
-
-  /* docs links */
-  .doclinks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
-  .doc{display:block;background:#fff;border:1px solid var(--border);border-radius:11px;padding:18px 20px;color:var(--ink)}
-  .doc:hover{border-color:var(--teal);text-decoration:none}
-  .doc b{display:block;color:var(--blue);font-size:16px;margin-bottom:5px}
-  .doc span{color:var(--dim);font-size:14px}
-
-  table.cmp{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
-  .cmp th,.cmp td{padding:11px 12px;text-align:center;border-bottom:1px solid var(--border)}
-  .cmp thead th{background:var(--bg2);font-family:var(--mono);font-size:12px;color:var(--dim)}
-  .cmp td:first-child,.cmp th:first-child{text-align:left;color:var(--ink)}
-  .cmp .me{color:var(--teal-d);font-weight:800}
-  .y{color:var(--good);font-weight:700}.n{color:var(--bad)}.p{color:var(--warn)}
-  .cmp td small{color:var(--faint);font-size:11px;display:block}
-  .honest{background:#fff8ed;border:1px solid #f0d8af;border-left:4px solid var(--warn);border-radius:10px;padding:18px 22px;color:var(--dim);font-size:15px}
-  .honest b{color:var(--warn)}
-
-  /* download */
-  .ostiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:6px 0 22px}
-  @media(max-width:720px){.ostiles{grid-template-columns:repeat(2,1fr)}}
-  .tile{border:1.5px solid var(--border);border-radius:11px;background:#fff;padding:18px 12px;text-align:center;cursor:pointer;transition:.15s;font-weight:700}
-  .tile:hover{border-color:var(--teal)}
-  .tile.active{border-color:var(--teal);background:var(--bg3);box-shadow:inset 0 -3px 0 var(--teal)}
-  .tile .ti{font-size:32px;display:block;margin-bottom:7px}
-  .dlpanel{display:none;background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px}
-  .dlpanel.active{display:block}
-  .dlrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-  .dlbig{display:inline-flex;align-items:center;gap:9px;padding:13px 24px;border-radius:9px;background:var(--teal);color:#06222b;font-weight:700;font-size:16px;border:1.5px solid var(--teal)}
-  .dlbig:hover{background:var(--teal-d);color:#fff;border-color:var(--teal-d);text-decoration:none}
-  .dlmeta{color:var(--faint);font-size:13px;font-family:var(--mono)}
-  .cmd{display:flex;align-items:center;gap:8px;margin-top:16px;background:var(--navy);border-radius:9px;padding:13px 14px;font-family:var(--mono);font-size:13px;overflow:auto}
-  .cmd code{background:none;border:none;color:#d6e6f5;white-space:nowrap}
-  .copy{margin-left:auto;flex:0 0 auto;cursor:pointer;border:1px solid #38506b;background:#22344a;color:#cfe0f5;border-radius:6px;padding:5px 11px;font-size:11px;font-family:var(--mono)}
-  .copy:hover{background:#2c425c}
-  .dlsub{margin-top:15px;color:var(--dim);font-size:14px}
-  .dlsub a{font-family:var(--mono);font-size:13px}
-
-  /* agent transcript */
-  .tx{display:flex;flex-direction:column;gap:10px;max-width:760px}
-  .bub{border-radius:12px;padding:11px 15px;font-size:15px}
-  .bub .who{font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:4px}
-  .bub.u{background:var(--bg3);align-self:flex-start;max-width:85%}
-  .bub.ai{background:#eaf7f1;border:1px solid #bfe6d2;align-self:flex-end;max-width:85%}
-  .toolcall{font-family:var(--mono);font-size:12.5px;background:var(--navy);color:#d6e6f5;border-radius:10px;padding:12px 15px;align-self:center;width:100%;overflow:auto;line-height:1.6}
-  .toolcall .fn{color:#7fd3ff;font-weight:700}.toolcall .cm{color:#7e90a8}.toolcall .lit{color:#9be29b}
-  .exgrid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:8px}
-  @media(max-width:820px){.exgrid{grid-template-columns:1fr}}
-  .exgrid h3{font-size:16px;color:var(--dim);margin:0 0 10px}
-  /* example cards */
-  .excards{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
-  .excard{background:#fff;border:1px solid var(--border);border-radius:11px;padding:18px;transition:.15s}
-  .excard:hover{border-color:var(--teal);box-shadow:0 6px 22px rgba(20,40,80,.06)}
-  .extags{display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap}
-  .t2{font-family:var(--mono);font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 8px}
-  .t2.cap{background:var(--bg3);color:var(--teal-d)}
-  .t2.dom{background:#eef3f9;color:var(--blue)}
-  .excard .q2{font-weight:600;font-size:15px;margin:0 0 11px;line-height:1.4}
-  .excard pre{font-size:12.5px;padding:13px;line-height:1.65}
-  footer{background:var(--navy);color:#aebfd4;padding:38px 0 56px;font-size:14px}
-  footer a{color:#cfe0f5}
-  footer .lock{font-weight:800;color:#fff;font-size:17px;margin-bottom:6px}
-  footer .lock .star{color:var(--teal)}
-  footer .cols{display:flex;gap:48px;flex-wrap:wrap;margin-top:18px}
-  footer .col b{color:#fff;display:block;margin-bottom:8px;font-size:13px;text-transform:uppercase;letter-spacing:1px}
-  footer .col a{display:block;padding:3px 0;color:#aebfd4}
+  .cta{text-align:center;background:linear-gradient(180deg,#fff,var(--bg2))}
+  .cta h2{font-size:clamp(24px,3vw,32px)}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .btn{font-weight:700;border-radius:10px;padding:12px 20px;border:1px solid var(--accent)}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.outline{color:var(--accent);background:#fff}
+  footer{padding:28px 0;color:var(--muted);font-size:13.5px;text-align:center}
+  .tagline{color:var(--muted);font-weight:600}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:16px 18px;overflow:auto;font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;box-shadow:var(--shadow)}
+  pre .cm{color:#7c8aa5}
 </style>
 </head>
 <body>
 
-<nav><div class="wrap">
-  <span class="brand"><span class="star">✦</span> Centauri</span>
-  <span class="links">
-    <a href="#why">Why Centauri</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#compare">Compare</a>
-    <a href="#what">For engineers</a>
-    <a href="#reference">CeQL</a>
-    <a href="documentation.html">Docs</a>
-    <a class="btn-nav" href="#download">⬇ Download</a>
-    <a class="gh" href="https://github.com/aniljacobv-lab/centauri">GitHub</a>
-  </span>
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Centauri</div>
+    <h1>Your own <span class="accent">AI</span>.<br>Plus a memory that never forgets — or lies.</h1>
+    <p>One program you run yourself. It learns your business from your own files and answers in plain English — and underneath, it's an immutable, tamper-evident system of record. No cloud, no per-token bill, no license. Here's what that means for <b>founders</b>, the <b>C-suite</b>, and <b>developers</b>.</p>
+    <div class="pill-row">
+      <span class="pill">🔒 Runs on your hardware</span>
+      <span class="pill">🧠 Local LLM — nothing leaves your machine</span>
+      <span class="pill">📜 Nothing is ever erased</span>
+      <span class="pill">📦 One binary · zero dependencies</span>
+      <span class="pill">🆓 Open source · MIT · $0 forever</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tracks"><div class="wrap">
+  <a href="#founder">🚀 For founders</a>
+  <a href="#csuite">🏛 For the C-suite</a>
+  <a href="#developer">⌨ For developers</a>
+  <a href="#everything">🗂 Everything it does</a>
+  <a href="product.html#why">✦ Why Centauri</a>
+  <a href="product.html#pricing">💲 Pricing</a>
+  <a href="product.html#compare">⚖ Compare</a>
+  <a href="documentation.html">📚 Docs</a>
+  <a href="how-it-works.html">🔧 How it works</a>
+  <a href="product.html#download">⬇ Download</a>
 </div></nav>
-<div class="announce">New — the <b>Centauri Gateway</b> &amp; <b>Console</b>: an API + LLM gateway whose config is bi-temporal facts and whose per-request audit is tamper-evident — SSE streaming, provider failover, per-key token metering, OIDC JWT + mTLS. <a href="compare-gateways.html">How it compares to Kong, Apigee, AWS &amp; Tyk →</a></div>
 
-<!-- HERO STRIP (persistent above tabs) -->
-<div class="hero"><div class="wrap hs">
-  <div>
-    <h1><span class="accent">✦</span> Centauri — own your data, your AI, <span class="accent">and your gateway.</span></h1>
-    <p class="sub">The <b>zero-dependency, single-binary</b> enterprise <b>system of record</b>, <b>private AI runtime</b>, and <b>API/LLM gateway</b>. A bi-temporal, tamper-evident event store that can <b>prove its history</b>; a local AI that <b>runs on your hardware</b>; a gateway whose config and audit are facts. <b>$0, forever</b>, under the MIT License.</p>
-    <ul class="checks" style="columns:2;column-gap:28px;max-width:720px">
-      <li>Bi-temporal, causal, hash-chained log</li>
-      <li>CeQL, read-only SQL &amp; Postgres wire</li>
-      <li>BM25 + vector hybrid search, HLL, topology</li>
-      <li>Local LLM, vision, RAG <code>ASK</code>, native MCP</li>
-      <li>Tablespaces, Merkle segments, S3 tiering</li>
-      <li>Gateway: keys, OIDC, mTLS, policies, audit</li>
-    </ul>
+<!-- ENTREPRENEUR -->
+<section id="founder">
+  <div class="wrap">
+    <div class="sec-head"><span class="badge b-found">FOR FOUNDERS &amp; SMALL BUSINESS</span></div>
+    <h2>Do the work of a team — without sending your business to the cloud.</h2>
+    <p class="lead">Drop in everything your business runs on and just ask. Centauri is the AI employee that already knows your stuff, costs nothing per question, and keeps every secret in the building.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">⚡</div><h3>A private AI in five minutes</h3><p>Run <code>centauri desktop</code> — it detects your hardware, installs the AI runtime, and pulls the right models by itself. No cloud account, no configuration, no consultant.</p></div>
+      <div class="card"><div class="ic">💬</div><h3>Ask in plain English</h3><p>"Which invoices from Acme are overdue?" "What did we promise this client?" It answers and shows you exactly where it found it.</p></div>
+      <div class="card"><div class="ic">📄</div><h3>It reads your documents</h3><p>PDFs, invoices, contracts, scanned images — a local vision model pulls out the facts so they're searchable, no manual data entry.</p></div>
+      <div class="card"><div class="ic">🔎</div><h3>Instant search over everything</h3><p>New data embeds itself the moment you add it, so search and answers are ready immediately — no setup, no separate tool.</p></div>
+      <div class="card"><div class="ic">👍</div><h3>Gets smarter on your data</h3><p>Thumbs-up or down on an answer's sources and it re-ranks next time. It learns your business — without ever changing the underlying model.</p></div>
+      <div class="card"><div class="ic">💸</div><h3>No cloud, no AI bill</h3><p>The AI runs on your own computer. No subscription, no per-question charge, no vendor watching your data. (An optional GLM-5.2 cloud boost exists — off by default and clearly labeled, because that is the one mode where questions leave the building.)</p></div>
+      <div class="card"><div class="ic">🗄️</div><h3>Never lose anything</h3><p>Everything you put in is kept forever, exactly as it was. You can always see what was true last month — and trust it.</p></div>
+      <div class="card"><div class="ic">💻</div><h3>One file, runs anywhere</h3><p>Download a single program. It runs on a laptop or a small server — no install marathon, no database admin.</p></div>
+      <div class="card"><div class="ic">🆓</div><h3>Free and yours</h3><p>Open source, no license to renew. Your data, your AI, your machine — nobody else's.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- C-SUITE -->
+<section id="csuite">
+  <div class="wrap">
+    <div class="sec-head"><span class="badge b-csuite">FOR THE C-SUITE — CIO · CISO · CFO · CEO</span></div>
+    <h2>Compliance-grade memory and private AI — without the license or the cloud risk.</h2>
+    <p class="lead">A system of record you can defend in an audit, AI that never sends data outside your perimeter, and a cost line that doesn't grow with usage. Drops into your stack through standard protocols.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">🛡️</div><h3>Tamper-evident by design</h3><p>Every fact is chained with SHA-256 and per-segment Merkle roots. You can prove your records were never altered — without a blockchain.</p></div>
+      <div class="card"><div class="ic">🕰️</div><h3>Prove what you knew, and when</h3><p>Bi-temporal history reconstructs any moment — what was true and what you <em>believed</em> then. The audit superpower for SOX/HIPAA-style review.</p></div>
+      <div class="card"><div class="ic">🧹</div><h3>Right to be forgotten, safely</h3><p>Crypto-erasure destroys a record's readability for GDPR while leaving the audit chain intact. Delete data without breaking the trail.</p></div>
+      <div class="card"><div class="ic">🔐</div><h3>Data sovereignty</h3><p>The AI runs locally — sensitive data never leaves your network, and every model answer is itself an auditable, queryable fact.</p></div>
+      <div class="card"><div class="ic">🪪</div><h3>Enterprise SSO &amp; access control</h3><p>OIDC/JWT single sign-on (Okta, Azure AD, Auth0, Keycloak), row-level security, and field-level masking — no extra identity glue.</p></div>
+      <div class="card"><div class="ic">♻️</div><h3>Retention &amp; legal hold</h3><p>Automated retention policies plus enforced legal hold that blocks deletion of records under investigation.</p></div>
+      <div class="card"><div class="ic">🔁</div><h3>High availability</h3><p>Automatic failover via leader election: if the primary dies, a replica promotes itself — no operator, no downtime drill.</p></div>
+      <div class="card"><div class="ic">📉</div><h3>Predictable cost</h3><p>No per-token AI bills and no database license. Offload high-volume transactions to free Postgres — adopting Centauri never means buying another license.</p></div>
+      <div class="card"><div class="ic">🔌</div><h3>Fits your stack</h3><p>Speaks the PostgreSQL wire protocol (Tableau, Power BI, JDBC connect directly) and uses S3-compatible storage for a cheap, verifiable cold tier.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- DEVELOPER -->
+<section id="developer">
+  <div class="wrap">
+    <div class="sec-head"><span class="badge b-dev">FOR DEVELOPERS</span></div>
+    <h2>One binary that does the job of five systems — and you can read the whole thing.</h2>
+    <p class="lead">A document store, vector DB, time-series, graph, and tamper-proof ledger in one zero-dependency Go binary, with a query language where time, cause, and trust are syntax — and a local-AI stack wired in.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">📦</div><h3>Zero dependencies</h3><p>Pure Go standard library — the <code>require</code> block in <code>go.mod</code> is empty. No supply chain, no runtime, one static binary.</p></div>
+      <div class="card"><div class="ic">🧮</div><h3>CeQL + plain English</h3><p>Query language with <code>AS OF</code> / <code>AS KNOWN AT</code>, causal <code>WHY</code>/<code>EFFECTS</code>/<code>MATCH</code>, and an NL→CeQL translator for the long tail.</p></div>
+      <div class="card"><div class="ic">📐</div><h3>Topology &amp; time-travel ops</h3><p>Analytics no other DB ships — <code>SHAPE</code> (persistent homology), <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code> — plus <code>SNAPSHOT</code>/<code>ROLLBACK</code>/<code>DIFF</code> and <code>PROFILE</code>.</p></div>
+      <div class="card"><div class="ic">🐘</div><h3>PostgreSQL wire protocol</h3><p>Simple <em>and</em> extended protocol — <code>psql</code>, JDBC and BI tools connect and run read-only SQL that transpiles to CeQL.</p></div>
+      <div class="card"><div class="ic">🤖</div><h3>Local AI, first-class</h3><p><code>ASK</code> = RAG with citations · <code>ENRICH</code> runs models in queries · hybrid BM25+vector <code>SEARCH</code> · vision extraction · <code>centauri desktop</code> / <code>serve -ai</code> auto-provision tiered models up to GLM-4.7-Flash (30B MoE, 200K context).</p></div>
+      <div class="card"><div class="ic">🔄</div><h3>Auto-embed + feedback loop</h3><p>New facts embed themselves on write; user ratings re-rank retrieval — deterministic, auditable "learning," no weights touched.</p></div>
+      <div class="card"><div class="ic">🧩</div><h3>Agent-native (MCP) + SDK</h3><p>An MCP server makes agents first-class clients (grounded memory, no token cost to remember), plus a zero-dependency Python SDK.</p></div>
+      <div class="card"><div class="ic">📈</div><h3>Scales past RAM</h3><p>Lazy disk-backed index, sharding, group commit, compressed cold segments with zone-map skipping, and an S3 backend with Merkle verification.</p></div>
+      <div class="card"><div class="ic">🔗</div><h3>Integrity &amp; replication</h3><p>Per-line hash chain, online verification, durable CDC slots, log shipping, snapshot/clone, and HA failover — all in the box.</p></div>
+      <div class="card"><div class="ic">🧪</div><h3>Batteries included</h3><p>Embedded dashboard, AI Studio IDE, a full CeQL textbook, autocomplete catalog, Airbyte connectors, and the Genesis Engine that builds a DB from a conversation.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- REAL QUERIES -->
+<section id="queries">
+  <div class="wrap">
+    <div class="eyebrow">Real queries</div>
+    <h2 style="margin-top:6px">The range, in a few lines of CeQL</h2>
+    <p class="lead">Every query below runs verbatim on today's engine (try them on the demo seed: <code>centauri seed</code>).</p>
+    <pre><span class="cm">-- time travel: what was true then — and what we *believed* then</span>
+FACTS OF item:100001/store:4001 AS OF '2026-03-15' AS KNOWN AT '2026-03-01'
+
+<span class="cm">-- why did it change? walk the causal chain</span>
+FACTS OF item:100001/store:4001 WHY DEPTH 3
+
+<span class="cm">-- aggregate with GROUP BY / HAVING</span>
+FACTS facet, COUNT(*) OF item:*/store:4001 GROUP BY facet HAVING COUNT(*) > 5
+
+<span class="cm">-- ranked keyword search — and hybrid keyword + vector</span>
+SEARCH 'late markdown' OF item:*
+SEARCH 'markdown' OF item:* SIMILAR TO 0193fa2e-77c1 ALPHA 0.5
+
+<span class="cm">-- ask your own data: local RAG, answers cite their source facts</span>
+ASK 'does it scale?'
+
+<span class="cm">-- the shape of the data: clusters, loops, periodicity</span>
+SHAPE OF item:*/store:4001 ON price_cents
+
+<span class="cm">-- run a stored CePL procedure, with a full step-by-step trace</span>
+RUN duty_estimate WITH item='100001', units=3</pre>
+    <p style="color:var(--muted);font-size:14px">Full language reference: <a href="ceql.html">The CeQL Book</a> — every statement, with a SQL/Mongo/Cypher Rosetta Stone.</p>
+  </div>
+</section>
+
+<!-- EVERYTHING -->
+<section id="everything">
+  <div class="wrap">
+    <div class="eyebrow">The full picture</div>
+    <h2 style="margin-top:6px">Everything it does — five pillars</h2>
+    <p class="lead">Every capability, grouped. (Honest by policy — see "where it fits" below.)</p>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#0a7f5b"></span>1 · Immutable memory &amp; time travel</h3>
+      <div class="caps">
+        <span class="cap"><b>Append-only</b> log — nothing erased</span>
+        <span class="cap"><b>Bi-temporal</b> AS OF / AS KNOWN AT</span>
+        <span class="cap"><b>Causal lineage</b> WHY · EFFECTS · MATCH</span>
+        <span class="cap"><b>SHA-256 hash chain</b> + Merkle roots</span>
+        <span class="cap"><b>Crypto-erasure</b> (GDPR)</span>
+        <span class="cap">Provenance &amp; confidence on every fact</span>
+        <span class="cap"><b>SNAPSHOT · ROLLBACK · DIFF</b> (time-travel)</span>
+        <span class="cap"><b>Topology</b>: SHAPE · CONSISTENCY · CYCLES · DRIFT</span>
+        <span class="cap"><b>PROFILE</b> · MEDIAN/STDDEV/LISTAGG · HyperLogLog distinct</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#7c3aed"></span>2 · Private local AI</h3>
+      <div class="caps">
+        <span class="cap"><b>Local LLM</b> (Ollama/LocalAI) — no cloud</span>
+        <span class="cap"><b>ASK</b> — RAG with citations</span>
+        <span class="cap"><b>ENRICH</b> — models inside queries</span>
+        <span class="cap">Hybrid <b>BM25 + vector</b> SEARCH / SIMILAR</span>
+        <span class="cap"><b>Vision</b> / document extraction</span>
+        <span class="cap"><b>Auto-embed</b> on ingest</span>
+        <span class="cap"><b>Feedback loop</b> re-ranks on ratings</span>
+        <span class="cap"><b>Tiered presets</b> (centauri desktop / serve -ai): gemma3:4b → qwen3:14b → GLM-4.7-Flash</span>
+        <span class="cap">Optional <b>GLM-5.2 cloud boost</b> — off by default; cloud-only (its weights need 200+ GB)</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#1d4ed8"></span>3 · Enterprise-ready &amp; standard protocols</h3>
+      <div class="caps">
+        <span class="cap"><b>PostgreSQL wire</b> (simple + extended)</span>
+        <span class="cap"><b>OIDC/JWT SSO</b></span>
+        <span class="cap">Row-level security + field masking</span>
+        <span class="cap">Retention + enforced legal hold</span>
+        <span class="cap"><b>Automatic HA failover</b> (lease election)</span>
+        <span class="cap">Prometheus metrics · health · TLS</span>
+        <span class="cap">Multitenant environments</span>
+        <span class="cap">CDC with durable replication slots · log shipping</span>
+        <span class="cap">Admission control: rate limits · body caps · timeouts</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#b4690e"></span>4 · Scales and stays fast</h3>
+      <div class="caps">
+        <span class="cap"><b>Lazy index</b> — data exceeds RAM</span>
+        <span class="cap">Compressed cold segments + zone maps</span>
+        <span class="cap">Sharding · group commit</span>
+        <span class="cap">Checkpoints · auto-seal · compaction</span>
+        <span class="cap"><b>S3 cold tier</b> (stdlib SigV4, Merkle-verified)</span>
+        <span class="cap">Secondary index · dot-path · EXISTS</span>
+      </div>
+    </div>
+
+    <div class="pillar">
+      <h3><span class="dot" style="background:#4f46e5"></span>5 · You own it</h3>
+      <div class="caps">
+        <span class="cap"><b>One binary</b>, zero Go dependencies</span>
+        <span class="cap">No cloud requirement</span>
+        <span class="cap">No license — open source</span>
+        <span class="cap">MCP server + Python / Go / JS SDKs</span>
+        <span class="cap">Dashboard · AI Studio · CeQL textbook</span>
+        <span class="cap">Airbyte connectors · multi-format export</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HONEST FIT -->
+<section class="fit">
+  <div class="wrap">
+    <h2>Where it fits — straight talk</h2>
+    <p class="lead">Centauri is honest about its lane; the right tool earns trust.</p>
+    <div class="cols">
+      <div class="box">
+        <h3>✅ Best for</h3>
+        <ul>
+          <li>Systems of record and audit trails</li>
+          <li>Compliance-sensitive data &amp; bi-temporal "as-of" reporting</li>
+          <li>Private RAG / "ask your own documents," fully local</li>
+          <li>Teams that need data ownership and a verifiable history</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>↔ Pair it for</h3>
+        <ul>
+          <li>High-contention multi-writer <b>OLTP</b> — writes are single-writer by design; pair with Postgres/SQLite (free)</li>
+          <li>Sub-millisecond transactional workloads</li>
+          <li>The PostgreSQL wire exposes <b>read-only</b> SQL; writes use CeQL</li>
+          <li>Billion-scale pure ANN — a dedicated vector DB still wins at that size</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Your own AI. Your own data. Your own machine.</h2>
+    <p class="tagline">One binary · no cloud · no license · nothing leaves your building.</p>
     <div class="btns">
-      <a class="btn primary" href="#download">⬇ Download</a>
-      <a class="btn outline" href="#quickstart">5-minute quickstart →</a>
-      <a class="btn outline" href="documentation.html">📚 Documentation →</a>
+      <a class="btn primary" href="product.html#download">⬇ Download</a>
       <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri">★ GitHub</a>
-    </div>
-    <div class="dlhint">Windows · macOS · Linux · one-click <a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">Render blueprint</a> · <span class="spon" style="margin:0">Centauri by JacobLabs LLC · jacoblabs.ai</span></div>
-  </div>
-</div></div>
-
-<!-- TAB BAR -->
-<div class="tabs"><div class="wrap" role="tablist">
-  <button class="tabbtn active" data-tab="why" role="tab" aria-selected="true">Why Centauri</button>
-  <button class="tabbtn" data-tab="pricing" role="tab" aria-selected="false">Pricing &amp; Licensing</button>
-  <button class="tabbtn" data-tab="compare" role="tab" aria-selected="false">Compare</button>
-  <button class="tabbtn" data-tab="eng" role="tab" aria-selected="false">For engineers</button>
-</div></div>
-
-<!-- TAB 1: WHY CENTAURI -->
-<div class="tabpane active" id="tab-why">
-<section id="why"><div class="wrap">
-  <div class="kicker">For decision makers</div>
-  <h2>Five outcomes. <span class="rule">One binary.</span></h2>
-  <p class="lead">Centauri gives an organization a record it can prove, an AI it can trust with sensitive data, and an API layer it can audit — at a software cost of zero. The executive case, with the proof one click away:</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">🧾</div><h3>Provable compliance</h3><p>When a regulator or auditor asks <em>“what did you know, and when?”</em>, the answer is a query, not a six-week forensics project. Every record is sealed into a tamper-evident hash chain, and bi-temporal time travel reconstructs any past moment exactly as it was believed then.</p><div class="proof">proof: centauri verify re-proves the whole history byte-for-byte · <a href="how-it-works.html#integrity">how →</a></div></div>
-    <div class="feat"><div class="fi">🔐</div><h3>Data sovereignty</h3><p>AI answers are computed <b>on your hardware, from your documents</b>. Nothing is uploaded, nothing phones home. Cloud models exist as an option — per-provider keys, off by default, clearly labeled when data would leave the machine.</p><div class="proof">proof: runs fully offline / air-gapped · <a href="#vision">the local-AI appliance →</a></div></div>
-    <div class="feat"><div class="fi">💰</div><h3>Radical TCO</h3><p>The software is <b>$0, forever</b>. It runs on a laptop or a $5–20/month VM — where comparable API platforms bill per gateway service, per million calls, and per environment. No per-seat, per-request, or control-plane fees.</p><div class="proof">proof: the cost table below · <a href="#pricing">full pricing →</a></div></div>
-    <div class="feat"><div class="fi">🔓</div><h3>Vendor independence</h3><p>the MIT License — use it for anything, commercially, free, no copyleft. Zero third-party dependencies, and your data lives in plain files your own engineers can read. Leaving Centauri costs one file copy.</p><div class="proof">proof: the empty require block in go.mod is public · <a href="https://github.com/aniljacobv-lab/centauri/blob/main/go.mod">verify it →</a></div></div>
-    <div class="feat"><div class="fi">⚡</div><h3>5-minute deployment</h3><p>One binary. Run the installer or one <code>curl | sh</code>; <code>centauri desktop</code> detects your hardware and sets up the local AI models automatically. Prefer cloud? One-click Render blueprint with HTTPS and a generated token.</p><div class="proof">proof: no config files, no cluster, no DBA · <a href="#quickstart">quickstart →</a></div></div>
-  </div>
-  <h3 style="margin:36px 0 10px">What an API layer costs to run — at a glance</h3>
-  <div class="scroll"><table class="cmp">
-    <thead><tr><th></th><th class="me">Centauri</th><th>Kong Konnect</th><th>Google Apigee</th><th>AWS API Gateway</th></tr></thead>
-    <tbody>
-      <tr><td>Software / platform, per year</td><td class="me">$0</td><td>≈$1,260+/yr per gateway service (Plus)<small>Enterprise ≈$30k–50k+/yr entry</small></td><td>≈$4,380+/yr per environment/region</td><td>$0 base fee</td></tr>
-      <tr><td>Per-request fees</td><td class="y">none</td><td>1M req/mo included, ≈$200 per extra 1M</td><td>≈$20 per 1M calls</td><td>≈$1.00/M (HTTP) · ≈$3.50/M (REST)</td></tr>
-      <tr><td>Infrastructure</td><td>a laptop or ≈$5–20/mo VM</td><td>your data-plane hosts + SaaS control plane</td><td>managed (Google Cloud)</td><td>managed (AWS only)</td></tr>
-    </tbody>
-  </table></div>
-  <p class="srcnote">Indicative public list pricing, mid-2026 — verify with each vendor; enterprise contracts vary. AWS is the cheapest per call at scale, but AWS-locked, and audit/analytics are separate services you assemble. Details: <a href="#pricing">Pricing &amp; Licensing</a> · <a href="compare-gateways.html">gateway comparison →</a></p>
-</div></section>
-</div>
-
-<!-- TAB 2: PRICING & LICENSING -->
-<div class="tabpane" id="tab-pricing">
-<section id="pricing"><div class="wrap">
-  <div class="kicker">Pricing &amp; licensing</div>
-  <h2>The software is <span class="rule">$0. Forever.</span></h2>
-  <p class="lead">Centauri is open source under <b>the MIT License</b> — an OSI-approved permissive license that lets you use, copy, modify, and distribute the software for any purpose, including commercial, free of charge and with no copyleft obligations. Copyright JacobLabs LLC and contributors. There is no paid edition: the binary you download is everything.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">🆓</div><h3>What you pay JacobLabs</h3><p><b>$0.</b> No per-request fees, no per-seat fees, no per-service fees, no separate control-plane bill, no paid tiers, no telemetry. The enterprise features — SSO, HA, sharding, the gateway, the Console — are in the same free binary.</p></div>
-    <div class="feat"><div class="fi">🖥</div><h3>What you actually pay for</h3><p>The machine it runs on — hardware you likely already have: a laptop, a ~$5–20/month VM at any host, or the one-click <a href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">Render blueprint</a>. RAM sized to your live working set is the main knob.</p></div>
-    <div class="feat"><div class="fi">☁️</div><h3>The only metered option</h3><p>The optional <b>cloud AI boost</b> — GLM-5.2 (z.ai), OpenAI GPT-5.5, or Anthropic Claude — is pay-per-use <em>to that provider</em>, with your own key. It is <b>off by default</b>; the local models are free and stay on your machine.</p></div>
-  </div>
-  <h3 style="margin:36px 0 10px">How that compares</h3>
-  <div class="scroll"><table class="cmp">
-    <thead><tr><th></th><th class="me">Centauri</th><th>Kong Konnect Plus</th><th>Kong Konnect Enterprise</th><th>Google Apigee (PAYG)</th><th>AWS API Gateway</th></tr></thead>
-    <tbody>
-      <tr><td>Software / license</td><td class="me">$0 — the MIT License</td><td>subscription</td><td>custom contract</td><td>pay-as-you-go</td><td>pay-per-use</td></tr>
-      <tr><td>Entry price</td><td class="y">$0</td><td>≈$105/mo per gateway service<small>incl. 1M requests/mo</small></td><td>≈$30k–$50k+/yr entry<small>negotiated</small></td><td>environment fees from ≈$365/mo per region</td><td>no base fee</td></tr>
-      <tr><td>Per-call</td><td class="y">none</td><td>≈+$200 per additional 1M requests</td><td>contracted</td><td>≈$20 per 1M calls</td><td>≈$1.00/M HTTP APIs · ≈$3.50/M REST APIs</td></tr>
-      <tr><td>Typical extras</td><td>optional cloud-LLM usage, billed by the model provider, off by default</td><td>higher tiers for advanced plugins</td><td>support org, SLAs, multi-DC</td><td>security/analytics add-ons extra</td><td>audit/analytics assembled from separate AWS services</td></tr>
-      <tr><td>What you host</td><td>one binary — laptop / small VM / Render</td><td colspan="2">your data planes; control plane is SaaS</td><td>managed</td><td>managed, AWS-locked</td></tr>
-    </tbody>
-  </table></div>
-  <p class="srcnote">Sources: Kong Konnect, Google Cloud Apigee, and AWS API Gateway public pricing pages — indicative list prices as of mid-2026. Enterprise contracts vary widely; verify with the vendors before budgeting.</p>
-  <div class="honest" style="margin-top:26px"><b>What you give up vs the paid platforms — honestly:</b>
-    <ul>
-      <li><b>A commercial support organization.</b> Kong, Google, and AWS sell 24×7 support and someone to call. Centauri support is GitHub issues and the docs — there is no support org today.</li>
-      <li><b>A plugin marketplace.</b> Kong has hundreds of plugins plus custom-plugin SDKs. Centauri&#39;s middleware is built in (CORS, header transforms, IP filters, body caps, path blocks), plus programmable CePL request policies and webhook callouts — capable, still not a marketplace.</li>
-      <li><b>A managed SLA.</b> Apigee and AWS run the service with contractual uptime. You run Centauri yourself — HA failover ships in the binary, but the pager is yours.</li>
-      <li><b>Raw throughput.</b> Kong&#39;s tuned NGINX core and the hyperscaler edges outrun Centauri&#39;s Go stdlib proxy at very high volume; writes are single-writer per log, and the working set is RAM-resident unless the archive tier is on.</li>
-      <li><b>An identity provider.</b> Centauri validates OIDC JWTs and mTLS client certs, and issues service tokens via client-credentials; human login flows still need your IdP.</li>
-    </ul>
-  </div>
-</div></section>
-</div>
-
-<!-- TAB 3: COMPARE -->
-<div class="tabpane" id="tab-compare">
-<!-- COMPARE -->
-<section id="compare"><div class="wrap">
-  <div class="kicker">Feature matrix</div>
-  <h2>Where Centauri fits — and where it doesn't</h2>
-  <p class="lead">Centauri is the flight recorder beside your operational stores, not a Postgres replacement. The unvarnished picture, ✗ and all. Coming from Oracle? There is a concept-by-concept teardown — redo/undo, SCN, flashback, RAC, Data Guard mapped to Centauri's internals: <a href="internals-vs-oracle.html"><b>Centauri internals vs Oracle →</b></a></p>
-  <div class="scroll"><table class="cmp">
-    <thead><tr><th></th><th class="me">Centauri</th><th>PostgreSQL</th><th>Datomic</th><th>EventStoreDB</th><th>SQLite</th></tr></thead>
-    <tbody>
-      <tr><td>Bi-temporal (valid + transaction time)</td><td class="y">✓</td><td class="n">✗</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Nothing ever erased</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
-      <tr><td>Causal links as data</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Tamper-evident hash chain</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Topology / TDA operators</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Native BM25 + hybrid search</td><td class="y">✓</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="p">~</td></tr>
-      <tr><td>Built-in MCP for AI agents</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Local vision ingest (images/PDFs)</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Runs a free local LLM for search &amp; Q&amp;A</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Single binary, zero deps</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
-      <tr><td>Horizontal scale / sharding + HA failover</td><td class="y">✓<small>shards + auto-failover</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
-      <tr><td>Data larger than RAM</td><td class="y">✓<small>lazy index</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
-      <tr><td>SQL access</td><td class="p">~<small>read-only + Postgres wire</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
-      <tr><td>Enterprise SSO + row-level security</td><td class="y">✓<small>OIDC/JWT, RLS, masking</small></td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-    </tbody>
-  </table></div>
-  <div class="honest" style="margin-top:24px"><b>Honest limits:</b> writes are <b>single-writer per log</b> (the hash chain is sequential by design) — Centauri is a system of record, not a high-contention multi-writer OLTP engine. <code>serve -shards</code> scales write throughput across subjects, <code>serve -ha-lease</code> adds automatic failover, and the lazy index serves data beyond RAM; there's no cost-based optimizer, and the SQL exposed over the PostgreSQL wire is <b>read-only</b> (writes use CeQL). The vision &amp; local-LLM features <em>orchestrate</em> a model you run (free, e.g. Ollama) over HTTP — the engine bundles no model and stays zero-dependency. Full detail: <a href="how-it-works.html#compare">how it compares →</a></div>
-</div></section>
-
-
-<!-- GATEWAY COMPARE TEASER -->
-<section class="alt" id="gateways"><div class="wrap">
-  <div class="kicker">API gateways</div>
-  <h2>Centauri Gateway vs Kong, Apigee, AWS <span class="rule">&amp; Tyk</span></h2>
-  <p class="lead"><code>centauri gateway</code> is an API + LLM gateway whose configuration is bi-temporal facts and whose request audit is a tamper-evident chain. The full honest matrix — including everything Kong and the clouds do better — is on the <a href="compare-gateways.html">gateway comparison page</a>. The short version:</p>
-  <div class="scroll"><table class="cmp">
-    <thead><tr><th></th><th class="me">Centauri Gateway</th><th>Kong (OSS + Konnect)</th><th>Apigee</th><th>AWS API Gateway</th></tr></thead>
-    <tbody>
-      <tr><td>Config model</td><td class="y">bi-temporal facts<small>time-travel any past config with AS OF</small></td><td>declarative / DB / console<small>versioning via GitOps, not the gateway</small></td><td class="p">~<small>proxy revisions</small></td><td class="p">~<small>console / IaC + stages</small></td></tr>
-      <tr><td>Tamper-evident request audit</td><td class="y">✓<small>hash chain + centauri verify</small></td><td class="n">✗<small>logs via plugins</small></td><td class="p">~<small>managed analytics + audit logs</small></td><td class="p">~<small>assemble CloudTrail / CloudWatch</small></td></tr>
-      <tr><td>LLM routing: SSE streaming · failover · per-key token metering</td><td class="y">✓<small>metering as queryable facts</small></td><td class="y">✓<small>AI-gateway plugin suite</small></td><td class="p">~<small>emerging LLM features</small></td><td class="p">~<small>assemble with Bedrock / Lambda</small></td></tr>
-      <tr><td>Plugin ecosystem &amp; k8s ingress</td><td class="n">✗<small>fixed built-in middleware; no ingress controller</small></td><td class="y">✓<small>hundreds of plugins, Ingress Controller, mesh</small></td><td class="p">~</td><td class="p">~<small>AWS-native integrations instead</small></td></tr>
-      <tr><td>Price of entry <small>indicative public pricing, mid-2026</small></td><td class="y">$0<small>+ a small VM you run</small></td><td>≈$105/mo per gateway service<small>Enterprise ≈$30k–50k+/yr</small></td><td>≈$365/mo/region + ≈$20/M calls</td><td>≈$1.00–3.50 per 1M calls<small>AWS-locked</small></td></tr>
-    </tbody>
-  </table></div>
-  <div style="margin-top:20px"><a class="btn primary" href="compare-gateways.html">Full gateway comparison →</a>&nbsp; <a class="btn outline" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md">Gateway guide →</a></div>
-</div></section>
-</div>
-
-<!-- TAB 4: FOR ENGINEERS -->
-<div class="tabpane" id="tab-eng">
-<!-- WHAT IS IT -->
-<section id="what"><div class="wrap">
-  <div class="kicker">What is Centauri?</div>
-  <h2>One engine, the jobs of <span class="rule">many databases.</span></h2>
-  <p class="lead">Modern AI stacks bolt together a document store, a vector database, a search cluster, a graph, and an audit ledger — then spend their lives keeping them in sync. Centauri is a single binary that covers all of it, because every fact is stored once with its time, cause, source, and trust. Here's how it maps to the tools you already know — and where it goes further.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">📄</div><h3>Document store</h3><p>Schemaless facts with nested JSON values, dot-path queries (<code>WHERE addr.city='EU'</code>) and optional schemas — like <b>MongoDB</b>. <b>Difference:</b> every change is versioned and nothing is ever overwritten.</p></div>
-    <div class="feat"><div class="fi">🧠</div><h3>Vector database</h3><p>Built-in embeddings, cosine <code>SIMILAR</code>, and hybrid keyword+vector <code>SEARCH</code> for RAG — like <b>pgvector / Pinecone</b>. <b>Difference:</b> vectors live beside provenance and time, so you can search <em>as of</em> the past.</p></div>
-    <div class="feat"><div class="fi">⏱️</div><h3>Time-series, doubled</h3><p>Two clocks on every fact — <em>valid time</em> and <em>transaction time</em>. <b>Difference:</b> ask not just what was true at a moment, but <b>what you believed</b> then — bi-temporal replay no time-series DB offers.</p></div>
-    <div class="feat"><div class="fi">🔗</div><h3>Graph database</h3><p>Causes are first-class edges; <code>WHY</code> / <code>EFFECTS</code> and <code>MATCH</code> traverse the lineage — like <b>Neo4j</b>. <b>Difference:</b> the graph is about <em>why things happened</em>, not just references.</p></div>
-    <div class="feat"><div class="fi">🔒</div><h3>Ledger, blockchain-grade</h3><p>A SHA-256 hash chain seals every record; <code>centauri verify</code> proves the history is byte-for-byte intact. <b>Difference:</b> blockchain-grade tamper-evidence with <em>no</em> blockchain, no tokens, no consensus tax.</p></div>
-    <div class="feat"><div class="fi">🔎</div><h3>Search engine</h3><p>Ranked BM25, multi-signal scoring (recency · trust · causal centrality), and full-text — like <b>Elasticsearch</b>. <b>Difference:</b> one binary, bi-temporal, and it explains <em>why</em> a hit ranked where it did.</p></div>
-  </div>
-  <p class="lead" style="margin-top:18px"><b>The thread that ties it together:</b> Centauri is built for <b>AI agents</b> — a native <b>MCP</b> server means an agent uses all of the above directly, with grounded, point-in-time, provenance-aware memory. One zero-dependency binary you run yourself — not five systems to license, host, and reconcile. It's the <b>system of record beside</b> your operational database, not a replacement for it.</p>
-</div></section>
-
-<!-- OWN YOUR DATA -->
-<section class="alt" id="own"><div class="wrap">
-  <div class="kicker">Own your data</div>
-  <h2>Your data. Your hardware. <span class="rule">Your rules.</span></h2>
-  <p class="lead">Oracle makes you rent your data's home and pay per core. Centauri flips that: the engine is free, and your data lives wherever <em>you</em> control — never on our servers. Oracle-grade memory for what happened, when, why, and how much to trust it — without the license, and on infrastructure you own. <a href="internals-vs-oracle.html"><b>How Centauri's internals compare to Oracle, in detail →</b></a></p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">💾</div><h3>Runs where you control</h3><p>Your laptop, your server, a USB stick, a NAS, a synced folder (OneDrive, Google Drive, Dropbox), or your own <b>S3-compatible bucket</b> (AWS/MinIO/R2/B2) as a verifiable cold tier. Never a vendor's cloud.</p></div>
-    <div class="feat"><div class="fi">🪙</div><h3>No license, no per-core fees</h3><p>Free and open source. No seats, no cores, no support contract — you pay only for the hardware you already own.</p></div>
-    <div class="feat"><div class="fi">🔓</div><h3>Zero lock-in</h3><p>One open file (JSONL) you can read, move, back up, or delete; an open query language; <code>centauri export</code> any time. Walk away with everything.</p></div>
-  </div>
-  <div class="honest" style="margin-top:24px"><b>Honest status:</b> your data is one portable file you point <code>-data</code> at — local disk, USB, NAS, or a synced folder — with a <b>single-writer lock</b> (safe on shared/synced storage) and <code>centauri merge</code> to reconcile copies edited on two devices. <code>--lazy</code> keeps payloads on disk so a dataset can exceed RAM, and the disk-backed <b>lazy index</b> serves archives larger than memory. Cold data seals into <b>compressed segments</b> that push to an <b>S3-compatible bucket</b> (stdlib request signing, Merkle-verified on fetch) — shipped today. See <a href="how-it-works.html#engine">how the storage engine works →</a></div>
-</div></section>
-
-<!-- VISION & LOCAL AI -->
-<section id="vision"><div class="wrap">
-  <div class="kicker">Vision &amp; local AI</div>
-  <h2>Let an AI <span class="rule">see your files</span> — locally, for free.</h2>
-  <p class="lead">Drop in an image or a PDF — an electrical drawing, a scanned form, a photo. A vision model running on <em>your</em> machine reads it; Centauri stores the file (content-addressed, on disk — never in the log), the model's structured description, and a vector embedding — all as facts you can query. No Firestore, no object store, no API bill, nothing leaving your computer. Centauri even installs and runs the model for you.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">👁️</div><h3>Vision ingest</h3><p>Upload images or PDFs (<code>POST /v1/assets</code> or the Studio's 📎 panel). Blobs are content-addressed on disk, PDF pages are rendered, and a vision model describes &amp; embeds each one with <code>ENRICH asset:* USING vision</code>.</p></div>
-    <div class="feat"><div class="fi">🔎</div><h3>Semantic search</h3><p><code>SEARCH 'inventory stockout' OF asset:*</code> embeds your query and ranks by <em>meaning</em> blended with keyword — and it searches the AI's descriptions too. Find the right drawing without the exact words.</p></div>
-    <div class="feat"><div class="fi">💬</div><h3>ASK your data (RAG)</h3><p><code>ASK 'what do my drawings say about the 200A panel?'</code> retrieves the most relevant facts and a local LLM answers — <b>with citations</b> to the source events. Private "chat with your data."</p></div>
-    <div class="feat"><div class="fi">🗣️</div><h3>Plain English → CeQL</h3><p>The ✨ Copilot turns natural language into real CeQL — deterministic rules first, then the local LLM for the rest, re-parsed so a suggestion is never invalid.</p></div>
-    <div class="feat"><div class="fi">📦</div><h3>Zero-step setup</h3><p><code>centauri desktop</code> detects your hardware, installs Ollama + a PDF renderer if missing, pulls the right model tier, registers the models, and turns on auto-embed — skipping whatever's already there. <code>centauri desktop</code> then starts the model with Centauri and stops it on exit.</p></div>
-    <div class="feat"><div class="fi">🆓</div><h3>Free &amp; private</h3><p>Runs on free, open <a href="https://ollama.com">Ollama</a> models sized to your hardware — from <code>gemma3:4b</code> + <code>nomic-embed-text</code> on a laptop to <code>glm-4.7-flash</code> + <code>bge-m3</code> + <code>gemma3:27b</code> vision on a 24&nbsp;GB+ GPU. The engine stays zero-dependency; the model is reached over plain HTTP. Your documents never leave the machine.</p></div>
-  </div>
-  <div class="honest" style="margin:18px 0 0"><b>Model tiers &amp; the cloud boost:</b> <code>centauri desktop</code> picks a preset for your hardware — <b>small</b> (~8&nbsp;GB laptop: gemma3:4b + nomic-embed-text), <b>balanced</b> (12–16&nbsp;GB GPU: qwen3:14b + bge-m3), <b>max</b> (24&nbsp;GB+: <b>GLM-4.7-Flash</b>, a 30B-MoE, MIT-licensed GLM with a 200K context, + bge-m3 + gemma3:27b vision). The dashboard's AI panel shows live status dots and offers optional <b>cloud boosts</b> — <b>GLM-5.2</b> (z.ai), <b>OpenAI GPT-5.5</b>, or <b>Anthropic Claude</b>, each with its own per-provider key — <b>off by default and explicitly labeled, because with them your questions leave the machine</b>. GLM-5.2 cannot run locally: its weights need 200+&nbsp;GB.</div>
-  <p class="lead" style="margin-top:18px"><b>The loop:</b> <code>Upload → ENRICH → SEARCH / ASK</code>. Your electrical drawings, contracts, and photos become searchable by what's <em>in</em> them — the kind of thing teams normally wire up Firestore, an object store, and a cloud vision API to do. Here it's one local binary. Setup: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">vision-setup.md</a> · features: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">ai-features.md</a>.</p>
-</div></section>
-
-<!-- ASK AI -->
-<section class="alt" id="ask"><div class="wrap">
-  <div class="kicker">Ask Centauri</div>
-  <h2>Ask a question — get an answer <span class="rule">and the query</span>.</h2>
-  <p class="lead">This assistant <b>indexes the entire page</b> — every reference entry, example, and feature — and answers with Centauri's own BM25 search. <b>No LLM, no API key, no token cost</b>: it runs entirely in your browser, and it's the same engine you'd self-host. Ask about the product, or pose a data question and watch it become a query.</p>
-  <div class="ask">
-    <div class="ask-head">🤖 Centauri Assistant <span class="b">powered by Centauri SEARCH (BM25) · 0 tokens · runs in your browser</span></div>
-    <div class="ask-body">
-      <div class="ask-in">
-        <input id="ask-q" placeholder="e.g. Does Centauri scale? or: why did the price of toy:robot change?" value="What problems does Centauri solve?">
-        <button id="ask-go">Ask</button>
-      </div>
-      <div class="chips" id="ask-chips"></div>
-      <div class="answer" id="ask-a"></div>
+      <a class="btn outline" href="product.html">Pricing, comparisons &amp; the engineer tour →</a>
     </div>
   </div>
-</div></section>
+</section>
 
-<!-- AI, NATIVELY -->
-<section id="agents"><div class="wrap">
-  <div class="kicker">AI, natively</div>
-  <h2>How an agent actually <span class="rule">uses Centauri</span>.</h2>
-  <p class="lead">Centauri exposes a <b>native MCP server</b> with 20 typed tools, so an agent calls the database directly — no string-building, no SQL injection, no glue. Here's a real interaction.</p>
+<footer>
+  Centauri by JacobLabs LLC · <a href="https://jacoblabs.ai">jacoblabs.ai</a> · free and open source under the MIT License ·
+  <a href="https://github.com/aniljacobv-lab/centauri">GitHub</a> · <a href="documentation.html">docs</a> · <a href="how-it-works.html">how it works</a> · <a href="compare-gateways.html">gateway comparison</a> · <a href="index.html">centauridb.com</a>
+</footer>
 
-  <div class="demo">
-    <div class="demo-head"><span class="dot" style="background:var(--teal-d)"></span> Agent ↔ Centauri (MCP)</div>
-    <div class="demo-body"><div class="tx">
-      <div class="bub u"><div class="who">user → agent</div>Why is item 100001 cheaper at the register than head office thinks?</div>
-      <div class="toolcall"><span class="cm">// the agent calls one MCP tool — no query string to build</span>
-<span class="fn">centauri_context</span>({ <span class="lit">"subject"</span>: <span class="lit">"item:100001/store:4001"</span> })</div>
-      <div class="toolcall"><span class="cm">// Centauri returns one structured bundle the agent can reason over</span>
-{
-  <span class="lit">"facts"</span>: { register: 1799, storecentral: 2199 },
-  <span class="lit">"disagreements"</span>: { price_cents: [1799, 2199] },
-  <span class="lit">"pending"</span>: [{ facet: <span class="lit">"register"</span>, effective: <span class="lit">"2026-03-10"</span>,
-                 recorded: <span class="lit">"2026-03-12"</span>, activated: false }],
-  <span class="lit">"confidence"</span>: 0.92
-}</div>
-      <div class="bub ai"><div class="who">agent → user</div>The register shows <b>$17.99</b> but head office (storecentral) still shows <b>$21.99</b>. A markdown effective Mar&nbsp;10 reached the register but <b>storecentral never activated it</b> — that's the disagreement. Fix: re-distribute the markdown to storecentral, or retire the stale $21.99 fact.</div>
-    </div></div>
-  </div>
-
-  <div class="exgrid">
-    <div>
-      <h3>1 · Text or typed AST — agent's choice</h3>
-      <pre><span class="cm">// humans write CeQL text…</span>
-<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">AS OF</span> <span class="lit">'2026-03-15'</span> <span class="kw">WHY</span>
-
-<span class="cm">// …agents emit the same query as a typed JSON AST —</span>
-<span class="cm">// no parsing, no injection, just a tool call:</span>
-{ <span class="lit">"kind"</span>:<span class="lit">"facts"</span>, <span class="lit">"subject"</span>:<span class="lit">"item:100001/store:4001"</span>,
-  <span class="lit">"as_of"</span>: 1742000000000000, <span class="lit">"why"</span>: true }</pre>
-    </div>
-    <div>
-      <h3>2 · Hybrid retrieval for RAG</h3>
-      <pre><span class="cm">// embed the user's question as an event, then blend</span>
-<span class="cm">// keyword (BM25) + vector recall in one call:</span>
-<span class="kw">SEARCH</span> <span class="lit">'late markdown register'</span> <span class="kw">OF</span> item:*
-  <span class="kw">SIMILAR TO</span> evt:user_question <span class="kw">ALPHA</span> 0.5
-
-<span class="cm">// top hits become grounded context for the model</span></pre>
-    </div>
-    <div>
-      <h3>3 · Leak-free training features</h3>
-      <pre><span class="cm"># Python SDK — features exactly as known then,</span>
-<span class="cm"># so the model can't peek at the future:</span>
-row = db.context(<span class="lit">"item:100001/store:4001"</span>,
-                 known_at=<span class="lit">"2026-03-01"</span>)
-<span class="cm"># no label leakage, no train/serve skew</span></pre>
-    </div>
-    <div>
-      <h3>4 · Common agent tool calls</h3>
-      <pre><span class="fn">centauri_ceql</span>(<span class="lit">"PENDING pdt OLDER THAN 21 DAYS"</span>)
-<span class="fn">centauri_asof</span>({subject, at, known_at})  <span class="cm">// decision replay</span>
-<span class="fn">centauri_trace</span>({event, direction:<span class="lit">"cause"</span>}) <span class="cm">// WHY</span>
-<span class="fn">centauri_genesis</span>({scenario})        <span class="cm">// build a DB</span></pre>
-    </div>
-    <div>
-      <h3>5 · Connect any LLM over HTTP (Gemini, GPT, Claude…)</h3>
-      <pre><span class="cm"># expose ONE tool that POSTs CeQL — works with any model</span>
-curl -s localhost:7771/v1/query \
-  -H <span class="lit">'Authorization: Bearer TOKEN'</span> \
-  -d <span class="lit">'{"q":"FACTS OF item:100001/store:4001 WHY"}'</span></pre>
-    </div>
-    <div>
-      <h3>6 · Gemini function calling (Python)</h3>
-      <pre><span class="cm"># pip install google-generativeai requests</span>
-import google.generativeai as genai, requests
-def <span class="fn">centauri_query</span>(ceql: str) -> str:
-    <span class="lit">"""Run a CeQL query against Centauri and return JSON."""</span>
-    return requests.post(<span class="lit">"http://localhost:7771/v1/query"</span>,
-        headers={<span class="lit">"Authorization"</span>: <span class="lit">"Bearer TOKEN"</span>},
-        json={<span class="lit">"q"</span>: ceql}).text
-m = genai.GenerativeModel(<span class="lit">"gemini-2.0-pro"</span>, tools=[centauri_query])
-chat = m.start_chat(enable_automatic_function_calling=True)
-print(chat.send_message(
-  <span class="lit">"What did item:100001/store:4001 cost on 2026-03-01?"</span>).text)
-<span class="cm"># Gemini auto-calls centauri_query(ceql) and grounds its answer.</span></pre>
-    </div>
-    <div>
-      <h3>7 · OpenAI / GPT (function calling)</h3>
-      <pre><span class="cm"># same centauri_query() as above; register it as a tool</span>
-tools=[{<span class="lit">"type"</span>:<span class="lit">"function"</span>,<span class="lit">"function"</span>:{
-  <span class="lit">"name"</span>:<span class="lit">"centauri_query"</span>,
-  <span class="lit">"parameters"</span>:{<span class="lit">"type"</span>:<span class="lit">"object"</span>,
-    <span class="lit">"properties"</span>:{<span class="lit">"ceql"</span>:{<span class="lit">"type"</span>:<span class="lit">"string"</span>}}}}}]
-OpenAI().chat.completions.create(model=<span class="lit">"gpt-4o"</span>, tools=tools, messages=[...])
-<span class="cm"># then dispatch the tool call to centauri_query(args["ceql"])</span></pre>
-    </div>
-    <div>
-      <h3>8 · Claude / Anthropic (MCP — zero code)</h3>
-      <pre><span class="cm"># Claude speaks MCP natively — just add this to the config:</span>
-{ <span class="lit">"mcpServers"</span>: {
-    <span class="lit">"centauri"</span>: { <span class="lit">"command"</span>: <span class="lit">"centauri"</span>, <span class="lit">"args"</span>: [<span class="lit">"mcp"</span>] }
-} }
-<span class="cm"># Claude Desktop/Code now has all 20 Centauri tools. No code.</span></pre>
-    </div>
-    <div>
-      <h3>9 · Grok / xAI (OpenAI-compatible)</h3>
-      <pre>from openai import OpenAI
-client = OpenAI(api_key=<span class="lit">"XAI_KEY"</span>,
-                base_url=<span class="lit">"https://api.x.ai/v1"</span>)  <span class="cm"># model "grok-2"</span>
-<span class="cm"># same centauri_query tool. Identical pattern works for</span>
-<span class="cm"># Mistral, Together, Groq, Fireworks, OpenRouter, DeepSeek…</span></pre>
-    </div>
-    <div>
-      <h3>10 · Local / self-hosted LLMs (Ollama, LM Studio, vLLM)</h3>
-      <pre>from openai import OpenAI
-client = OpenAI(base_url=<span class="lit">"http://localhost:11434/v1"</span>,  <span class="cm"># Ollama</span>
-                api_key=<span class="lit">"ollama"</span>)                       <span class="cm"># model "llama3.1"</span>
-<span class="cm"># same centauri_query tool — fully offline &amp; private.</span>
-<span class="cm"># LM Studio → :1234/v1 · vLLM → :8000/v1 · llama.cpp → :8080/v1</span></pre>
-    </div>
-  </div>
-  <p style="color:var(--faint);font-size:13.5px;margin-top:18px">All 20 MCP tools are documented in <a href="ceql.html">The CeQL Book</a> · the JSON AST is the same shape CeQL parses to, so anything you can type, an agent can emit.</p>
-</div></section>
-
-<!-- QUICKSTART -->
-<section class="alt" id="quickstart"><div class="wrap">
-  <div class="kicker">Quickstart</div>
-  <h2>From zero to querying in <span class="rule">60 seconds</span>.</h2>
-  <p class="lead">No server to configure, no schema migration to run. Download, seed sample data, and start asking questions of time, cause, and trust.</p>
-  <div class="qs">
-    <div>
-      <h3 style="margin:0 0 10px;font-size:16px;color:var(--dim)">1 · Install &amp; run</h3>
-      <pre><span class="cm"># macOS / Linux</span>
-curl -fsSL https://centauridb.com/install.sh | sh
-centauri seed                 <span class="cm"># load demo data</span>
-centauri desktop              <span class="cm"># dashboard + local AI, auto-sized to your hardware</span>
-
-<span class="cm"># Windows: double-click run-centauri.bat — builds, opens the</span>
-<span class="cm"># dashboard, and offers (once) to set up local AI Vision</span>
-
-<span class="cm"># optional: let an AI read your images &amp; PDFs, all local</span>
-centauri setup vision -install</pre>
-    </div>
-    <div>
-      <h3 style="margin:0 0 10px;font-size:16px;color:var(--dim)">2 · Ask questions in CeQL</h3>
-      <pre><span class="cm">-- what is true now</span>
-<span class="kw">FACTS OF</span> item:100001/store:4001
-
-<span class="cm">-- what we believed last month about last week</span>
-<span class="kw">FACTS OF</span> item:100001/store:4001
-  <span class="kw">AS OF</span> <span class="lit">'last week'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-01'</span>
-
-<span class="cm">-- why did it change? ranked search? the shape of it?</span>
-<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">WHY</span>
-<span class="kw">SEARCH</span> <span class="lit">'late markdown'</span> <span class="kw">OF</span> item:*
-<span class="kw">SHAPE OF</span> item:* <span class="kw">ON</span> price_cents</pre>
-    </div>
-  </div>
-</div></section>
-
-<!-- FEATURES -->
-<section id="features"><div class="wrap">
-  <div class="kicker">Capabilities</div>
-  <h2>One binary. <span class="rule">A lot of database.</span></h2>
-  <p class="lead">No extensions to install, no services to wire up — everything below ships inside a single executable with zero third-party dependencies. Each card links to the matching track in the <a href="documentation.html">documentation portal</a>; package names point at the source that implements it.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">🐘</div><h3>Drop-in Postgres wire, SQL, CeQL &amp; plain English</h3><p>Start with <code>-pg-addr</code> and connect <b>psql</b>, DBeaver, JDBC drivers, or BI tools over the <b>PostgreSQL wire protocol</b> (read-only). The same read-only SQL <code>SELECT</code> subset is at <code>/v1/sql</code>; <b>CeQL</b> adds time, cause, and trust as syntax; and a deterministic plain-English helper compiles questions into queries. <b>Not</b> a general SQL database — writes use CeQL, and there are no JOINs.</p><div class="proof">internal/pgwire · internal/ceql/sql.go · internal/ceql/natural.go · <a href="documentation.html#track-2">querying docs →</a></div></div>
-    <div class="feat"><div class="fi">🔎</div><h3>Hybrid search &amp; cardinality engine</h3><p>Native ranked <b>BM25</b> full-text, auto-embedded <b>vector</b> search, and hybrid keyword+vector <code>SEARCH</code> for RAG. <b>HyperLogLog</b> approximate <code>COUNT DISTINCT</code> for high-cardinality sets, plus hierarchy and <b>topology</b> operators (<code>SHAPE</code>, <code>CONSISTENCY</code>, <code>CYCLES</code>, <code>DRIFT</code>) over the causal graph.</p><div class="proof">internal/ceql/bm25.go · hll.go · topology.go · <a href="documentation.html#t2-search">search docs →</a></div></div>
-    <div class="feat"><div class="fi">🤖</div><h3>Private AI, vision &amp; a native MCP server</h3><p>Zero-config local LLM presets provisioned through Ollama, sized to your hardware; <b>vision</b> indexing of images and PDFs; <code>ENRICH</code> to run models inside queries; RAG <code>ASK</code> with citations. A native <b>Model Context Protocol</b> server exposes 20 typed tools to Claude, Cursor, and autonomous agents — no SQL strings, no glue.</p><div class="proof">internal/ai · internal/ceql/enrich.go · internal/mcp · <a href="documentation.html#track-3">AI docs →</a></div></div>
-    <div class="feat"><div class="fi">🏗</div><h3>Genesis architect &amp; stored procedures</h3><p>Describe a scenario in plain language; the <b>Genesis Engine</b> interviews you and generates schemas, procedures, and seed data, then stores the conversation as facts. <b>CePL</b> stored procedures are versioned facts with injection-safe substitution and full traces; a synthetic data generator seeds realistic demo histories.</p><div class="proof">internal/architect · internal/proc · internal/synth · <a href="documentation.html#t3-genesis">Genesis docs →</a></div></div>
-    <div class="feat"><div class="fi">💾</div><h3>Oracle-grade storage with S3 object tiering</h3><p>A bi-temporal, immutable, append-only log sealed by a SHA-256 chain, with per-segment <b>Merkle roots</b> and parallel integrity verification. <b>Tablespaces</b>, compressed sealed segments with zone maps, a disk-backed <b>lazy index</b> for bigger-than-RAM archives, group commit, and transparent cold tiering to any <b>S3-compatible</b> bucket (stdlib SigV4, Merkle-verified on fetch).</p><div class="proof">internal/segment/merkle.go · internal/store/lazyindex.go · internal/objstore/s3.go · <a href="documentation.html#track-4">storage docs →</a></div></div>
-    <div class="feat"><div class="fi">⚖️</div><h3>Compliance &amp; governance by design</h3><p>WORM-style <b>legal holds</b> that block <code>RETIRE</code> across originating writes, <b>retention</b> runs (dry-run by default), scoped tokens with subject-prefix row security and dynamic <b>field-level masking</b>, OIDC SSO, and <code>centauri verify</code> to re-prove the whole history byte-for-byte.</p><div class="proof">internal/retention · internal/store (legalhold) · internal/api (masking) · <a href="documentation.html#t4-governance">governance docs →</a></div></div>
-    <div class="feat"><div class="fi">🛡</div><h3>Inline enterprise API &amp; LLM gateway</h3><p><code>centauri gateway</code> — a reverse proxy whose routes and keys are bi-temporal facts and whose per-request audit is hash-chained. <b>mTLS</b>, OIDC JWT validation plus a <b>client-credentials token issuer</b> (<code>/gw/token</code> + JWKS), per-key/per-IP <b>rate limits</b>, programmable <b>CePL request policies</b>, webhook auth callouts, and an LLM gateway with SSE streaming, provider failover, and per-key token metering.</p><div class="proof">internal/gateway (mtls.go · ratelimit.go · policy.go · audit.go) · internal/oidc · <a href="documentation.html#t4-gateway">gateway docs →</a></div></div>
-    <div class="feat"><div class="fi">🖥</div><h3>Embedded web workspaces — all in the binary</h3><p>Every server ships its own browser UI: the <b>Dashboard</b> (<code>/</code>), the <b>Studio</b> IDE (<code>/studio</code>) with object explorer and causal-graph view, the one-screen <b>Console</b> (<code>/console</code>) for the whole suite, the plain-English <b>App</b> (<code>/app</code>), the <b>CeQL Book</b> (<code>/ceql</code>), and a <b>lazy-archive inspector</b> in <code>-lazy-index</code> mode. No separate front-end to deploy.</p><div class="proof">internal/api (ui.html · studio.html · console.html · app.html · lazy.html) · <a href="documentation.html#t1-workspaces">workspace docs →</a></div></div>
-    <div class="feat"><div class="fi">🌐</div><h3>Ecosystem, scale-out HA &amp; connectors</h3><p>HA leader election with automatic failover, subject-hash <b>sharding</b> with distributed query fan-out, log shipping (<code>centauri follow</code>), live <b>CDC</b> with durable replication slots and <code>WATCH</code> streams over SSE. Official zero-dependency <b>Python, Go, and JavaScript</b> SDKs, and native <b>Airbyte</b> source and destination connectors.</p><div class="proof">internal/ha · internal/shard · internal/ceql/fanout.go · store/cdc.go · sdk/ · connectors/airbyte · <a href="documentation.html#track-5">SDK &amp; connector docs →</a></div></div>
-  </div>
-  <div class="honest" style="margin-top:22px"><b>Honest limits:</b> single writer per log (HA is one primary plus replicas, not multi-master); sharding restricts cross-shard queries; the working set lives in RAM (the tablespace tier serves bigger-than-memory data read-only); no Vault/KMS integration; no cost-based optimizer; GLM-5.2 is cloud-only.</div>
-</div></section>
-
-<!-- PLAYGROUND -->
-<section class="alt" id="playground"><div class="wrap">
-  <div class="kicker">Playground</div>
-  <h2>Play with the ideas — <span class="rule">no install</span>.</h2>
-  <p class="lead">These run entirely in your browser, using the same logic that runs inside Centauri.</p>
-
-  <div class="demo" style="margin-bottom:22px">
-    <div class="demo-head"><span class="dot" style="background:var(--teal-d)"></span> Time travel — “what did we believe, and when?” <span style="margin-left:auto">item:100001/store:4001</span></div>
-    <div class="demo-body">
-      <div class="twocol">
-        <div>
-          <label class="fld">AS OF — <span id="vt-d" style="color:var(--blue)"></span></label>
-          <div class="axis" id="axis"><div class="track"></div></div>
-          <input type="range" id="vt" min="0" max="100" value="62">
-        </div>
-        <div>
-          <label class="fld">AS KNOWN AT — <span id="kt-d" style="color:var(--teal-d)"></span></label>
-          <div style="height:54px"></div>
-          <input type="range" id="kt" min="0" max="100" value="100">
-        </div>
-      </div>
-      <div class="ceql-out" id="d1-ceql"></div>
-      <div class="result"><span class="big" id="d1-price">—</span><span class="note" id="d1-note"></span></div>
-    </div>
-  </div>
-
-  <div class="twocol">
-    <div class="demo">
-      <div class="demo-head"><span class="dot" style="background:var(--blue)"></span> Plain English → CeQL</div>
-      <div class="demo-body">
-        <div class="nlrow"><input id="nl" value="why did the price of toy:robot change?" spellcheck="false"></div>
-        <div class="demochips" id="nl-chips"></div>
-        <div class="ceql-out" id="d2-ceql"></div>
-        <div class="note" id="d2-note" style="color:var(--dim);font-size:14px;margin-top:10px"></div>
-      </div>
-    </div>
-    <div class="demo">
-      <div class="demo-head"><span class="dot" style="background:var(--good)"></span> Tamper-evident history</div>
-      <div class="demo-body">
-        <p style="margin:0 0 14px;color:var(--dim);font-size:14.5px"><b>Edit any record</b> and watch <code>centauri verify</code> catch it.</p>
-        <div class="chain" id="chain"></div>
-        <div class="verify ok" id="verify">✓ centauri verify — history intact</div>
-        <div style="margin-top:12px"><span class="chip" id="reset">↺ reset history</span></div>
-      </div>
-    </div>
-  </div>
-</div></section>
-
-<!-- CeQL REFERENCE -->
-<section id="reference"><div class="wrap">
-  <div class="kicker">Documentation</div>
-  <h2>CeQL reference</h2>
-  <p class="lead">One query language for time, cause, trust, shape, and meaning. Every statement below is documented in full — with a Rosetta Stone from SQL, Cypher, Mongo and more — in <a href="ceql.html">The CeQL Book</a>.</p>
-  <div class="scroll"><table class="ref">
-    <thead><tr><th style="width:200px">Statement</th><th>What it does</th><th style="width:300px">Example</th></tr></thead>
-    <tbody>
-      <tr><td class="s">FACTS OF</td><td>Current facts about a subject (one per facet); add projections, WHERE, GROUP BY, ORDER BY.</td><td class="ex">FACTS OF item:100001/store:4001</td></tr>
-      <tr><td class="s">AS OF</td><td>Time travel — what was true at a given moment (or “yesterday”, “10 days ago”).</td><td class="ex">FACTS OF toy:robot AS OF '2026-03-15'</td></tr>
-      <tr><td class="s">AS KNOWN AT</td><td>The second clock — what you <em>believed</em> at a past moment. The audit query.</td><td class="ex">… AS OF '2026-03-15' AS KNOWN AT '2026-03-01'</td></tr>
-      <tr><td class="s">HISTORY OF</td><td>The full, never-erased timeline of a subject.</td><td class="ex">HISTORY OF item:100001/store:4001</td></tr>
-      <tr><td class="s">WHY / EFFECTS</td><td>Walk the causal graph — what led to an event, or what it caused.</td><td class="ex">FACTS OF toy:robot WHY DEPTH 3</td></tr>
-      <tr><td class="s">MATCH <span class="reftag">new</span></td><td>Causal pattern search across the WHY graph — which things led to which, by link type.</td><td class="ex">MATCH item:* CAUSES register:* VIA TRIGGERED</td></tr>
-      <tr><td class="s">PUT / CORRECT / RETIRE</td><td>Write a fact, fix one, or retire it — all append-only; history is kept.</td><td class="ex">PUT toy:robot SET price_cents=500</td></tr>
-      <tr><td class="s">SNAPSHOT / ROLLBACK <span class="reftag">new</span></td><td>Name a point, then rewind to it — rollback appends auditable reversion facts (never erases) and rewinds <em>any</em> past commit.</td><td class="ex">ROLLBACK TO SNAPSHOT 'before-import'</td></tr>
-      <tr><td class="s">DIFF <span class="reftag">new</span></td><td>What changed between two moments — preview before you roll back.</td><td class="ex">DIFF OF item:* BETWEEN '2026-03-01' AND '2026-03-15'</td></tr>
-      <tr><td class="s">PENDING / DISAGREE</td><td>Operational integrity: changes sent but never activated; systems that disagree.</td><td class="ex">PENDING pdt OLDER THAN 21 DAYS</td></tr>
-      <tr><td class="s">SEARCH <span class="reftag">new</span></td><td>Ranked full-text (BM25) across subjects and text values; hybrid with vectors via SIMILAR&nbsp;TO.</td><td class="ex">SEARCH 'late markdown' OF item:*</td></tr>
-      <tr><td class="s">SIMILAR TO</td><td>Semantic search over embeddings — events that look like this one.</td><td class="ex">SIMILAR TO 0193fa2e-77c1 TOP 5</td></tr>
-      <tr><td class="s">SHAPE <span class="reftag">topology</span></td><td>Persistent homology of a value cloud: clusters (B₀), loops (B₁), voids (B₂), periodicity.</td><td class="ex">SHAPE OF item:* ON price_cents</td></tr>
-      <tr><td class="s">CONSISTENCY <span class="reftag">topology</span></td><td>Sheaf consistency across a subject's facets — agreement clusters + the outlier.</td><td class="ex">CONSISTENCY OF item:1/store:9 ON price_cents</td></tr>
-      <tr><td class="s">CYCLES / DRIFT <span class="reftag">topology</span></td><td>Cycles in the causal graph (integrity); distribution drift over time.</td><td class="ex">DRIFT OF item:* ON price_cents BUCKETS 6</td></tr>
-      <tr><td class="s">ENRICH <span class="reftag">new</span></td><td>Run a model over events and cache the result as a fact — embeddings or text, via your own LLM endpoint.</td><td class="ex">ENRICH ticket:* USING summarize ON body AS summary</td></tr>
-      <tr><td class="s">ASK <span class="reftag">new</span></td><td>Private RAG — retrieve the most relevant facts, have the local model answer, cite the source events.</td><td class="ex">ASK 'which invoices from Acme are overdue?'</td></tr>
-      <tr><td class="s">CONTEXT FOR</td><td>Everything an AI needs in one call: facts, history, causes, disagreements, confidence.</td><td class="ex">CONTEXT FOR item:100001/store:4001</td></tr>
-      <tr><td class="s">WATCH</td><td>A standing query — stream new facts as they commit.</td><td class="ex">WATCH ALL FACET pdt</td></tr>
-      <tr><td class="s">DEFINE SCHEMA / RUN</td><td>Versioned validation schemas; run CePL stored procedures with a step trace.</td><td class="ex">RUN duty_estimate WITH item='100001'</td></tr>
-      <tr><td class="s">EXPLAIN ANALYZE <span class="reftag">new</span></td><td>Show a query's access path, and run it to report row count and timing.</td><td class="ex">EXPLAIN ANALYZE FACTS OF item:*</td></tr>
-    </tbody>
-  </table></div>
-  <p class="lead" style="margin-top:16px">Beyond the language, the single binary ships a <b>Studio</b> IDE (object explorer, editor, causal-graph view, inline edit-as-a-fact), a psql-style <code>centauri shell</code>, <code>EXPLAIN ANALYZE</code>, CDC with resumable <b>replication slots</b>, and <b>scoped tokens</b> (subject-prefix row-level security) — all detailed in <a href="ceql.html">The CeQL Book</a>.</p>
-</div></section>
-
-<!-- COMING FROM SQL -->
-<section class="alt" id="sql"><div class="wrap">
-  <div class="kicker">Coming from SQL?</div>
-  <h2>You already know most of CeQL.</h2>
-  <p class="lead">The everyday operations map almost one-to-one — then CeQL adds what SQL can't express. The full mapping (Oracle, PostgreSQL, MongoDB, Cypher, KSQL) is in <a href="ceql.html">the Rosetta Stone</a>.</p>
-  <div class="scroll"><table class="ref">
-    <thead><tr><th style="width:48%">SQL</th><th>CeQL</th></tr></thead>
-    <tbody>
-      <tr><td class="ex">SELECT * FROM t WHERE id = 42</td><td class="ex">FACTS OF item:42</td></tr>
-      <tr><td class="ex">SELECT price, trust … WHERE price &gt; 700</td><td class="ex">FACTS price_cents, trust OF item:* WHERE price_cents &gt; 700</td></tr>
-      <tr><td class="ex">INSERT / UPDATE … SET price = 500</td><td class="ex">PUT item:42 SET price_cents=500 <span class="cm">— insert &amp; update are one act</span></td></tr>
-      <tr><td class="ex">DELETE FROM t WHERE id = 42</td><td class="ex">RETIRE item:42 <span class="cm">— history kept; no hard delete</span></td></tr>
-      <tr><td class="ex">GROUP BY facet, AVG(price)</td><td class="ex">FACTS facet, AVG(price_cents) OF item:* GROUP BY facet</td></tr>
-      <tr><td class="ex">ORDER BY price DESC LIMIT 10</td><td class="ex">FACTS … ORDER BY price_cents DESC LIMIT 10</td></tr>
-      <tr><td class="ex">CREATE TABLE / column types</td><td class="ex">DEFINE SCHEMA price (price_cents number REQUIRED …)</td></tr>
-      <tr><td class="ex">WHERE col LIKE '%markdown%'</td><td class="ex">SEARCH 'markdown' OF item:* <span class="cm">— ranked, not just matched</span></td></tr>
-      <tr><td class="ex">AS OF SYSTEM TIME '2026-03-15'</td><td class="ex">FACTS OF item:42 AS OF '2026-03-15'</td></tr>
-      <tr><td class="ex">stored procedure</td><td class="ex">RUN duty_estimate WITH item='100001'</td></tr>
-      <tr><td class="ex">audit log / temporal table</td><td class="ex">HISTORY OF item:42 <span class="cm">— built in, never erased</span></td></tr>
-      <tr><td class="ex">JOIN</td><td class="ex">causal links + CONTEXT FOR item:42 <span class="cm">— no table joins</span></td></tr>
-    </tbody>
-  </table></div>
-  <p class="lead" style="margin-top:18px"><b>What CeQL adds that SQL can't:</b> <code>AS KNOWN AT</code> (replay what you <em>believed</em>, not just what was true), <code>WHY</code> / <code>EFFECTS</code> (causal lineage), <code>SHAPE</code> / <code>CONSISTENCY</code> / <code>DRIFT</code> (topology), tamper-evident <code>verify</code>, hybrid keyword+vector <code>SEARCH</code>, and a native agent interface (MCP).</p>
-</div></section>
-
-<!-- INTEGRATIONS -->
-<section id="integrations"><div class="wrap">
-  <div class="kicker">Integrations</div>
-  <h2>Get data in and out — without lock-in.</h2>
-  <p class="lead">Centauri is the system of record beside your operational stores, so moving data across the boundary is first-class. Two open paths: native Airbyte connectors and a resumable change stream.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">⤵</div><h3>Airbyte destination</h3><p>Point any of Airbyte's 300+ sources — Postgres, MongoDB, Stripe, Salesforce, files — at the Centauri destination, and every row lands as a bi-temporal fact. One connector instead of N importers.</p></div>
-    <div class="feat"><div class="fi">⤴</div><h3>Airbyte source</h3><p>Stream facts out to any warehouse or lake. It rides the CDC endpoint, so Centauri's byte-offset cursor becomes Airbyte incremental state — only new facts, never duplicates.</p></div>
-    <div class="feat"><div class="fi">🔁</div><h3>Change Data Capture</h3><p><code>GET /v1/changes?from=&lt;cursor&gt;</code> returns committed facts in order plus a cursor to resume from. Tail the database from any language; the append-only log <em>is</em> the stream.</p></div>
-  </div>
-  <p class="lead" style="margin-top:18px">The connectors are standalone (pure-stdlib Python, no Airbyte CDK) and never link into the single binary — the zero-dependency core is untouched. <a href="https://github.com/aniljacobv-lab/centauri/tree/main/connectors/airbyte">Connector source &amp; quickstart →</a></p>
-</div></section>
-
-<!-- SDKs & PROCEDURES -->
-<section class="alt" id="sdks"><div class="wrap">
-  <div class="kicker">SDKs &amp; procedures</div>
-  <h2>Use it from your language — or teach it procedures.</h2>
-  <p class="lead">Talk to Centauri with a <b>zero-dependency client</b> for Python, Go, or JavaScript — or over plain HTTP/MCP from anything. Insert and update are the same call; reads, time travel, context, and CDC are one method each.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">🐍</div><h3>Python</h3>
-      <pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55">db = Centauri(token="…")
-db.add("toy:robot", {"price_cents": 500})
-db.get("toy:robot")
-db.context("toy:robot")   # agent bundle
-db.run("reprice", item="toy:robot", pct=90)</pre>
-      <div style="margin-top:10px"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk/python">Python SDK →</a></div></div>
-    <div class="feat"><div class="fi">🐹</div><h3>Go</h3>
-      <pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55">c := centauri.New(url,
-  centauri.WithToken("…"))
-c.Add("toy:robot",
-  map[string]any{"price_cents": 500})
-c.Query("FACTS OF item:* WHERE region='EU'")</pre>
-      <div style="margin-top:10px"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk/go">Go SDK →</a></div></div>
-    <div class="feat"><div class="fi">🟨</div><h3>JavaScript / TS</h3>
-      <pre style="white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.55">const db = new Centauri(url, {token:"…"});
-await db.add("toy:robot", {price_cents: 500});
-await db.query("FACTS OF toy:robot WHY");
-await db.run("reprice", {item:"toy:robot"});</pre>
-      <div style="margin-top:10px"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk/js">JS / TS SDK →</a></div></div>
-  </div>
-  <h3 style="margin-top:26px">Procedures live <em>in</em> the database — that's CePL</h3>
-  <p class="lead"><b>CePL is not Python</b> — it's Centauri's tiny, near-English procedure language (think PL/SQL for the agent era). A procedure is stored as a versioned fact and run by name, returning a full step-by-step trace. Reach for the SDKs or an MCP agent when you need general-purpose code; reach for CePL when the logic belongs next to the data.</p>
-  <pre><span class="kw">PROCEDURE</span> reprice(item, pct)
-  <span class="kw">LET</span> cur = <span class="kw">FIRST FACTS OF</span> ${item}
-  <span class="kw">WHEN</span> cur <span class="kw">IS MISSING</span>: <span class="kw">FAIL</span> <span class="lit">'unknown item ${item}'</span>
-  <span class="kw">LET</span> newp = cur.price_cents * pct / 100
-  <span class="kw">PUT</span> ${item} <span class="kw">SET</span> price_cents=${newp} <span class="kw">REF</span> <span class="lit">'proc:reprice'</span>
-  <span class="kw">RETURN</span> newp
-<span class="kw">END</span></pre>
-  <p class="lead" style="margin-top:14px">Any language also works over HTTP (<code>POST /v1/query</code>) or natively via the <a href="#agents">MCP server</a>. Full details &amp; the <a href="ceql.html#cepl">CePL chapter</a> are in <a href="ceql.html">The CeQL Book</a>; SDK source is in <a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk">/sdk</a>.</p>
-</div></section>
-
-<!-- EXAMPLES ACROSS DOMAINS -->
-<section id="examples"><div class="wrap">
-  <div class="kicker">Examples across domains</div>
-  <h2>The same operators, <span class="rule">everywhere</span>.</h2>
-  <p class="lead">Centauri isn't a retail tool — the subjects are just names. Here's how each capability reads in healthcare, finance, security, ML, IoT, and more. Every query is real CeQL.</p>
-  <div class="excards">
-
-    <div class="excard"><div class="extags"><span class="t2 cap">AS KNOWN AT</span><span class="t2 dom">Healthcare</span></div>
-      <div class="q2">What labs did the clinician <em>actually</em> have when they prescribed?</div>
-      <pre><span class="cm">-- decision replay: the chart as it was that day</span>
-<span class="kw">CONTEXT FOR</span> patient:8842/encounter:0421
-  <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-02-10'</span></pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">AS OF · AS KNOWN AT</span><span class="t2 dom">Finance / audit</span></div>
-      <div class="q2">Reconstruct the desk's positions exactly as believed at the close.</div>
-      <pre><span class="cm">-- regulators ask "what did you know, and when?"</span>
-<span class="kw">FACTS OF</span> position:*/desk:fx
-  <span class="kw">AS OF</span> <span class="lit">'2026-03-15 16:00 EST'</span>
-  <span class="kw">AS KNOWN AT</span> <span class="lit">'2026-03-15 16:00 EST'</span></pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">WHY</span><span class="t2 dom">SRE / observability</span></div>
-      <div class="q2">What chain of changes caused the checkout outage?</div>
-      <pre><span class="cm">-- walk the causal graph to the root</span>
-<span class="kw">FACTS OF</span> incident:5521 <span class="kw">WHY</span> <span class="kw">DEPTH</span> 6</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">EFFECTS</span><span class="t2 dom">Security</span></div>
-      <div class="q2">A credential was phished — what did the attacker reach?</div>
-      <pre><span class="cm">-- forward blast radius from one event</span>
-<span class="kw">EFFECTS</span> event:cred-leak-77 <span class="kw">DEPTH</span> 8</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">SEARCH · BM25</span><span class="t2 dom">IT / support</span></div>
-      <div class="q2">Find past incidents about TLS handshake timeouts.</div>
-      <pre><span class="cm">-- ranked full-text, not substring</span>
-<span class="kw">SEARCH</span> <span class="lit">'tls handshake timeout'</span> <span class="kw">OF</span> incident:*</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">SEARCH · hybrid</span><span class="t2 dom">RAG / knowledge</span></div>
-      <div class="q2">Ground the model — keyword + meaning over the runbooks.</div>
-      <pre><span class="cm">-- BM25 recall + vector semantics in one call</span>
-<span class="kw">SEARCH</span> <span class="lit">'pod crashloop oom'</span> <span class="kw">OF</span> runbook:*
-  <span class="kw">SIMILAR TO</span> evt:user_question <span class="kw">ALPHA</span> 0.5</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">SHAPE · topology</span><span class="t2 dom">Fraud</span></div>
-      <div class="q2">Are these transfers forming a <em>ring</em>, not isolated outliers?</div>
-      <pre><span class="cm">-- persistent homology finds the loop a</span>
-<span class="cm">-- threshold rule would miss</span>
-<span class="kw">SHAPE OF</span> transfer:* <span class="kw">ON</span> amount, velocity</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">SHAPE · MAXDIM 2</span><span class="t2 dom">IoT / telecom</span></div>
-      <div class="q2">Do our sensors leave an uncovered hole in the field?</div>
-      <pre><span class="cm">-- a void (Betti-2) = a coverage gap</span>
-<span class="kw">SHAPE OF</span> sensor:* <span class="kw">ON</span> lat, lon, range <span class="kw">MAXDIM</span> 2</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">SHAPE · WINDOW</span><span class="t2 dom">Cardiology</span></div>
-      <div class="q2">Is this heart rhythm periodic — or arrhythmic?</div>
-      <pre><span class="cm">-- a clean loop = regular rhythm; a broken</span>
-<span class="cm">-- one flags arrhythmia (time-delay embedding)</span>
-<span class="kw">SHAPE OF</span> signal:ecg/patient:8842 <span class="kw">ON</span> mv <span class="kw">WINDOW</span> 40</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">DRIFT</span><span class="t2 dom">ML Ops</span></div>
-      <div class="q2">Has the model's input distribution drifted since training?</div>
-      <pre><span class="cm">-- topological drift across time buckets</span>
-<span class="kw">DRIFT OF</span> feature:churn_v3/* <span class="kw">ON</span> value <span class="kw">BUCKETS</span> 8</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">CONSISTENCY · sheaf</span><span class="t2 dom">Healthcare</span></div>
-      <div class="q2">Do EHR, pharmacy &amp; lab agree on this patient's potassium?</div>
-      <pre><span class="cm">-- which system is the outlier, by how much</span>
-<span class="kw">CONSISTENCY OF</span> patient:8842/lab:potassium
-  <span class="kw">ON</span> value <span class="kw">EPS</span> 0.2</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">CYCLES</span><span class="t2 dom">Financial crime</span></div>
-      <div class="q2">Is money flowing in a circle (layering)?</div>
-      <pre><span class="cm">-- a directed cycle in the money graph</span>
-<span class="kw">CYCLES IN CAUSES OF</span> transfer:*</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">PENDING · DISAGREE</span><span class="t2 dom">DevOps / config</span></div>
-      <div class="q2">Which config pushes were sent but never took effect on a host?</div>
-      <pre><span class="cm">-- the silent rollout that never landed</span>
-<span class="kw">PENDING</span> host <span class="kw">OLDER THAN</span> 2 <span class="kw">DAYS</span>
-<span class="kw">DISAGREE ON</span> config_hash</pre></div>
-
-    <div class="excard"><div class="extags"><span class="t2 cap">verify · hash chain</span><span class="t2 dom">Compliance / forensics</span></div>
-      <div class="q2">Prove this chain-of-custody log was never altered.</div>
-      <pre><span class="cm"># recomputes the SHA-256 chain byte-for-byte</span>
-$ centauri verify
-<span class="lit">chain head: 7f3a… · 1,284,902 records · intact ✓</span></pre></div>
-
-  </div>
-</div></section>
-
-<!-- DOCS LINKS -->
-<section class="alt" id="docs"><div class="wrap">
-  <div class="kicker">Learn more</div>
-  <h2>Documentation &amp; resources</h2>
-  <div class="doclinks">
-    <a class="doc" href="documentation.html"><b>Documentation portal →</b><span>Everything in one page: install, querying (CeQL / SQL / Postgres wire / hybrid search), private AI &amp; MCP, enterprise storage &amp; gateway, SDKs &amp; connectors.</span></a>
-    <a class="doc" href="ceql.html"><b>The CeQL Book ↗</b><span>The complete textbook: tutorial, every statement, grammar, and the SQL→CeQL Rosetta Stone.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md"><b>Vision setup ↗</b><span>One command to install &amp; run a local AI (Ollama + PDF renderer) so Centauri can read your images and PDFs.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md"><b>Local-AI features ↗</b><span>Semantic search, RAG <code>ASK</code> over your own data with citations, and plain-English → CeQL — all on a free local model.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri"><b>Source &amp; README ↗</b><span>Architecture, contributing guide, and the zero-dependency Go codebase.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md"><b>Deployment guide ↗</b><span>Run on a VPS, Docker, or one-click to Render with HTTPS and a generated token.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/gateway.md"><b>API gateway ↗</b><span>Turn any Centauri log into a reverse proxy — routes and keys are facts, config time-travels with <code>AS OF</code>, and the request audit is tamper-evident.</span></a>
-    <a class="doc" href="#reference"><b>CeQL reference</b><span>The cheat-sheet above — every statement with a runnable example.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/releases"><b>Releases &amp; changelog ↗</b><span>Versioned downloads, checksums, and what changed in each release.</span></a>
-    <a class="doc" href="https://github.com/aniljacobv-lab/centauri/issues/new/choose"><b>Suggest a feature ↗</b><span>File an idea — accepted features are implemented and shipped.</span></a>
-  </div>
-</div></section>
-
-<!-- DOWNLOAD -->
-<section class="alt" id="download"><div class="wrap">
-  <div class="kicker">Download</div>
-  <h2>Get Centauri</h2>
-  <p class="lead">Ready-to-run installers and binaries — one self-contained file with the engine, dashboard, textbook, topology, search, and Genesis. Select your operating system:</p>
-  <div class="ostiles">
-    <div class="tile" data-os="win"><span class="ti">🪟</span>Windows</div>
-    <div class="tile" data-os="mac"><span class="ti">🍎</span>macOS</div>
-    <div class="tile" data-os="linux"><span class="ti">🐧</span>Linux</div>
-    <div class="tile" data-os="cloud"><span class="ti">☁️</span>Cloud</div>
-  </div>
-  <p style="margin:6px 0 0;font-size:13px;color:var(--dim)">All builds, every version &amp; checksums live on <a href="https://github.com/aniljacobv-lab/centauri/releases">GitHub Releases</a>. If a direct link 404s, the latest release is still building (or not published yet).</p>
-  <div class="dlpanel" id="p-win">
-    <div class="dlrow"><a class="dlbig" href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-windows-setup.exe" download>⬇ centauri-windows-setup.exe</a><span class="dlmeta">latest · Windows 10/11 · 64-bit</span></div>
-    <div class="dlsub">Run it like any app: <b>Start menu → Centauri</b> → your browser opens with the dashboard.<br>
-      Portable instead? <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-windows-amd64.exe" download>centauri-windows-amd64.exe</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-windows-arm64.exe" download>windows-arm64</a> → run <code>centauri desktop</code> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
-  </div>
-  <div class="dlpanel" id="p-mac">
-    <p style="margin:0 0 6px;color:var(--dim)">Install with one line (auto-detects Apple Silicon or Intel):</p>
-    <div class="cmd"><code id="mac-cmd">curl -fsSL https://centauridb.com/install.sh | sh</code><button class="copy" data-copy="mac-cmd">copy</button></div>
-    <div class="dlsub">Then: <code>centauri desktop</code>. Direct: <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-darwin-arm64" download>Apple Silicon</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-darwin-amd64" download>Intel</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
-  </div>
-  <div class="dlpanel" id="p-linux">
-    <p style="margin:0 0 6px;color:var(--dim)">Install with one line (amd64 &amp; arm64 auto-detected):</p>
-    <div class="cmd"><code id="lin-cmd">curl -fsSL https://centauridb.com/install.sh | sh</code><button class="copy" data-copy="lin-cmd">copy</button></div>
-    <div class="dlsub">Then: <code>centauri desktop</code>. Direct: <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-amd64" download>linux-amd64</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-arm64" download>linux-arm64</a> · <a href="https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt">checksums</a></div>
-  </div>
-  <div class="dlpanel" id="p-cloud">
-    <div class="dlrow"><a class="dlbig" href="https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri">🚀 Deploy to Render</a><span class="dlmeta">hosted · HTTPS · your account</span></div>
-    <div class="dlsub">One click spins up a hosted Centauri with a generated access token. Any Docker host works too — see the <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">deployment guide</a>.</div>
-  </div>
-
-  <h3 style="margin:34px 0 6px">What's in the download — every Centauri product</h3>
-  <p class="lead" style="margin-bottom:16px">All of these ship inside the one <code>centauri</code> binary above; there is no separate installer per product. Each tile says how to start that piece and where to read more.</p>
-  <div class="grid3">
-    <div class="feat"><div class="fi">🗄</div><h3>Centauri Database</h3><p>The bi-temporal, causal, tamper-evident engine with CeQL, read-only SQL and the Postgres wire listener, REST/SSE API, CDC, backups and <code>verify</code>.</p><div class="proof"><code>centauri serve</code> · <code>start-db.bat</code> · <a href="documentation.html#product-engine">details &amp; comparison →</a></div></div>
-    <div class="feat"><div class="fi">🖥</div><h3>Centauri Studio, Console &amp; App</h3><p>The AI-first IDE (<code>/studio</code>), the one-screen suite home where you mint keys (<code>/console</code>), the plain-English app (<code>/app</code>), the dashboard and the CeQL Book — all embedded.</p><div class="proof"><code>centauri desktop</code> · <code>open-studio.bat</code> / <code>open-console.bat</code> · <a href="documentation.html#product-studio">details →</a></div></div>
-    <div class="feat"><div class="fi">🧠</div><h3>Centauri Local AI &amp; Vision</h3><p>The private-AI appliance: hardware-sized local models via Ollama, auto-embed, semantic <code>SEARCH</code>, RAG <code>ASK</code> with citations, vision ingest of images and PDFs, plain-English → CeQL. Nothing leaves your machine.</p><div class="proof"><code>centauri desktop</code> · <code>start-ai.bat</code> · <code>centauri setup vision -install</code> · <a href="documentation.html#product-ai">details →</a></div></div>
-    <div class="feat"><div class="fi">🛡</div><h3>Centauri Gateway</h3><p>The API &amp; LLM gateway — Kong's category — with routes, keys and audit as bi-temporal facts, OIDC/mTLS/key auth, a token issuer, rate limits, CePL policies, and LLM routing with streaming and token metering.</p><div class="proof"><code>centauri gateway</code> · <code>start-gateway.bat</code> · <a href="documentation.html#product-gateway">details &amp; comparison vs Kong, Apigee, AWS, Tyk →</a></div></div>
-    <div class="feat"><div class="fi">🤖</div><h3>Centauri MCP server</h3><p>A Model Context Protocol server with 20 typed tools (plus one per stored procedure) so Claude Desktop, Claude Code, Cursor and autonomous agents use the database directly.</p><div class="proof"><code>centauri mcp</code> · <a href="documentation.html#product-agents">details →</a></div></div>
-    <div class="feat"><div class="fi">🧩</div><h3>SDKs &amp; connectors</h3><p>Zero-dependency Python, Go and JavaScript SDKs, Airbyte source and destination connectors, Docker image, Kubernetes manifest and the Render blueprint. These live in the repository alongside the binary.</p><div class="proof"><a href="https://github.com/aniljacobv-lab/centauri/tree/main/sdk">sdk/</a> · <a href="https://github.com/aniljacobv-lab/centauri/tree/main/connectors/airbyte">connectors/airbyte</a> · <a href="documentation.html#track-5">docs →</a></div></div>
-  </div>
-</div></section>
-
-</div><!-- /tab-eng -->
-
-<footer><div class="wrap">
-  <div class="lock"><span class="star">✦</span> Centauri</div>
-  <div>by <a href="https://jacoblabs.ai">JacobLabs LLC</a> — the nearest star to your data.</div>
-  <div class="cols">
-    <div class="col"><b>Product</b><a href="#why">Why Centauri</a><a href="#pricing">Pricing &amp; licensing</a><a href="#compare">Compare</a><a href="compare-gateways.html">Gateway comparison</a><a href="#reference">CeQL reference</a><a href="#download">Download</a></div>
-    <div class="col"><b>Docs</b><a href="documentation.html">Documentation portal</a><a href="ceql.html">The CeQL Book</a><a href="how-it-works.html">How it works</a><a href="internals-vs-oracle.html">Internals vs Oracle</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/vision-setup.md">Vision setup</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/ai-features.md">Local-AI features</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md">Deployment</a><a href="#quickstart">Quickstart</a></div>
-    <div class="col"><b>Community</b><a href="https://github.com/aniljacobv-lab/centauri">GitHub</a><a href="https://github.com/aniljacobv-lab/centauri/releases">Releases</a><a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">License</a></div>
-  </div>
-  <div style="margin-top:28px;padding-top:18px;border-top:1px solid #243a52;color:#7e90a8;font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span>© 2026 JacobLabs LLC · free and open source under the MIT License</span>
-    <span>Bi-temporal · causal · local · free</span>
-  </div>
-</div></footer>
-
-<script>
-/* ---------- shared NL → CeQL translator ---------- */
-function ceqlTranslate(text){
-  const timeRe=/\b(yesterday|today|tomorrow|now|last (?:week|month|year)|\d+\s*(?:minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?)\s*(?:ago|before|back))\b(?:\s*(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight))?(?:\s+(utc|gmt|est|edt|cst|cdt|mst|mdt|pst|pdt|ist|bst|cet|jst|aest))?/i;
-  const olderRe=/older than\s+(\d+)\s*d?a?y?s?/i,clockRe=/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i;
-  const t=text.trim();if(!t)return{err:"say something first"};const lower=t.toLowerCase();
-  let subject="";for(const w of t.replace(/[?!,"']/g,'').split(/\s+/)){if(w.includes(':')&&!clockRe.test(w)){subject=w;break;}}
-  const tm=t.match(timeRe);const timeClause=tm?"'"+tm[0].trim()+"'":"";
-  const belief=/believe|knew|known|thought/.test(lower);const knownClause=(belief&&timeClause)?timeClause:"";
-  const has=(...ws)=>ws.some(w=>lower.includes(w));
-  const needSub=w=>({err:"I can write the "+w+" query — but which subject? Mention it like toy:robot or item:100001/store:4001"});
-  if(has("search","find","keyword","full text","look for")){
-    let phrase;const m=t.match(/'([^']+)'|"([^"]+)"/);
-    if(m){phrase=m[1]||m[2];}
-    else{phrase=t.replace(/\b(search|find|look for|looking for|keyword|full text|for|in|the)\b/gi,'').replace(/[?]/g,'').trim();if(subject)phrase=phrase.replace(subject,'').trim();}
-    return{q:"SEARCH '"+(phrase||"…")+"' OF "+(subject||"item:*"),note:"ranked BM25 full-text search"};
-  }
-  if(has("pending","stuck","wedge","never activated")){let f="pdt";for(const x of["pdt","register","shelf","storecentral","source"])if(lower.includes(x)){f=x;break;}let q="PENDING "+f;const m=lower.match(olderRe);if(m)q+=" OLDER THAN "+m[1]+" DAYS";return{q,note:"wedge scan — distributed but never activated"};}
-  if(has("disagree","conflict","mismatch","don't match","differ")){let field="price_cents";const i=lower.indexOf(" on ");if(i>=0){const r=lower.slice(i+4).split(/\s+/);if(r[0])field=r[0].replace(/[?.!,]/g,'');}return{q:"DISAGREE ON "+field,note:"subjects whose facets disagree"};}
-  if(has("shape","topology","cluster","loop","periodic","seasonal")){return{q:"SHAPE OF "+(subject||"item:*")+" ON price_cents",note:"persistent homology of the value cloud"};}
-  if(has("history","timeline","all changes","everything that happened"))return subject?{q:"HISTORY OF "+subject,note:"the full never-erased timeline"}:needSub("HISTORY");
-  if(has("why","cause","what led","reason"))return subject?{q:"FACTS OF "+subject+" WHY DEPTH 3",note:"current facts with their causal chains"}:needSub("WHY");
-  if(has("context","everything about","tell me about","brief me")){if(!subject)return needSub("CONTEXT");let q="CONTEXT FOR "+subject;if(knownClause)q+=" AS KNOWN AT "+knownClause;return{q,note:"the full reasoning bundle"};}
-  if(has("how many","count","stats","statistics"))return{q:"STATS",note:"store counters"};
-  if(has("schemas","schema"))return{q:"SCHEMAS",note:"registered schemas"};
-  if(!subject)return needSub("FACTS");
-  let q="FACTS OF "+subject;if(timeClause)q+=" AS OF "+timeClause;if(knownClause)q+=" AS KNOWN AT "+knownClause;
-  let note=timeClause?"facts as of that moment":"current facts";if(knownClause)note+=", as known then";return{q,note};
-}
-function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DISAGREE ON|SHAPE OF|SEARCH|PENDING|STATS|SCHEMAS|SUBJECTS|AS OF|AS KNOWN AT|WHY|DEPTH|OLDER THAN|DAYS|LIMIT|FACET|ON|OF)\b/g,'<span class="kw">$1</span>').replace(/('[^']*')/g,'<span class="lit">$1</span>');}
-
-/* ---------- ASK: Centauri-powered (BM25 over a KB of facts) ---------- */
-(function(){
-  // Knowledge base — modeled as Centauri "facts" (subject + tags + answer),
-  // retrieved with Centauri's own BM25 ranking ported to the browser.
-  const KB=[
-    {q:"What is Centauri",t:"what is overview about definition bi-temporal causal event database introduction",
-      a:"Centauri is an open-source <b>bi-temporal, causal, AI-first event database</b>. Unlike ordinary databases that overwrite the past, it keeps every fact on two clocks — when it was true, and when you learned it — so you can query what was true at any moment, replay what you believed when you decided, trace why anything changed, prove your history wasn't tampered with, and give AI agents a memory they can reason over."},
-    {q:"What problems does Centauri solve",t:"problems solve use cases pain points why what for",
-      a:"Four questions ordinary databases can't answer: <b>what was true</b> at a past moment, <b>what we believed</b> then, <b>why</b> something changed, and whether the record was <b>tampered with</b>. It also catches changes that were sent but never landed (<code>PENDING</code>/<code>DISAGREE</code>), and gives agents point-in-time, provenance-aware memory."},
-    {q:"Does Centauri scale larger than RAM sharding cluster",t:"scale scaling ram memory sharding cluster volume capacity big data petabyte how much data limits",
-      a:"Yes. <code>--lazy</code> keeps payloads on disk, and the disk-backed <b>lazy index</b> (<code>serve -lazy-index</code>) serves archives far larger than RAM — only the current fact per subject stays resident. Cold data seals into <b>compressed segments</b> with zone-map skipping and can live in an <b>S3-compatible bucket</b>. <code>serve -shards N</code> partitions subjects across independent logs for parallel write throughput, and <code>serve -ha-lease</code> adds automatic failover. Writes are single-writer per log by design (sequential hash chain), so it's a system of record beside your operational stores — not a high-contention OLTP warehouse."},
-    {q:"Is it free and what is the license",t:"free license cost open source pricing money commercial paid",
-      a:"Yes — <b>$0, forever</b>: free and open source under <b>the MIT License</b> (OSI-approved, permissive, free for any use including commercial, no copyleft). No paid tiers, no per-request or per-seat fees, no telemetry. You pay only for the hardware it runs on. See the <a href='#pricing'>Pricing tab</a>."},
-    {q:"Does Centauri have an API gateway",t:"gateway api reverse proxy kong apigee tyk llm routes keys rate limit oidc mtls streaming failover token metering console",
-      a:"Yes — <code>centauri gateway</code> turns a Centauri log into a reverse proxy whose routes and API keys are <b>bi-temporal facts</b> (config time-travels with <code>AS OF</code>) and whose per-request audit is <b>tamper-evident</b>. It does API keys, OIDC JWT validation, mTLS, per-key/per-IP rate limits, built-in middleware, and an <b>LLM gateway</b> with SSE streaming, provider failover, and per-key token metering. Mint keys in the <b>Console</b> (<code>/console</code>). See the <a href='compare-gateways.html'>honest comparison vs Kong, Apigee, AWS and Tyk</a>."},
-    {q:"How is Centauri different from PostgreSQL",t:"postgresql postgres compare versus difference replace relational sql",
-      a:"It isn't a Postgres replacement — it's the layer Postgres doesn't have: bi-temporal history, causal lineage, tamper-evidence, topology, native search, and an agent-native interface. Run it <em>beside</em> Postgres as the system of record for what happened, when, why, and how much to trust it. See the <a href='#compare'>feature matrix</a>."},
-    {q:"How does it compare to Oracle DB2 SQL Server MongoDB",t:"compare comparison versus oracle db2 sqlserver sql server mongodb mongo mysql cassandra snowflake elasticsearch alternative replace traditional rdbms warehouse",
-      a:"Centauri <em>complements</em> traditional databases (Oracle, DB2, SQL Server, MongoDB, etc.) rather than replacing them. They remain your high-volume operational store; Centauri sits beside them as the bi-temporal, causal, tamper-evident record of change — the part those engines don't do. Compared to bitemporal add-ons (e.g. Oracle Flashback / DB2 time-travel tables), Centauri makes time, cause, trust, search, and topology first-class in one zero-dependency binary."},
-    {q:"What is bi-temporal valid and transaction time",t:"bitemporal bi-temporal two clocks valid transaction time as of as known at time travel history audit replay",
-      a:"Two independent clocks on every fact: <b>valid time</b> (when it was true in the world) and <b>transaction time</b> (when Centauri learned it). <code>AS OF</code> travels valid time; <code>AS KNOWN AT</code> travels transaction time — together they replay exactly what you believed at any past moment, which is the fair way to audit a decision."},
-    {q:"What is CeQL the query language",t:"ceql query language syntax sql grammar how to query",
-      a:"CeQL is Centauri's query language — time, cause, trust, shape, and meaning are syntax, not afterthoughts. One semantics, three surfaces: humans write text, agents emit the JSON AST, legacy speaks REST. See the <a href='#reference'>CeQL reference</a> and <a href='ceql.html'>The CeQL Book</a>."},
-    {q:"Full-text search BM25",t:"search full text bm25 keyword find lookup ranked relevance inverted index elasticsearch",
-      a:"Native ranked full-text search: <code>SEARCH 'late markdown' OF item:*</code> scores results with <b>BM25</b> (pure Go, no inverted index to maintain), and is bi-temporal like everything else. This assistant is powered by that same engine."},
-    {q:"Hybrid keyword and vector search RAG retrieval",t:"hybrid vector semantic embedding similar rag retrieval knn cosine",
-      a:"<code>SEARCH '…' SIMILAR TO &lt;event&gt; ALPHA 0.5</code> blends BM25 keyword scores with embedding similarity — the recall of semantics with the precision of keywords. Embeddings are stored as supersedable facts, so retrieval improves as you re-embed."},
-    {q:"Built-in topology shape clusters loops voids drift periodicity",t:"topology shape homology cluster loop void periodic seasonal drift consistency cycles tda persistent",
-      a:"Topology operators see the <em>shape</em> of your data: <code>SHAPE</code> (persistent homology — clusters/loops/voids/periodicity), <code>CONSISTENCY</code> (sheaf agreement across systems + the outlier), <code>CYCLES</code> (causal-graph integrity), and <code>DRIFT</code> (distribution change over time) — patterns no SQL can express. Pure Go, zero deps."},
-    {q:"Built for AI agents MCP",t:"ai agent agents mcp llm model context protocol gateway assistant copilot tools",
-      a:"A native <b>MCP server</b> lets agents speak CeQL directly as typed tool calls — query, write, search, run Genesis. No glue code, no prompt-mangled SQL. Plus plain-English→CeQL with no tokens, and a one-call <code>CONTEXT FOR</code> bundle that hands an agent everything it needs about a subject."},
-    {q:"Ask in plain English natural language",t:"natural language english plain translate nl no tokens deterministic ask",
-      a:"Type a question in English and Centauri compiles it to CeQL with <b>deterministic rules</b> — no tokens, no API key, no hallucinated SQL. Try the “Plain English → CeQL” box in the <a href='#playground'>Playground</a>."},
-    {q:"Leak-free training data point in time features for ML",t:"ml machine learning training features leakage point in time skew model rag pipeline data science",
-      a:"<code>AS KNOWN AT</code> reconstructs features exactly as they were known at prediction time — eliminating the training-serving skew and label leakage that quietly wreck models. It's the clean way to build historical training sets and reproducible RAG context."},
-    {q:"Genesis engine builds a database from a description",t:"genesis build generate scaffold interview blueprint create schema describe",
-      a:"Describe a domain in plain language; the <b>Genesis Engine</b> detects it, runs a short interview, then builds the schemas, procedures, watches, and starter data — and stores that conversation as facts inside the database it created. Databases with birth certificates."},
-    {q:"CePL stored procedures",t:"cepl stored procedure function plsql logic run trace",
-      a:"<b>CePL</b> is near-English stored procedures, kept as versioned facts with a step-by-step execution trace — PL/SQL rebuilt for auditability. Call them with <code>RUN &lt;proc&gt; WITH …</code>."},
-    {q:"Schemas validation",t:"schema schemas validation define types required constraints versioned",
-      a:"Define versioned, append-only schemas with <code>DEFINE SCHEMA</code>; writes that break a schema are rejected. Schemas evolve without migrations — new versions supersede old ones, and the history is kept like everything else."},
-    {q:"Replication and backup",t:"replication replica backup follow ship durability disaster recovery log shipping",
-      a:"Readable replicas via log shipping (<code>centauri follow</code>), and chain-verified one-command backups (<code>centauri backup</code>) that prove the copy is byte-for-byte intact."},
-    {q:"Multitenant environments and namespaces",t:"multitenant tenant namespace environments isolation token per customer saas",
-      a:"Many isolated databases per server, snapshot cloning, namespaces for shared-schema tenancy (a subject's first segment is its namespace), and two-tier access tokens."},
-    {q:"Tamper-evident hash chain verify integrity",t:"tamper verify hash chain integrity audit sha256 trust proof immutable",
-      a:"Every committed fact is sealed into a <b>SHA-256 chain</b>. <code>centauri verify</code> recomputes it byte-for-byte and points at the exact record where anything changed — and everything downstream of it. Try the tamper demo in the <a href='#playground'>Playground</a>."},
-    {q:"Why did it change causality lineage",t:"why cause causal lineage effects root cause reason explain trace",
-      a:"Causes are first-class links. <code>WHY</code> walks the chain back to the root; <code>EFFECTS</code> walks it forward. No more war-room archaeology to explain a value."},
-    {q:"Pending wedge changes that never landed",t:"pending wedge disagree never activated landed sync price register retail silent failure distributed",
-      a:"Centauri models each system as a <em>facet</em> of reality and tracks whether a change was distributed but never activated. <code>PENDING pdt OLDER THAN 21 DAYS</code> finds silent failures; <code>DISAGREE ON price_cents</code> finds systems that disagree right now."},
-    {q:"How do I install and download",t:"install download setup get started run binary windows mac macos linux installer curl",
-      a:"From the <a href='#download'>Download</a> section: a Windows installer, or one line on macOS/Linux (<code>curl … | sh</code>). Then <code>centauri desktop</code> opens the dashboard in your browser — see the <a href='#quickstart'>Quickstart</a>."},
-    {q:"Desktop mode and dashboard",t:"desktop dashboard browser ui run start gui interface workbench",
-      a:"<code>centauri desktop</code> keeps your data in your user profile and opens a zero-install dashboard — a query workbench, visual builder, live feed, and the interactive CeQL textbook, all embedded in the binary."},
-    {q:"Deployment Docker Render cloud hosting",t:"deploy deployment docker render cloud host server vps https kubernetes container production",
-      a:"One-click <a href='https://render.com/deploy?repo=https://github.com/aniljacobv-lab/centauri'>Deploy to Render</a> (HTTPS + generated token in your own account), or any Docker host. See the <a href='https://github.com/aniljacobv-lab/centauri/blob/main/docs/deploy.md'>deployment guide</a>."},
-    {q:"Python SDK",t:"python sdk client library api code programmatic",
-      a:"A zero-dependency Python SDK: <code>db.add()</code>, <code>db.at('yesterday')</code>, <code>db.pump('data.csv')</code>, <code>db.watch()</code>."},
-    {q:"Data model event fact facet subject",t:"data model event fact facet subject value provenance confidence atom structure schema",
-      a:"The atom is an <b>Event</b>: a fact about a <em>subject</em>, on a <em>facet</em> (register, shelf, source…), with a value, two timestamps, provenance, confidence, and causal links. Events are immutable; only supersession markers are added."},
-    {q:"Does it support delete or update",t:"delete update modify edit retire supersede immutable append change remove",
-      a:"There is no destructive update or delete. An “update” is a new superseding fact; a “delete” is <code>RETIRE</code> (the current fact stops applying, but history is kept). Nothing is ever erased — that's the whole point."},
-    {q:"Streaming and watch standing queries",t:"watch stream subscribe live realtime trigger standing query feed notify events",
-      a:"<code>WATCH</code> is a standing query — stream every new fact (or a filtered subset) as it commits. The dashboard's live feed and SDK <code>db.watch()</code> ride the same channel."},
-    {q:"Performance and speed",t:"performance fast speed latency throughput benchmark memory in-memory",
-      a:"Reads serve from in-memory indexes (sub-millisecond point queries); writes are append-then-apply with a durable log. It's built for correctness and rich queries over a working set that fits in RAM, not for petabyte OLAP."},
-    {q:"Security tokens access control",t:"security token auth authentication access read-only encryption permission",
-      a:"Layered: static bearer tokens (full + read-only), <b>enterprise SSO</b> via OIDC/JWT (Okta/Azure AD/Auth0/Keycloak), <b>row-level security</b> by subject prefix with <b>field masking</b>, and native TLS. Sealed cold segments support <b>crypto-erasure</b> (per-segment AES-256-GCM key destruction) for right-to-be-forgotten without breaking the audit chain. Followers/replicas run read-only."},
-    {q:"Retail pricing use case",t:"retail price markdown store sku inventory promotion register pos use case",
-      a:"Centauri shines at retail price/promo integrity: did the markdown reach the register? where do POS and ERP disagree? what price did we believe at the moment of sale? — answered with <code>PENDING</code>, <code>DISAGREE</code>, <code>CONSISTENCY</code>, and <code>AS KNOWN AT</code>."},
-    {q:"Who made Centauri JacobLabs",t:"who made author company jacoblabs proxima360 centauri llc team built sponsor",
-      a:"Centauri is by <b>JacobLabs LLC</b> (<a href='https://jacoblabs.ai'>jacoblabs.ai</a>) — the nearest star to your data. Source is on <a href='https://github.com/aniljacobv-lab/centauri'>GitHub</a>."},
-    {q:"Roadmap future plans",t:"roadmap future encryption clustering plans coming soon next managed cloud",
-      a:"Shipped since this page first launched: <b>crypto-erasure</b>, <b>subject sharding</b> (<code>serve -shards</code>), <b>automatic HA failover</b> (<code>serve -ha-lease</code>), <b>OIDC/JWT SSO</b>, the <b>PostgreSQL wire protocol</b>, an <b>S3 cold tier</b>, a turnkey <b>local-AI appliance</b> (<code>serve -ai</code>), the <b>API/LLM gateway</b> (<code>centauri gateway</code>) with streaming, failover and token metering, and the <b>Console</b> at <code>/console</code>. Still on the roadmap: an ANN index for billion-scale vectors and a fully managed Centauri Cloud."},
-    {q:"Can it do compute and analytics",t:"compute computation analytics calculate calculation processing aggregate aggregation sum avg average group by having cepl procedure topology math run analysis",
-      a:"Yes — Centauri runs real computation inside the engine: <b>aggregations</b> (<code>COUNT</code>/<code>SUM</code>/<code>AVG</code>/<code>GROUP BY</code>/<code>HAVING</code>), <b>topology</b> (persistent homology, sheaf consistency), <b>BM25 search</b>, vector similarity, and <b>CePL stored procedures</b> for custom logic — all in pure Go over your in-memory working set. It's analytical, not a distributed compute grid; for heavy ETL, pair it with a warehouse."},
-    {q:"How do I write or insert or update data",t:"write insert add put update record create save data ingest load import csv pump",
-      a:"Writing is one act: <code>PUT subject SET field=value, …</code>. Insert and update are the same — a new fact supersedes the old, and the old stays in history. Bulk-load with the SDK's <code>db.pump('data.csv')</code> or the HTTP ingest endpoint."},
-    {q:"Is it production ready and stable",t:"production ready stable stability maturity reliable battle tested beta enterprise",
-      a:"Centauri is young. Use it as the system of record for facts, audit, and lineage <em>alongside</em> your proven operational store — not as the sole database for a critical transactional workload yet. It ships with a deterministic test suite, a tamper-evident log, and chain-verified backups."},
-    {q:"GDPR right to be forgotten erasure if nothing is deleted",t:"gdpr erasure right to be forgotten delete privacy compliance forget personal data retention ccpa",
-      a:"Deletion is two-layered: <code>RETIRE</code> stops a fact from applying (history kept), and <b>crypto-erasure</b> destroys the per-segment AES-256-GCM key for encrypted cold payloads — rendering them unrecoverable while preserving the tamper-evident chain. That satisfies right-to-be-forgotten without breaking auditability."},
-    {q:"Do I still need Elasticsearch",t:"elasticsearch opensearch elastic lucene search engine replace need separate cluster",
-      a:"For ranked keyword search over your events, Centauri's native <b>BM25 SEARCH</b> (plus hybrid vector) often removes the need for a separate Elasticsearch cluster — and keeps it bi-temporal and zero-dependency. For massive document corpora or advanced analyzers, a dedicated search engine still wins; Centauri isn't trying to replace one."},
-    {q:"Is Centauri a vector database",t:"vector database vectordb pinecone weaviate qdrant chroma milvus pgvector embedding store ann approximate nearest neighbor semantic index",
-      a:"Not a <em>dedicated</em> vector database — but it has vector search built in. Embeddings are stored as supersedable, model-attributed facts; <code>SIMILAR TO</code> does cosine search and <code>SEARCH … SIMILAR TO … ALPHA</code> does hybrid keyword+vector. For billion-scale pure ANN, a dedicated vector DB (Pinecone, Weaviate, pgvector) still wins; Centauri shines when vectors live <em>next to</em> bi-temporal, causal, provenance-tagged facts."},
-    {q:"Is Centauri a graph database",t:"graph database neo4j relationships edges nodes cypher gremlin property graph network",
-      a:"Not a general property-graph database, but causality is first-class: causal links are edges, and <code>WHY</code> / <code>EFFECTS</code> walk them. Think lineage/causal graph over events — not a Neo4j-style engine for arbitrary node/edge analytics."},
-    {q:"Is Centauri a time-series database",t:"time series timeseries tsdb influxdb prometheus timescale metrics telemetry sensor high frequency",
-      a:"It's temporal (bi-temporal) and detects periodicity and drift — but it's not a metrics TSDB for high-frequency telemetry. Use a TSDB (Influx, Prometheus, Timescale) for the firehose; use Centauri for the facts and decisions that need time-travel, cause, and trust."},
-    {q:"What kind or type of database is Centauri relational document key-value ledger",t:"what kind type category relational document key value keyvalue ledger blockchain nosql sql rdbms oltp olap store",
-      a:"Centauri is an <b>event database</b>: the atom is an immutable, bi-temporal, causal fact — not a row, document, or key-value pair. Its facets and flexible values can model relational or document-like data, and its tamper-evident hash chain gives ledger-like integrity (without being a blockchain). It's the system of record for <em>change</em>, beside your operational store."},
-    {q:"Can I embed the assistant or a live agent on my website",t:"embed widget website live agent chatbot support bot script iframe self host zero token docs assistant",
-      a:"Yes. This assistant is a self-contained, <b>zero-token</b> BM25 widget that indexes your page's content — drop it into any site for a free docs/support bot with no LLM bill. For answers that <em>learn</em> over time, put a running Centauri behind it: the <code>ASK</code> statement searches your <code>kb:*</code> facts and logs gaps for an agent to fill."},
-    {q:"What are the system requirements",t:"requirements hardware os ram cpu prerequisites needs minimum platform",
-      a:"Windows 10/11, macOS, or Linux (64-bit); enough RAM for the live working set (the lazy index and <code>--lazy</code> let total data exceed RAM); no other dependencies — one static binary. The optional local AI wants ~8 GB free for the small tier, a 12–16 GB GPU for balanced, 24 GB+ for max."},
-    {q:"How do I get started quickly quickstart",t:"quickstart getting started first steps tutorial begin demo seed",
-      a:"Install, then <code>centauri seed</code> (demo data) → <code>centauri desktop</code> (opens the dashboard) → run <code>FACTS OF item:100001/store:4001</code>. See the Quickstart section."},
-    {q:"What is a facet",t:"facet facets register shelf source storecentral system view reality per system",
-      a:"A facet is one system's view of a subject — register, shelf, storecentral, source, etc. The same item can hold different facet values, which is how <code>CONSISTENCY</code> and <code>DISAGREE</code> spot systems that don't match."},
-    {q:"Does it support aggregations and group by",t:"aggregate aggregation group by count sum avg having analytics rollup statistics",
-      a:"Yes: <code>FACTS facet, COUNT(*), AVG(price_cents) OF item:* GROUP BY facet HAVING COUNT(*) &gt; 5</code>. Aggregations respect time travel, so you can roll up as of any past moment."},
-    {q:"Does Centauri support joins",t:"join joins relational foreign key relationship link",
-      a:"Not SQL-style table joins. Relationships are modeled with subjects/facets and first-class causal links (<code>WHY</code>/<code>EFFECTS</code>), and <code>CONTEXT FOR</code> assembles everything about a subject in one call."},
-    {q:"Is it ACID and does it support transactions",t:"acid transaction transactions consistency atomicity isolation oltp commit rollback",
-      a:"Writes are atomic per append and durable (write-then-apply), and a single node is strongly consistent. It is not a multi-statement OLTP transaction engine with rollback — use your operational RDBMS for that; Centauri is the system of record for facts."},
-    {q:"Is my data durable and crash-safe",t:"durability crash recovery persistence wal write ahead log restart safe fsync",
-      a:"Yes — every fact is written to an append-only log before memory changes, so a crash replays cleanly on restart, and the SHA-256 chain proves the log is intact."},
-    {q:"How do authentication and access control work",t:"security auth authentication token access control permission read only api key bearer",
-      a:"The HTTP API is gated by a bearer token, with an optional second <b>read-only</b> token; followers can run read-only. Put it behind TLS (Render or your own proxy)."},
-    {q:"Does it encrypt data at rest and in transit",t:"encryption encrypt at rest tls in transit secure ssl https",
-      a:"In transit: native TLS (<code>-tls-cert</code>/<code>-tls-key</code>), no reverse proxy required. At rest: sealed cold segments support per-segment AES-256-GCM with <b>crypto-erasure</b>; for the hot tail and manifests, use disk/volume encryption."},
-    {q:"Is it good for audit and compliance SOX HIPAA",t:"compliance audit sox hipaa regulatory governance trail evidence chain of custody",
-      a:"Its bi-temporal, never-erased, tamper-evident log is built for audit: prove what was true, what you knew, and that nothing was altered — exactly what SOX/HIPAA-style reviews ask for."},
-    {q:"Where does my data live and is there telemetry",t:"privacy telemetry data location phone home tracking local sovereignty residency",
-      a:"Your data stays wherever you run Centauri — your machine or your cloud. No telemetry, no phone-home."},
-    {q:"Is there a REST API or HTTP interface",t:"rest api http endpoint json curl integrate v1 query web",
-      a:"Yes — <code>POST /v1/query</code> runs CeQL or a JSON AST; there are also <code>/v1/context</code>, <code>/v1/asof</code>, <code>/v1/pending</code>, and <code>/v1/watch</code> (SSE). Any language that makes HTTP calls can use Centauri."},
-    {q:"What languages and clients are supported",t:"language client driver python javascript java go sdk binding library",
-      a:"Zero-dependency SDKs for <b>Python, Go, and JavaScript/TS</b>; read-only SQL over the <b>PostgreSQL wire protocol</b> (psql, JDBC, DBeaver, Tableau, Power BI); the plain HTTP API from any language; and the MCP server for AI agents."},
-    {q:"How do I import or export data",t:"import export csv jsonl bulk load migrate pump dump backfill",
-      a:"Bulk-load with the SDK's <code>db.pump('data.csv')</code> or the HTTP ingest endpoint; export with <code>centauri export -q 'FACTS OF *' -format csv</code> (or jsonl)."},
-    {q:"How does it compare to Datomic or EventStoreDB",t:"datomic eventstore eventstoredb immutable temporal event sourcing compare versus",
-      a:"Like Datomic it's immutable and time-aware, and like EventStoreDB it's an event log — but Centauri adds the second clock (bi-temporal), causal links, tamper-evident hashing, topology, native search, and an MCP agent interface, in one zero-dependency binary."},
-    {q:"How is it different from Kafka event streaming",t:"kafka streaming event bus pulsar queue broker pub sub stream",
-      a:"Kafka is a streaming bus that moves events between systems; Centauri is the database that stores and lets you query them bi-temporally, causally, and by shape. They're complementary — stream with Kafka, remember and reason with Centauri (<code>WATCH</code> even streams new facts out)."},
-    {q:"Is it a blockchain or distributed ledger",t:"blockchain ledger distributed crypto chain web3 dlt consensus",
-      a:"No. It has a tamper-evident SHA-256 hash chain so you can prove integrity, but it isn't a distributed consensus ledger — its HA is lease-based active/standby failover, not multi-node consensus. You get auditability without the blockchain overhead."},
-    {q:"Which AI agents or LLMs can use it",t:"which agent llm claude gpt openai anthropic gemini model compatible support copilot",
-      a:"Any agent that speaks MCP (Claude and other MCP clients) or can make an HTTP call. No model lock-in — the model just needs to call a tool or a REST endpoint."},
-    {q:"Is there support or a community",t:"support community help enterprise commercial sla contact maintainer",
-      a:"It's open source — file issues and feature requests on GitHub (accepted features get implemented and shipped). There is <b>no commercial support organization today</b>; the maintainer is JacobLabs LLC (jacoblabs.ai)."},
-    {q:"How can I contribute",t:"contribute contributing pull request pr open source develop hack",
-      a:"PRs welcome on GitHub, and you can suggest a feature via the issue template — accepted ideas get implemented by the maintainers (sometimes by an AI)."},
-    {q:"What does the name Centauri mean",t:"name meaning centauri proxima star why called branding",
-      a:"Centauri is the nearest star system to the Sun — the name captures the idea of 'the nearest star to your data.' It's built by JacobLabs LLC (jacoblabs.ai)."},
-    {q:"Can it run offline or on a laptop",t:"offline laptop local air gapped no internet portable single binary edge",
-      a:"Yes — one self-contained binary with no network dependencies, so it runs offline on a laptop or in an air-gapped environment."},
-    {q:"How do I monitor it, health and stats",t:"monitoring health stats metrics observability counters status uptime",
-      a:"<code>STATS</code> (or <code>/v1/stats</code>) returns live counters — events, subjects, open facts, pending wedges, links — and <code>centauri verify</code> checks integrity. The dashboard shows it live."},
-    {q:"How do I back up and restore",t:"backup restore snapshot recover copy disaster recovery replica",
-      a:"<code>centauri backup</code> copies the committed log and verifies the hash chain matches; restore by pointing at the backup file. <code>centauri follow</code> keeps a live readable replica."},
-    {q:"What is Centauri good for, use cases and industries",t:"use case examples industries good for fit retail healthcare finance security iot supply chain ml",
-      a:"Anywhere change, time, cause, and trust matter: retail price/promo integrity, financial audit and reconstruction, clinical decision replay, security incident lineage, ML feature provenance, compliance trails, and IoT/sensor drift. See the Examples section."},
-  ];
-  function tok(s){const o=[];let b="";for(const ch of s.toLowerCase()){if(/[a-z0-9]/.test(ch))b+=ch;else if(b){o.push(b);b="";}}if(b)o.push(b);return o;}
-  function uniq(a){const s=new Set(),o=[];for(const x of a)if(!s.has(x)){s.add(x);o.push(x);}return o;}
-  // Grab all the data on the page — reference rows, example cards, feature
-  // cards — and index it too, so the assistant answers about anything here,
-  // with zero tokens. (Same idea as RAG, but the retrieval is the product.)
-  try{
-    document.querySelectorAll('#reference table.ref tbody tr').forEach(tr=>{
-      const td=tr.querySelectorAll('td');if(td.length<3)return;
-      const s=td[0].innerText.replace(/\s+/g,' ').trim(),d=td[1].innerText.trim(),ex=td[2].innerText.trim();
-      if(s)KB.push({q:s+' — '+d,t:s+' '+d,a:'<b>'+s+'</b> — '+d+'<br><code>'+ex.replace(/</g,'&lt;')+'</code>'});
-    });
-    document.querySelectorAll('#examples .excard').forEach(c=>{
-      const q=((c.querySelector('.q2')||{}).innerText||'').trim(),
-            tg=[...c.querySelectorAll('.t2')].map(t=>t.innerText).join(' '),
-            code=((c.querySelector('pre')||{}).innerText||'').trim();
-      if(q)KB.push({q:q,t:q+' '+tg,a:q+'<br><code>'+code.replace(/</g,'&lt;')+'</code>'});
-    });
-    document.querySelectorAll('.feat').forEach(f=>{const h=f.querySelector('h3'),p=f.querySelector('p');
-      if(h&&p)KB.push({q:h.innerText.trim(),t:h.innerText,a:p.innerHTML});});
-  }catch(e){}
-  let docs=[],VOCAB=[];
-  function rebuild(){docs=KB.map(e=>tok(e.q+" "+e.t));const s=new Set();docs.forEach(d=>d.forEach(w=>s.add(w)));VOCAB=[...s];}
-  rebuild();
-  // tiny markdown so kb.json answers (`code`, **bold**) and inline HTML both render
-  function md(s){return String(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');}
-  // vocabulary + edit-distance≤1 correction, so "centuri"/"vektor"/"databse" still match
-  function within1(a,b){if(a===b)return true;const la=a.length,lb=b.length;if(Math.abs(la-lb)>1)return false;
-    let i=0,j=0,diff=0;while(i<la&&j<lb){if(a[i]===b[j]){i++;j++;}else{if(++diff>1)return false;if(la>lb)i++;else if(lb>la)j++;else{i++;j++;}}}
-    return diff+(la-i)+(lb-j)<=1;}
-  const SYN={db:"database",dbs:"databases",pg:"postgres",postgre:"postgresql",postgres:"postgresql",vektor:"vector",k8s:"kubernetes",rdbms:"relational"};
-  function correct(t){if(SYN[t])return SYN[t];if(t.length<4||VOCAB.includes(t))return t;for(const w of VOCAB){if(Math.abs(w.length-t.length)<=1&&within1(t,w))return w;}return t;}
-  function rankBM25(qterms,k1,b){
-    k1=1.5;b=0.75;const n=docs.length,qset=new Set(qterms),df={},tfs=[];let total=0;
-    for(const d of docs){total+=d.length;const tf={};for(const w of d)if(qset.has(w))tf[w]=(tf[w]||0)+1;for(const w in tf)df[w]=(df[w]||0)+1;tfs.push(tf);}
-    const avg=total/n||1,idf={};for(const t of qset)idf[t]=Math.log(1+(n-(df[t]||0)+0.5)/((df[t]||0)+0.5));
-    const out=[];
-    for(let i=0;i<n;i++){const tf=tfs[i];if(!Object.keys(tf).length)continue;const dl=docs[i].length;let s=0;
-      for(const t in tf){const f=tf[t];s+=idf[t]*(f*(k1+1))/(f+k1*(1-b+b*dl/avg));}out.push({i,s});}
-    out.sort((a,b)=>b.s-a.s);return out;
-  }
-  const STOP=new Set("the is it its a an of to do does did can could would should how what why where when which who with for and or but my me i you your our this that these those are was were be been on in at as by from will not no yes".split(" "));
-  const a=document.getElementById('ask-a'),inp=document.getElementById('ask-q');
-  function logGap(q){try{const k='centauri_unanswered',l=JSON.parse(localStorage.getItem(k)||'[]');l.push({q,at:Date.now()});localStorage.setItem(k,JSON.stringify(l.slice(-200)));}catch(e){}}
-  function answer(text){
-    const terms=uniq(tok(text).map(correct)).filter(w=>w.length>1&&!STOP.has(w));
-    const r=terms.length?rankBM25(terms):[];
-    let html='<div class="q">Q: '+text.replace(/</g,'&lt;')+'</div>';
-    if(r.length && r[0].s>=0.6){
-      html+=md(KB[r[0].i].a);
-      const rel=r.slice(1,3).filter(x=>x.s>=0.8);
-      if(rel.length)html+='<div style="margin-top:12px;font-size:13px;color:var(--dim)">Related: '+
-        rel.map(x=>'<span class="chip rel" data-q="'+KB[x.i].q.replace(/"/g,'&quot;')+'">'+KB[x.i].q+'</span>').join(' ')+'</div>';
-    }
-    else{
-      logGap(text);
-      const issue='https://github.com/aniljacobv-lab/centauri/issues/new?title='+encodeURIComponent('FAQ: '+text)+'&body='+encodeURIComponent('Question the assistant could not answer — suggest it be added to the knowledge base:\n\n> '+text+'\n');
-      html+="I haven't learned that one yet — I've <b>logged the question</b> so Centauri can learn it. You can <a href='"+issue+"' target='_blank' rel='noopener'>teach it the answer →</a>. Meanwhile, try asking about features, search, topology, AI, scaling, or how Centauri compares.";
-    }
-    const tr=ceqlTranslate(text);
-    if(!tr.err && (text.includes(':')||/\b(why|history|search|pending|disagree|shape|drift|consistency|context|stats|as of|as known|similar)\b/i.test(text))){
-      html+='<div style="margin-top:10px;color:var(--dim);font-size:13.5px">As a data query, that compiles to:</div><div class="ceql">'+ceqlHL(tr.q)+'</div>';
-    }
-    a.innerHTML=html;a.classList.add('show');
-    a.querySelectorAll('.rel').forEach(c=>c.onclick=()=>{inp.value=c.dataset.q;answer(c.dataset.q);});
-  }
-  document.getElementById('ask-go').onclick=()=>answer(inp.value);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter')answer(inp.value);});
-  const qs=["What problems does Centauri solve?","Does Centauri scale?","How does it compare to Oracle or DB2?","Is it free?","Does it do full-text search?","Can my AI agent use it?","How do I install it?","why did the price of toy:robot change?"];
-  qs.forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;c.onclick=()=>{inp.value=s;answer(s);};document.getElementById('ask-chips').appendChild(c);});
-  answer(inp.value);
-  // single source of truth: pull the full knowledge base from kb.json and merge in
-  fetch('kb.json').then(r=>r.ok?r.json():[]).then(arr=>{
-    if(!Array.isArray(arr))return;
-    const have=new Set(KB.map(e=>(e.q||'').toLowerCase()));
-    arr.forEach(e=>{const k=(e.q||'').toLowerCase();if(e&&e.q&&e.a&&!have.has(k)){have.add(k);KB.push({q:e.q,t:e.t||'',a:e.a});}});
-    rebuild();answer(inp.value);
-  }).catch(()=>{});
-})();
-
-/* ---------- download tiles + OS detect + copy ---------- */
-(function(){
-  const p=navigator.platform+" "+navigator.userAgent;
-  const def=/Mac/i.test(p)?"mac":/Linux|X11/i.test(p)?"linux":"win";
-  function show(os){
-    document.querySelectorAll(".tile").forEach(t=>t.classList.toggle("active",t.dataset.os===os));
-    document.querySelectorAll(".dlpanel").forEach(pn=>pn.classList.toggle("active",pn.id==="p-"+os));
-  }
-  document.querySelectorAll(".tile").forEach(t=>t.onclick=()=>show(t.dataset.os));show(def);
-  document.querySelectorAll(".copy").forEach(b=>b.onclick=()=>{
-    const t=document.getElementById(b.dataset.copy).textContent;
-    navigator.clipboard&&navigator.clipboard.writeText(t);
-    const o=b.textContent;b.textContent="copied ✓";setTimeout(()=>b.textContent=o,1400);
-  });
-})();
-
-/* ---------- DEMO 1: time travel ---------- */
-(function(){
-  const START=Date.UTC(2026,0,1),END=Date.UTC(2026,5,13),span=END-START;
-  const ev=[
-    {ef:Date.UTC(2026,0,1),rec:Date.UTC(2026,0,1),p:1999,why:"launch price"},
-    {ef:Date.UTC(2026,1,14),rec:Date.UTC(2026,1,14),p:2499,why:"seasonal raise"},
-    {ef:Date.UTC(2026,1,14),rec:Date.UTC(2026,2,15),p:2299,why:"correction: raise was overstated"},
-    {ef:Date.UTC(2026,2,10),rec:Date.UTC(2026,2,12),p:1799,why:"markdown (entered 2 days late)"},
-    {ef:Date.UTC(2026,3,1),rec:Date.UTC(2026,3,1),p:2199,why:"spring reset"},
-    {ef:Date.UTC(2026,4,20),rec:Date.UTC(2026,4,20),p:1599,why:"clearance"}];
-  const vt=document.getElementById('vt'),kt=document.getElementById('kt');
-  const fmt=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
-  const usd=c=>'$'+(c/100).toFixed(2),pos=t=>(t-START)/span*100;
-  const axis=document.getElementById('axis');
-  ev.forEach((e,i)=>{const d=document.createElement('div');d.className='ev';d.dataset.i=i;d.style.left=pos(e.ef)+'%';d.title=usd(e.p)+' — '+e.why;axis.appendChild(d);});
-  const vh=document.createElement('div');vh.className='vh';axis.appendChild(vh);
-  ['Jan','Feb','Mar','Apr','May','Jun'].forEach((m,i)=>{const l=document.createElement('div');l.className='lbl';l.textContent=m;l.style.left=pos(Date.UTC(2026,i,1))+'%';axis.appendChild(l);});
-  function render(){
-    const D=START+span*(vt.value/100),K=START+span*(kt.value/100);
-    document.getElementById('vt-d').textContent=fmt(D);
-    document.getElementById('kt-d').textContent=(kt.value>=100?'now':fmt(K));
-    vh.style.left=pos(D)+'%';
-    let best=null;ev.forEach(e=>{if(e.rec<=K&&e.ef<=D){if(!best||e.ef>best.ef||(e.ef===best.ef&&e.rec>best.rec))best=e;}});
-    axis.querySelectorAll('.ev').forEach(d=>d.classList.toggle('active',best&&+d.dataset.i===ev.indexOf(best)));
-    const known=kt.value>=100?'now':"'"+fmt(K)+"'";
-    document.getElementById('d1-ceql').innerHTML='<span class="kw">FACTS OF</span> item:100001/store:4001 <span class="kw">FACET</span> register\n  <span class="kw">AS OF</span> <span class="lit">\''+fmt(D)+'\'</span> <span class="kw">AS KNOWN AT</span> <span class="lit">'+known+'</span>';
-    const price=document.getElementById('d1-price'),note=document.getElementById('d1-note');
-    if(!best){price.textContent='∅';price.style.color='var(--faint)';note.textContent='Nothing known yet — no fact had been recorded by then.';return;}
-    price.textContent=usd(best.p);price.style.color='var(--good)';
-    let n='“'+best.why+'.”';
-    const corrected=ev.some(e=>e.ef===best.ef&&e.rec>best.rec&&e.rec>K);
-    if(corrected)n+=' A later correction exists, but you didn\'t know it yet on this date.';
-    if(best.rec>best.ef)n+=' (Recorded '+fmt(best.rec)+', '+Math.round((best.rec-best.ef)/864e5)+' days after it took effect.)';
-    note.textContent=n;
-  }
-  vt.oninput=kt.oninput=render;render();
-})();
-
-/* ---------- DEMO 2: NL -> CeQL ---------- */
-(function(){
-  const nl=document.getElementById('nl'),out=document.getElementById('d2-ceql'),note=document.getElementById('d2-note');
-  function run(){const r=ceqlTranslate(nl.value);if(r.err){out.innerHTML='<span style="color:var(--warn)">'+r.err+'</span>';note.textContent='';return;}out.innerHTML=ceqlHL(r.q);note.textContent='→ '+r.note;}
-  nl.addEventListener('input',run);
-  ["why did the price of toy:robot change?","price of item:100001/store:4001 yesterday at 2pm CST","search 'penny' in item:*","is the price periodic for item:55/store:9","where do systems disagree on price_cents"].forEach(s=>{const c=document.createElement('span');c.className='chip';c.textContent=s;c.onclick=()=>{nl.value=s;run();};document.getElementById('nl-chips').appendChild(c);});
-  run();
-})();
-
-/* ---------- DEMO 3: hash chain ---------- */
-(function(){
-  const seed=[{s:"item:100001 price=1999"},{s:"item:100001 price=2499"},{s:"link cause=promo:spring"},{s:"item:100001 price=1599"}];
-  let recs,sealed=[];const chain=document.getElementById('chain'),verify=document.getElementById('verify'),enc=new TextEncoder();
-  async function sha(str){const b=await crypto.subtle.digest('SHA-256',enc.encode(str));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
-  async function chainHashes(data){const out=[];let prev="genesis";for(const d of data){const h=await sha(prev+"|"+d);out.push(h);prev=h;}return out;}
-  async function build(){
-    recs=seed.map(x=>({...x}));sealed=await chainHashes(recs.map(r=>r.s));chain.innerHTML='';
-    recs.forEach((r,i)=>{
-      if(i){const l=document.createElement('div');l.className='link';l.textContent='→';chain.appendChild(l);}
-      const b=document.createElement('div');b.className='block';b.dataset.i=i;
-      b.innerHTML='<div class="bn">record #'+i+'</div><input value="'+r.s.replace(/"/g,'&quot;')+'"><div class="bn">sha →</div><div class="h">'+sealed[i].slice(0,16)+'…</div>';
-      b.querySelector('input').addEventListener('input',e=>{recs[i].s=e.target.value;recheck();});chain.appendChild(b);
-    });recheck();
-  }
-  async function recheck(){
-    const now=await chainHashes(recs.map(r=>r.s));let broke=-1;
-    chain.querySelectorAll('.block').forEach((b,i)=>{const bad=now[i]!==sealed[i];b.classList.toggle('broken',bad);b.querySelector('.h').textContent=now[i].slice(0,16)+'…';if(bad&&broke<0)broke=i;});
-    if(broke<0){verify.className='verify ok';verify.textContent='✓ centauri verify — history intact';}
-    else{verify.className='verify fail';verify.textContent='✗ centauri verify — chain breaks at record #'+broke+' (and every record after it)';}
-  }
-  document.getElementById('reset').onclick=build;build();
-})();
-
-/* ---------- top-level tabs ---------- */
-(function(){
-  const panes=[...document.querySelectorAll('.tabpane')];
-  const tabs=[...document.querySelectorAll('.tabbtn')];
-  function show(id){
-    panes.forEach(p=>p.classList.toggle('active',p.id==='tab-'+id));
-    tabs.forEach(t=>{const on=t.dataset.tab===id;t.classList.toggle('active',on);t.setAttribute('aria-selected',on?'true':'false');});
-  }
-  const alias={why:'why',pricing:'pricing',engineers:'eng',eng:'eng'};
-  function paneOf(el){let p=el;while(p&&!(p.classList&&p.classList.contains('tabpane')))p=p.parentElement;return p;}
-  tabs.forEach(t=>t.onclick=()=>{show(t.dataset.tab);try{history.replaceState(null,'','#'+t.dataset.tab);}catch(e){}window.scrollTo({top:0});});
-  function goHash(h){
-    const id=(h||'').replace('#','');if(!id)return;
-    const el=document.getElementById(id);
-    if(!el){if(alias[id])show(alias[id]);return;}
-    const p=paneOf(el);
-    if(p){show(p.id.slice(4));setTimeout(()=>{try{el.scrollIntoView();}catch(e){}},0);}
-  }
-  document.addEventListener('click',e=>{
-    const a=e.target.closest('a[href^="#"]');if(!a)return;
-    const el=document.getElementById(a.getAttribute('href').slice(1));
-    if(el){const p=paneOf(el);if(p&&!p.classList.contains('active'))show(p.id.slice(4));}
-  });
-  window.addEventListener('hashchange',()=>goHash(location.hash));
-  if(location.hash)goHash(location.hash);
-})();
-</script>
 <script src="chat.js" defer></script>
 </body>
 </html>
