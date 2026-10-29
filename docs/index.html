@@ -84,7 +84,7 @@
   .lead{color:var(--dim);font-size:17px;max-width:780px;margin:0 0 26px}
 
   /* hero strip + tabs */
-  .hs{padding:36px 24px 32px;grid-template-columns:1fr}
+  .hs,.hero .wrap.hs{padding:36px 24px 32px;grid-template-columns:1fr}
   .hs h1{font-size:clamp(27px,3.5vw,40px);margin:0 0 10px}
   .hs .sub{max-width:820px}
   .tabs{position:sticky;top:58px;z-index:40;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 4px 14px rgba(20,40,80,.06)}
@@ -1339,5 +1339,6 @@ function ceqlHL(q){return q.replace(/\b(FACTS OF|FACTS|HISTORY OF|CONTEXT FOR|DI
   if(location.hash)goHash(location.hash);
 })();
 </script>
+<script src="chat.js" defer></script>
 </body>
 </html>
