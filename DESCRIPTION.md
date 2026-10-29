@@ -68,4 +68,4 @@ no query optimizer yet. Centauri isn't here to replace Postgres —
 it's the flight recorder beside it: the system of record for what happened,
 when, why, and how much to trust it.
 
-PostgreSQL-style license. Free forever.
+MIT License. Free forever.

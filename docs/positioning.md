@@ -133,11 +133,11 @@ Five outcomes, one binary:
    documents. Nothing is uploaded, nothing phones home. Cloud models (GLM-5.2,
    OpenAI GPT-5.5, Anthropic Claude) are optional, per-provider-keyed, off by
    default, and explicitly labeled when data would leave the machine.
-3. **Radical TCO.** The software is $0, forever, under The PostgreSQL License.
+3. **Radical TCO.** The software is $0, forever, under the MIT License.
    It runs on a laptop or a $5–20/month VM — where comparable API platforms
    bill per gateway service, per million calls, and per environment. No
    per-seat, per-request, or control-plane fees.
-4. **Vendor independence.** The PostgreSQL License (any use, including
+4. **Vendor independence.** the MIT License (any use, including
    commercial, no copyleft), zero third-party dependencies (the empty go.mod
    `require` block is public and verifiable), and data in plain files your own
    engineers can read. Leaving costs one file copy.
@@ -206,7 +206,7 @@ and the model never phones home.
    cold tier** (stdlib SigV4, Merkle-verified) for cheap, verifiable cold storage.
 
 5. **You own it** — one self-contained binary, **zero third-party Go dependencies**
-   (stdlib only), no cloud requirement, and **The PostgreSQL License**
+   (stdlib only), no cloud requirement, and **the MIT License**
    (OSI-approved, permissive, free for any use including commercial, no
    copyleft — never described as MIT). Download one file and run.
    Zero-dependency Python / Go / JS SDKs and a native MCP server for agents.

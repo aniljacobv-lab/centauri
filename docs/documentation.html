@@ -92,6 +92,25 @@
   .hidden{display:none!important}
   mark{background:#fff3b0;padding:0 2px;border-radius:3px}
 
+  /* what's in the box */
+  .box{background:var(--bg2);border-bottom:1px solid var(--border);padding:36px 0 30px}
+  .box .lead{margin-bottom:18px}
+  .diag{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;margin:14px 0}
+  .diag svg{width:100%;height:auto;display:block;font-family:system-ui,"Segoe UI",Roboto,Helvetica,sans-serif}
+  .ptabs{display:flex;gap:4px;overflow-x:auto;border-bottom:2px solid var(--border);margin:18px 0 16px}
+  .ptab{appearance:none;background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;padding:12px 16px 10px;font:700 14.5px system-ui,"Segoe UI",Roboto,Helvetica,sans-serif;color:var(--dim);cursor:pointer;white-space:nowrap}
+  .ptab:hover{color:var(--ink)}.ptab.active{color:var(--teal-d);border-bottom-color:var(--teal)}
+  .ppane{display:none}.ppane.active{display:block}
+  .ppane h3{font-size:20px;margin:6px 0 8px}
+  .pgrid{display:grid;grid-template-columns:1.1fr .9fr;gap:24px;align-items:start}
+  .pgrid>*{min-width:0}
+  @media(max-width:900px){.pgrid{grid-template-columns:1fr}}
+  table.cmp th,table.cmp td{text-align:center}
+  table.cmp td:first-child,table.cmp th:first-child{text-align:left}
+  table.cmp .me{color:var(--teal-d);font-weight:800}
+  .y{color:var(--good);font-weight:700}.n{color:var(--bad)}.p{color:var(--warn)}
+  table.cmp td small{color:var(--faint);font-size:11px;display:block;font-weight:400}
+  p.honest{display:block}
   footer{background:var(--navy);color:#aebfd4;padding:38px 0 56px;font-size:14px}
   footer a{color:#cfe0f5}
   footer .lock{font-weight:800;color:#fff;font-size:17px;margin-bottom:6px}
@@ -120,13 +139,281 @@
 <div class="hero"><div class="wrap">
   <div class="kicker">Documentation</div>
   <h1>Everything about Centauri, <span class="accent">on one page.</span></h1>
-  <p class="sub">The zero-dependency, single-binary system of record, private AI runtime, and API/LLM gateway — install it, query it, wire it to your AI and your tools, run it in production. Every snippet below is copyable, and every section is filterable from the sidebar. Where Centauri does <em>not</em> do something, the docs say so.</p>
+  <p class="sub">The zero-dependency, single-binary system of record, private AI runtime, and API/LLM gateway — install it, query it, wire it to your AI and your tools, run it in production. Every snippet below is copyable, and every section is filterable from the sidebar; track 6 covers the project itself — releases, CI, roadmap and contributing. Where Centauri does <em>not</em> do something, the docs say so.</p>
   <div class="tracks">
     <a class="track" href="#track-1"><b>1 · Getting started</b><span>Install, launch modes, 5-minute quickstart, embedded workspaces</span></a>
     <a class="track" href="#track-2"><b>2 · Querying</b><span>CeQL, time travel, SQL, Postgres wire, hybrid search, HLL, topology</span></a>
     <a class="track" href="#track-3"><b>3 · Private AI &amp; MCP</b><span>Local models, vision, ASK, Genesis architect, CePL, MCP server</span></a>
     <a class="track" href="#track-4"><b>4 · Enterprise &amp; gateway</b><span>Tablespaces, S3, lazy index, HA, sharding, governance, the gateway</span></a>
     <a class="track" href="#track-5"><b>5 · SDKs &amp; connectors</b><span>Python, Go, JS, CDC streams, Airbyte, Kubernetes, Render, production</span></a>
+    <a class="track" href="#track-6"><b>6 · The project</b><span>Releases, CI &amp; the Dream cycle, performance, roadmap, contributing</span></a>
+  </div>
+</div></div>
+
+<!-- ===================================================== WHAT'S IN THE BOX (tabs) -->
+<div class="box"><div class="wrap">
+  <div class="kicker">What's in the box</div>
+  <h2>One binary, <span class="rule">six products.</span></h2>
+  <p class="lead">Everything below ships inside the single <code>centauri</code> executable — there is nothing separate to download. Pick a tab to see how that piece works, how to start it, and (where it competes with something you know) an honest comparison.</p>
+
+  <div class="diag" aria-label="Architecture overview: one binary serving the engine, workspaces, gateway, MCP server and local AI orchestration">
+  <svg viewBox="0 0 1000 330" xmlns="http://www.w3.org/2000/svg" role="img">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5 0 10z" fill="#54627a"/></marker></defs>
+    <rect x="300" y="18" width="400" height="294" rx="16" fill="#f4f8fc" stroke="#dbe5f0"/>
+    <text x="500" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#0594bb" font-family="ui-monospace,Menlo,Consolas,monospace" letter-spacing="2">THE CENTAURI BINARY · ZERO DEPENDENCIES</text>
+    <rect x="320" y="60" width="360" height="74" rx="10" fill="#16212e"/>
+    <text x="500" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">Engine — append-only log · hash chain</text>
+    <text x="500" y="104" text-anchor="middle" font-size="12" fill="#c6d4e6">bi-temporal indexes · causal graph · BM25 + vectors</text>
+    <text x="500" y="122" text-anchor="middle" font-size="12" fill="#c6d4e6">segments → tablespaces → S3 cold tier</text>
+    <rect x="320" y="150" width="172" height="46" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="406" y="170" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">CeQL · SQL · pgwire</text><text x="406" y="186" text-anchor="middle" font-size="11" fill="#54627a">query surfaces</text>
+    <rect x="508" y="150" width="172" height="46" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="594" y="170" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">REST / SSE API</text><text x="594" y="186" text-anchor="middle" font-size="11" fill="#54627a">/v1/* · WATCH · CDC</text>
+    <rect x="320" y="208" width="112" height="46" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="376" y="228" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">Workspaces</text><text x="376" y="244" text-anchor="middle" font-size="11" fill="#54627a">/ /studio /console</text>
+    <rect x="444" y="208" width="112" height="46" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="500" y="228" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">Gateway</text><text x="500" y="244" text-anchor="middle" font-size="11" fill="#54627a">routes as facts</text>
+    <rect x="568" y="208" width="112" height="46" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="624" y="228" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">MCP server</text><text x="624" y="244" text-anchor="middle" font-size="11" fill="#54627a">20 typed tools</text>
+    <rect x="320" y="266" width="360" height="34" rx="9" fill="#eaf1f8" stroke="#dbe5f0"/><text x="500" y="288" text-anchor="middle" font-size="12" fill="#245a91">AI orchestration: provisioning · auto-embed · ENRICH · ASK · vision · NL→CeQL</text>
+    <!-- left: callers -->
+    <rect x="30" y="70" width="200" height="40" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="130" y="95" text-anchor="middle" font-size="12.5" fill="#16243a">psql · JDBC · BI tools</text>
+    <rect x="30" y="124" width="200" height="40" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="130" y="149" text-anchor="middle" font-size="12.5" fill="#16243a">Apps via Python / Go / JS SDKs</text>
+    <rect x="30" y="178" width="200" height="40" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="130" y="203" text-anchor="middle" font-size="12.5" fill="#16243a">AI agents (Claude, Cursor…)</text>
+    <rect x="30" y="232" width="200" height="40" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="130" y="257" text-anchor="middle" font-size="12.5" fill="#16243a">Airbyte · CDC consumers</text>
+    <path d="M230 90 H300" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/><path d="M230 144 H300" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/><path d="M230 198 H300" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/><path d="M230 252 H300" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+    <!-- right: runtime & storage -->
+    <rect x="770" y="70" width="200" height="52" rx="9" fill="#fff" stroke="#00add8"/><text x="870" y="90" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">Ollama (optional, local)</text><text x="870" y="108" text-anchor="middle" font-size="11" fill="#54627a">chat · embeddings · vision models</text>
+    <rect x="770" y="140" width="200" height="52" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="870" y="160" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">Your upstream APIs / LLMs</text><text x="870" y="178" text-anchor="middle" font-size="11" fill="#54627a">behind the gateway</text>
+    <rect x="770" y="210" width="200" height="52" rx="9" fill="#fff" stroke="#dbe5f0"/><text x="870" y="230" text-anchor="middle" font-size="12.5" font-weight="700" fill="#16243a">Your disk · S3 bucket</text><text x="870" y="248" text-anchor="middle" font-size="11" fill="#54627a">one JSONL file; sealed segments</text>
+    <path d="M700 96 H770" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)" marker-start="url(#ar)"/><path d="M700 166 H770" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/><path d="M700 236 H770" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
+  </svg></div>
+
+  <div class="ptabs" role="tablist">
+    <button class="ptab active" data-p="engine" role="tab">🗄 Centauri Database</button>
+    <button class="ptab" data-p="studio" role="tab">🖥 Studio, Console &amp; App</button>
+    <button class="ptab" data-p="ai" role="tab">🧠 Local AI &amp; Vision</button>
+    <button class="ptab" data-p="gateway" role="tab">🛡 Centauri Gateway</button>
+    <button class="ptab" data-p="agents" role="tab">🤖 MCP &amp; SDKs</button>
+    <button class="ptab" data-p="deploy" role="tab">☁️ Deploy &amp; scale</button>
+  </div>
+
+  <!-- TAB: engine -->
+  <div class="ppane active" id="p-engine">
+    <div class="pgrid">
+      <div>
+        <h3>The engine — a system of record that can prove its history</h3>
+        <p>Every fact is stored once with two clocks (when it became true, when you learned it), a cause, a source and a confidence. Nothing is updated or deleted: a change is a new superseding fact, and a SHA-256 chain seals every record so <code>centauri verify</code> re-proves the whole history. That one data model does the jobs of a document store, a vector database, a search engine, a graph and an audit ledger.</p>
+        <div class="pre"><pre>centauri serve -data my.log -token secret
+centauri serve -data my.log -pg-addr :5432     <span class="cm"># + Postgres wire for BI tools</span></pre></div>
+        <p><a href="#track-2">Querying docs →</a> · <a href="#track-4">Storage &amp; governance docs →</a> · <a href="how-it-works.html">How it works (deep dive) →</a></p>
+      </div>
+      <div class="diag" aria-label="A fact with two clocks, a cause and a trust score, sealed into a hash chain">
+      <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <text x="20" y="24" font-size="12" font-weight="700" fill="#0594bb" font-family="ui-monospace,Menlo,Consolas,monospace" letter-spacing="2">ONE FACT</text>
+        <rect x="20" y="34" width="480" height="120" rx="12" fill="#fff" stroke="#dbe5f0"/>
+        <text x="36" y="58" font-size="12.5" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#16243a">item:100001/store:4001 · facet <tspan fill="#2f6fb0" font-weight="700">register</tspan></text>
+        <text x="36" y="80" font-size="12.5" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#16243a">value {price_cents: 699}</text>
+        <text x="36" y="102" font-size="11.5" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#54627a">effective 2026-03-15 · recorded 2026-03-12</text>
+        <text x="36" y="124" font-size="11.5" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#54627a">SYSTEM_FEED · confidence 0.9 · caused by intent:7781</text>
+        <text x="36" y="144" font-size="11" font-family="ui-monospace,Menlo,Consolas,monospace" fill="#8493a8">sha256 chain: prev 9e1f… → this 4c0a…</text>
+        <text x="20" y="190" font-size="12" font-weight="700" fill="#0594bb" font-family="ui-monospace,Menlo,Consolas,monospace" letter-spacing="2">HISTORY IS THE DATA MODEL</text>
+        <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="11">
+          <rect x="20" y="202" width="110" height="56" rx="8" fill="#eaf1f8" stroke="#dbe5f0"/><text x="75" y="224" text-anchor="middle" fill="#16243a">PUT 500</text><text x="75" y="242" text-anchor="middle" fill="#8493a8">superseded</text>
+          <rect x="150" y="202" width="110" height="56" rx="8" fill="#eaf1f8" stroke="#dbe5f0"/><text x="205" y="224" text-anchor="middle" fill="#16243a">CORRECT 450</text><text x="205" y="242" text-anchor="middle" fill="#8493a8">superseded</text>
+          <rect x="280" y="202" width="110" height="56" rx="8" fill="#16212e"/><text x="335" y="224" text-anchor="middle" fill="#fff" font-weight="700">PUT 699</text><text x="335" y="242" text-anchor="middle" fill="#9be29b">current</text>
+          <rect x="410" y="202" width="90" height="56" rx="8" fill="#fff" stroke="#dbe5f0" stroke-dasharray="4 3"/><text x="455" y="224" text-anchor="middle" fill="#54627a">RETIRE</text><text x="455" y="242" text-anchor="middle" fill="#8493a8">= supersede</text>
+          <path d="M130 230 H150 M260 230 H280 M390 230 H410" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+        </g>
+        <text x="20" y="286" font-size="11" fill="#54627a">AS OF = what was true · AS KNOWN AT = what you believed · WHY = the cause links</text>
+      </svg></div>
+    </div>
+    <h3 style="margin-top:14px">Where it fits — and where it doesn't</h3>
+    <div class="scroll"><table class="cmp">
+      <thead><tr><th></th><th class="me">Centauri</th><th>PostgreSQL</th><th>Datomic</th><th>EventStoreDB</th><th>SQLite</th></tr></thead>
+      <tbody>
+        <tr><td>Bi-temporal (valid + transaction time)</td><td class="y">✓</td><td class="n">✗</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td></tr>
+        <tr><td>Nothing ever erased</td><td class="y">✓</td><td class="n">✗</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+        <tr><td>Causal links as data · WHY / EFFECTS</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+        <tr><td>Tamper-evident hash chain + verify</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+        <tr><td>Native BM25 + hybrid vector search</td><td class="y">✓</td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="p">~</td></tr>
+        <tr><td>Topology operators (SHAPE, CYCLES, DRIFT)</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+        <tr><td>Built-in MCP server · local LLM · vision ingest</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+        <tr><td>Single binary, zero dependencies</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+        <tr><td>Sharding + HA failover</td><td class="y">✓ <small>shards + auto-failover</small></td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td></tr>
+        <tr><td>Data larger than RAM</td><td class="y">✓ <small>lazy index, read-only</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+        <tr><td>General SQL with JOINs and writes</td><td class="n">✗ <small>read-only SELECT subset</small></td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+        <tr><td>Multi-writer OLTP</td><td class="n">✗ <small>single writer per log</small></td><td class="y">✓</td><td class="p">~</td><td class="y">✓</td><td class="n">✗</td></tr>
+        <tr><td>Enterprise SSO + row-level security</td><td class="y">✓ <small>OIDC, RLS, masking</small></td><td class="p">~</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      </tbody>
+    </table></div>
+    <p class="honest">Centauri is the flight recorder <em>beside</em> your operational database, not a Postgres replacement. Coming from Oracle? <a href="internals-vs-oracle.html">Centauri internals vs Oracle →</a></p>
+  </div>
+
+  <!-- TAB: studio -->
+  <div class="ppane" id="p-studio">
+    <div class="pgrid">
+      <div>
+        <h3>Studio, Console, App, Dashboard and the Book</h3>
+        <p>Five browser workspaces are embedded in the binary with <code>go:embed</code>, so a server <em>is</em> its own front end. <b>Centauri Studio</b> (<code>/studio</code>) is the AI-first IDE: object explorer, causal-graph view, edit-as-a-fact, SQL auto-routing and the ✨ Copilot. The <b>Console</b> (<code>/console</code>) is the suite home where you mint gateway keys and watch usage. The <b>App</b> (<code>/app</code>) is the plain-English Ask / Add / Recent screen for non-technical users. The <b>Dashboard</b> (<code>/</code>) holds the query bar, Genesis, the AI panel and Vision upload; the <b>CeQL Book</b> (<code>/ceql</code>) is the textbook. <code>centauri desktop</code> opens the Console in a native-feeling app window (Edge or Chrome <code>--app=</code> mode) and falls back to your browser.</p>
+        <div class="pre"><pre>centauri desktop                 <span class="cm"># opens the Console app window; manages Ollama</span>
+open-studio.bat                  <span class="cm"># Windows: jump straight to /studio</span>
+http://localhost:7771/studio     http://localhost:7771/console     http://localhost:7771/app</pre></div>
+        <p><a href="#t1-workspaces">Workspace docs →</a></p>
+      </div>
+      <div class="diag" aria-label="The five embedded workspaces served by one process">
+      <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <rect x="170" y="110" width="180" height="80" rx="12" fill="#16212e"/>
+        <text x="260" y="142" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">centauri serve</text>
+        <text x="260" y="162" text-anchor="middle" font-size="12" fill="#c6d4e6">one process · port 7771</text>
+        <text x="260" y="180" text-anchor="middle" font-size="11" fill="#9be29b">go:embed ui · studio · console · app · ceql</text>
+        <g font-size="12" font-family="ui-monospace,Menlo,Consolas,monospace">
+          <rect x="20" y="20" width="140" height="48" rx="9" fill="#fff" stroke="#00add8"/><text x="90" y="40" text-anchor="middle" fill="#16243a" font-weight="700">/studio</text><text x="90" y="58" text-anchor="middle" fill="#54627a" font-size="11">Centauri Studio IDE</text>
+          <rect x="190" y="20" width="140" height="48" rx="9" fill="#fff" stroke="#00add8"/><text x="260" y="40" text-anchor="middle" fill="#16243a" font-weight="700">/console</text><text x="260" y="58" text-anchor="middle" fill="#54627a" font-size="11">suite home · mint keys</text>
+          <rect x="360" y="20" width="140" height="48" rx="9" fill="#fff" stroke="#00add8"/><text x="430" y="40" text-anchor="middle" fill="#16243a" font-weight="700">/app</text><text x="430" y="58" text-anchor="middle" fill="#54627a" font-size="11">Ask · Add · Recent</text>
+          <rect x="60" y="232" width="160" height="48" rx="9" fill="#fff" stroke="#00add8"/><text x="140" y="252" text-anchor="middle" fill="#16243a" font-weight="700">/</text><text x="140" y="270" text-anchor="middle" fill="#54627a" font-size="11">dashboard · Genesis · AI panel</text>
+          <rect x="300" y="232" width="160" height="48" rx="9" fill="#fff" stroke="#00add8"/><text x="380" y="252" text-anchor="middle" fill="#16243a" font-weight="700">/ceql</text><text x="380" y="270" text-anchor="middle" fill="#54627a" font-size="11">the CeQL Book</text>
+        </g>
+        <path d="M90 68 L200 110 M260 68 V110 M430 68 L320 110 M140 232 L210 190 M380 232 L310 190" stroke="#54627a" stroke-width="1.5" fill="none"/>
+        <text x="260" y="212" text-anchor="middle" font-size="11" fill="#8493a8">+ serve -lazy-index: Tablespace Console at /</text>
+      </svg></div>
+    </div>
+  </div>
+
+  <!-- TAB: ai -->
+  <div class="ppane" id="p-ai">
+    <div class="pgrid">
+      <div>
+        <h3>Centauri Local AI — your own private AI, on your hardware</h3>
+        <p><code>centauri desktop</code> detects your hardware, installs Ollama if needed, pulls a model trio sized to your machine (chat, embeddings, vision), registers them as facts and turns on auto-embed. From then on every fact embeds itself; <code>SEARCH</code> ranks by meaning as well as keywords; <code>ASK</code> answers in plain English <em>with citations</em> to the source facts; <code>ENRICH asset:* USING vision</code> reads images and PDFs into searchable facts. Nothing leaves the machine and there is no per-token bill. A cloud boost (GLM-5.2, GPT-5.5, Claude) exists — off by default and clearly labeled, because with it your questions leave the machine.</p>
+        <div class="pre"><pre>centauri desktop                       <span class="cm"># zero-step: detect, install, pull, register</span>
+centauri setup vision -install         <span class="cm"># add PDF rendering + vision models</span>
+centauri serve -ai auto                <span class="cm"># headless server with the appliance</span></pre></div>
+        <p><a href="#track-3">Private AI docs →</a></p>
+      </div>
+      <div class="diag" aria-label="The local AI loop: upload, enrich with a local model, search and ask with citations">
+      <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <g font-size="12.5">
+          <rect x="20" y="30" width="140" height="60" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="90" y="55" text-anchor="middle" fill="#16243a" font-weight="700">Your files</text><text x="90" y="74" text-anchor="middle" fill="#54627a" font-size="11">PDFs · images · CSV · facts</text>
+          <rect x="190" y="30" width="140" height="60" rx="10" fill="#16212e"/><text x="260" y="55" text-anchor="middle" fill="#fff" font-weight="700">ENRICH</text><text x="260" y="74" text-anchor="middle" fill="#c6d4e6" font-size="11">describe · embed · auto-embed</text>
+          <rect x="360" y="30" width="140" height="60" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="430" y="55" text-anchor="middle" fill="#16243a" font-weight="700">Facts + vectors</text><text x="430" y="74" text-anchor="middle" fill="#54627a" font-size="11">provenanced enrichments</text>
+          <path d="M160 60 H190 M330 60 H360" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+          <rect x="190" y="118" width="140" height="56" rx="10" fill="#fff" stroke="#00add8"/><text x="260" y="141" text-anchor="middle" fill="#16243a" font-weight="700">Ollama · local</text><text x="260" y="160" text-anchor="middle" fill="#54627a" font-size="11">gemma3 / qwen3 / glm-4.7-flash</text>
+          <path d="M260 90 V118" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
+          <rect x="20" y="210" width="220" height="70" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="130" y="234" text-anchor="middle" fill="#16243a" font-weight="700">SEARCH 'stockout'</text><text x="130" y="254" text-anchor="middle" fill="#54627a" font-size="11">BM25 + vectors + recency + trust</text><text x="130" y="270" text-anchor="middle" fill="#54627a" font-size="11">ranked, with signal breakdown</text>
+          <rect x="280" y="210" width="220" height="70" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="390" y="234" text-anchor="middle" fill="#16243a" font-weight="700">ASK 'why did price drift?'</text><text x="390" y="254" text-anchor="middle" fill="#54627a" font-size="11">retrieve → local LLM answers</text><text x="390" y="270" text-anchor="middle" fill="#1a8754" font-size="11" font-weight="700">grounded: true · sources: [event ids]</text>
+          <path d="M430 90 L430 160 L390 210 M430 160 L130 210" stroke="#54627a" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+          <text x="20" y="192" font-size="11" fill="#8493a8">nothing leaves the machine · cloud boost is opt-in and labeled</text>
+        </g>
+      </svg></div>
+    </div>
+  </div>
+
+  <!-- TAB: gateway -->
+  <div class="ppane" id="p-gateway">
+    <div class="pgrid">
+      <div>
+        <h3>Centauri Gateway — the API &amp; LLM gateway whose config is a database</h3>
+        <p>The product in Kong's category. <code>centauri gateway</code> is a reverse proxy whose routes, API keys and per-request audit are bi-temporal facts in a Centauri log: config time-travels (<code>AS OF 'last tuesday 9am'</code>), a key is revoked with <code>RETIRE</code> and its history stays, and the request audit is sealed in the hash chain so <code>centauri verify</code> proves nothing was edited. Auth by API key, OIDC JWT or mTLS; a built-in client-credentials token issuer; per-route / per-key / per-IP rate limits; programmable CePL request policies and webhook callouts; OpenAI-compatible LLM routes with SSE streaming, provider failover and per-key token metering.</p>
+        <div class="pre"><pre>centauri gateway -data gateway.log -addr :8080 -admin :7771
+PUT route:api FACET config SET prefix='/api/', upstream='http://127.0.0.1:9000', auth='key', rate_per_min=120, audit='meta'
+FACTS OF route:api FACET config AS OF 'last tuesday 9am'</pre></div>
+        <p><a href="#t4-gateway">Gateway docs →</a> · <a href="compare-gateways.html">Full comparison page →</a></p>
+      </div>
+      <div class="diag" aria-label="The gateway request pipeline: middleware chain, upstream proxy, audit fact appended to the hash-chained log">
+      <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <g font-size="11.5" font-family="ui-monospace,Menlo,Consolas,monospace">
+          <rect x="20" y="22" width="80" height="40" rx="8" fill="#fff" stroke="#dbe5f0"/><text x="60" y="47" text-anchor="middle" fill="#16243a">caller</text>
+          <path d="M100 42 H126" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+          <rect x="126" y="12" width="374" height="60" rx="10" fill="#f4f8fc" stroke="#dbe5f0"/>
+          <text x="313" y="30" text-anchor="middle" fill="#0594bb" font-weight="700" letter-spacing="1">PER-REQUEST PIPELINE · FAIL-CLOSED</text>
+          <text x="313" y="50" text-anchor="middle" fill="#16243a">CORS → auth → rate limit → headers → IP → body cap</text>
+          <text x="313" y="65" text-anchor="middle" fill="#16243a">→ path blocks → authz webhook → CePL policy → proxy</text>
+          <path d="M313 72 V100" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+          <rect x="213" y="100" width="200" height="40" rx="8" fill="#fff" stroke="#dbe5f0"/><text x="313" y="118" text-anchor="middle" fill="#16243a" font-weight="700">upstream / LLM provider</text><text x="313" y="133" text-anchor="middle" fill="#54627a" font-size="10.5">failover · model pinning · SSE</text>
+          <path d="M313 140 V168" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+          <rect x="20" y="168" width="480" height="112" rx="12" fill="#16212e"/>
+          <text x="260" y="190" text-anchor="middle" fill="#fff" font-weight="700" font-size="12.5">gateway.log — the control plane IS the database</text>
+          <text x="36" y="214" fill="#7fd3ff">route:api</text><text x="130" y="214" fill="#c6d4e6">{prefix, upstream, auth, rate, policy…}</text>
+          <text x="36" y="234" fill="#7fd3ff">gwkey:&lt;sha&gt;</text><text x="130" y="234" fill="#c6d4e6">{name, routes, rate} · secret never stored</text>
+          <text x="36" y="254" fill="#7fd3ff">gw:api</text><text x="130" y="254" fill="#c6d4e6">{method, path, status, ms, key, tokens} / request</text>
+          <text x="36" y="272" fill="#9be29b">sha256 chain → verify · AS OF / HISTORY on everything</text>
+        </g>
+      </svg></div>
+    </div>
+    <h3 style="margin-top:14px">Centauri Gateway vs Kong, Apigee, AWS API Gateway &amp; Tyk</h3>
+    <div class="scroll"><table class="cmp">
+      <thead><tr><th></th><th class="me">Centauri Gateway</th><th>Kong (OSS + Konnect)</th><th>Google Apigee</th><th>AWS API Gateway</th><th>Tyk</th></tr></thead>
+      <tbody>
+        <tr><td>Config model</td><td class="y">bi-temporal facts<small>RETIRE, never delete</small></td><td class="y">YAML / Postgres / Konnect<small>GitOps versioning</small></td><td class="y">proxies with revisions</td><td class="p">console / CloudFormation<small>stages + deployments</small></td><td class="y">files, Redis or dashboard</td></tr>
+        <tr><td>Config time travel</td><td class="y">✓ <small>one AS OF query</small></td><td class="n">✗ <small>reconstruct from git</small></td><td class="p">~ <small>revision rollback</small></td><td class="p">~ <small>redeploy old stage</small></td><td class="n">✗</td></tr>
+        <tr><td>Request audit trail</td><td class="y">tamper-evident<small>hash chain, verify; metadata only</small></td><td class="p">~ <small>plugin logging, not verifiable</small></td><td class="y">✓ <small>managed analytics + audit logs</small></td><td class="p">~ <small>CloudWatch + CloudTrail + Athena</small></td><td class="p">~ <small>Tyk Pump</small></td></tr>
+        <tr><td>AI / LLM routing</td><td class="y">✓ <small>SSE, failover, pinning, token metering as facts</small></td><td class="y">✓ <small>AI-gateway plugin suite</small></td><td class="p">~</td><td class="p">~ <small>assemble with Bedrock/Lambda</small></td><td class="p">~</td></tr>
+        <tr><td>Authentication</td><td class="p">~ <small>keys, OIDC JWT, mTLS, client-credentials issuer; no human login flows</small></td><td class="y">✓ <small>full OAuth2/OIDC suites</small></td><td class="y">✓ <small>built-in OAuth2 server</small></td><td class="y">✓ <small>IAM, Cognito, authorizers</small></td><td class="y">✓</td></tr>
+        <tr><td>Rate limiting</td><td class="y">✓ <small>route / key / IP</small></td><td class="y">✓ <small>sliding window, clustered</small></td><td class="y">✓ <small>quotas, spike arrest</small></td><td class="y">✓ <small>usage plans</small></td><td class="y">✓</td></tr>
+        <tr><td>Middleware / plugins</td><td class="p">~ <small>built-ins + CePL policies + webhooks; no marketplace</small></td><td class="y">✓ <small>hundreds, custom in Lua/Go/JS/Py</small></td><td class="y">✓ <small>rich policy catalog</small></td><td class="p">~ <small>mapping templates + Lambda</small></td><td class="y">✓</td></tr>
+        <tr><td>Kubernetes ingress / mesh</td><td class="n">✗ <small>runs in k8s as a plain deployment</small></td><td class="y">✓ <small>Ingress Controller + Kuma</small></td><td class="p">~</td><td class="p">~</td><td class="y">✓ <small>Tyk Operator</small></td></tr>
+        <tr><td>Throughput class</td><td class="p">~ <small>Go stdlib proxy; ~26k req/s on 2 cores; not for six-figure RPS</small></td><td class="y">✓ <small>NGINX/OpenResty</small></td><td class="y">✓ <small>Google scale</small></td><td class="y">✓ <small>serverless scale</small></td><td class="y">✓ <small>Go, published benchmarks</small></td></tr>
+        <tr><td>Deployment weight</td><td class="y">one binary<small>config + audit in one file</small></td><td class="p">~ <small>data + control plane, Postgres or DB-less</small></td><td class="p">~ <small>managed SaaS</small></td><td class="y">✓ <small>fully managed</small></td><td class="p">~ <small>gateway + Redis</small></td></tr>
+        <tr><td>Scale-out / HA</td><td class="p">~ <small>N read-only followers of one control plane; no multi-DC</small></td><td class="y">✓ <small>clustering, hybrid, multi-region</small></td><td class="y">✓</td><td class="y">✓</td><td class="y">✓ <small>multi-DC in paid tiers</small></td></tr>
+        <tr><td>Software cost</td><td class="y">$0 forever<small>MIT License</small></td><td class="p">≈$1,260+/yr per service (Plus)<small>enterprise ≈$30–50k+/yr</small></td><td class="p">≈$4,380+/yr per env/region</td><td class="y">$0 base<small>≈$1–3.50 per 1M calls</small></td><td class="p">OSS gateway free; paid dashboard/tiers</td></tr>
+      </tbody>
+    </table></div>
+    <p class="honest"><b>Honest summary:</b> Kong wins on raw throughput, plugin ecosystem, Kubernetes ingress and OAuth2 IdP flows; Apigee on monetization and analytics; AWS is cheapest per call at scale, but AWS-locked. Centauri's edge is config time travel, a provable audit, LLM metering as queryable facts, and $0. Pricing is indicative mid-2026 list pricing — verify with each vendor.</p>
+  </div>
+
+  <!-- TAB: agents -->
+  <div class="ppane" id="p-agents">
+    <div class="pgrid">
+      <div>
+        <h3>MCP server, SDKs and connectors — get in and out without lock-in</h3>
+        <p>AI agents are first-class clients: <code>centauri mcp</code> exposes 20 typed tools (plus one per stored procedure) over the Model Context Protocol, so Claude Desktop, Claude Code, Cursor or any MCP host query, write and trace lineage with no SQL strings. Applications use the zero-dependency <b>Python</b>, <b>Go</b> and <b>JavaScript</b> SDKs over the REST/JSON API; pipelines use the <b>Airbyte</b> source and destination or raw CDC at <code>/v1/changes</code>; BI tools use the Postgres wire. Everything is the same API underneath.</p>
+        <div class="pre"><pre>{ "mcpServers": { "centauri": { "command": "centauri", "args": ["mcp"] } } }</pre></div>
+        <div class="pre"><pre>from centauri import Centauri
+db = Centauri.launch(); db.add("toy:robot", {"price_cents": 500}); print(db.context("toy:robot"))</pre></div>
+        <p><a href="#t3-mcp">MCP docs →</a> · <a href="#track-5">SDK &amp; connector docs →</a></p>
+      </div>
+      <div class="diag" aria-label="Agents via MCP, apps via SDKs, pipelines via Airbyte and CDC, all over one API">
+      <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <g font-size="12">
+          <rect x="20" y="20" width="150" height="54" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="95" y="42" text-anchor="middle" fill="#16243a" font-weight="700">AI agent</text><text x="95" y="60" text-anchor="middle" fill="#54627a" font-size="11">Claude · Cursor · any MCP host</text>
+          <rect x="20" y="96" width="150" height="54" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="95" y="118" text-anchor="middle" fill="#16243a" font-weight="700">Your application</text><text x="95" y="136" text-anchor="middle" fill="#54627a" font-size="11">Python · Go · JS SDK</text>
+          <rect x="20" y="172" width="150" height="54" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="95" y="194" text-anchor="middle" fill="#16243a" font-weight="700">Data pipeline</text><text x="95" y="212" text-anchor="middle" fill="#54627a" font-size="11">Airbyte src/dest · CDC slots</text>
+          <rect x="20" y="248" width="150" height="40" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="95" y="273" text-anchor="middle" fill="#16243a" font-weight="700">BI / psql</text>
+          <rect x="210" y="20" width="120" height="54" rx="10" fill="#eaf1f8" stroke="#dbe5f0"/><text x="270" y="42" text-anchor="middle" fill="#245a91" font-weight="700">MCP · stdio</text><text x="270" y="60" text-anchor="middle" fill="#54627a" font-size="11">centauri_context …</text>
+          <rect x="210" y="96" width="120" height="130" rx="10" fill="#eaf1f8" stroke="#dbe5f0"/><text x="270" y="150" text-anchor="middle" fill="#245a91" font-weight="700">REST / JSON</text><text x="270" y="168" text-anchor="middle" fill="#54627a" font-size="11">/v1/* · SSE · CDC</text>
+          <rect x="210" y="248" width="120" height="40" rx="10" fill="#eaf1f8" stroke="#dbe5f0"/><text x="270" y="273" text-anchor="middle" fill="#245a91" font-weight="700">pgwire</text>
+          <rect x="370" y="20" width="130" height="268" rx="12" fill="#16212e"/><text x="435" y="140" text-anchor="middle" fill="#fff" font-weight="700" font-size="13">Centauri</text><text x="435" y="160" text-anchor="middle" fill="#c6d4e6" font-size="11">one log · one API</text><text x="435" y="178" text-anchor="middle" fill="#9be29b" font-size="11">every write is a fact</text>
+          <path d="M170 47 H210 M170 123 H210 M170 199 H210 M170 268 H210 M330 47 H370 M330 161 H370 M330 268 H370" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
+        </g>
+      </svg></div>
+    </div>
+  </div>
+
+  <!-- TAB: deploy -->
+  <div class="ppane" id="p-deploy">
+    <div class="pgrid">
+      <div>
+        <h3>Deploy and scale — a laptop, a $5 VPS, Docker, Kubernetes or Render</h3>
+        <p>Production is the same binary with a token and HTTPS in front. Scale reads with <code>centauri follow</code> replicas; scale writes with <code>serve -shards N</code>; add automatic failover with <code>serve -ha-lease</code>; keep history beyond RAM with sealed segments, the lazy index and an S3-compatible cold tier. One click deploys to Render; <code>infra/k8s.yaml</code> deploys to Kubernetes; gateways scale out with <code>-control-follow</code>.</p>
+        <div class="pre"><pre>centauri serve -data /var/lib/centauri/centauri.log -token $T -tls-cert srv.pem -tls-key srv.key
+centauri follow -data replica.log -primary https://db.example.com -token $T -addr :7772
+centauri serve -data ./shards -shards 4 -token $T
+centauri serve -data a.log -ha-lease /mnt/shared/lease -ha-addr http://a.internal:7771 -token $T</pre></div>
+        <p><a href="#t5-deploy">Production checklist →</a> · <a href="#t4-ha">HA docs →</a> · <a href="#t4-s3">Object store docs →</a></p>
+      </div>
+      <div class="diag" aria-label="Topology: primary with followers, HA lease, shards, sealed segments to S3">
+      <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg" role="img">
+        <g font-size="12">
+          <rect x="190" y="20" width="140" height="56" rx="10" fill="#16212e"/><text x="260" y="43" text-anchor="middle" fill="#fff" font-weight="700">primary</text><text x="260" y="62" text-anchor="middle" fill="#c6d4e6" font-size="11">single writer · writes</text>
+          <rect x="20" y="110" width="130" height="50" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="85" y="131" text-anchor="middle" fill="#16243a" font-weight="700">follower</text><text x="85" y="149" text-anchor="middle" fill="#54627a" font-size="11">read-only · byte-identical</text>
+          <rect x="370" y="110" width="130" height="50" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="435" y="131" text-anchor="middle" fill="#16243a" font-weight="700">replica (HA)</text><text x="435" y="149" text-anchor="middle" fill="#54627a" font-size="11">auto-promotes on lease lapse</text>
+          <path d="M190 55 L150 120 M330 55 L370 120" stroke="#54627a" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+          <rect x="195" y="100" width="130" height="36" rx="18" fill="#eaf1f8" stroke="#00add8"/><text x="260" y="123" text-anchor="middle" fill="#245a91" font-size="11" font-weight="700">-ha-lease · epoch fencing</text>
+          <rect x="20" y="190" width="150" height="50" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="95" y="211" text-anchor="middle" fill="#16243a" font-weight="700">-shards N</text><text x="95" y="229" text-anchor="middle" fill="#54627a" font-size="11">subject-hash · N chains</text>
+          <rect x="190" y="190" width="140" height="50" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="260" y="211" text-anchor="middle" fill="#16243a" font-weight="700">sealed segments</text><text x="260" y="229" text-anchor="middle" fill="#54627a" font-size="11">Merkle roots · zone maps</text>
+          <rect x="350" y="190" width="150" height="50" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="425" y="211" text-anchor="middle" fill="#16243a" font-weight="700">S3 cold tier</text><text x="425" y="229" text-anchor="middle" fill="#54627a" font-size="11">read-only · verified on fetch</text>
+          <path d="M330 215 H350" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+          <path d="M260 76 V190" stroke="#54627a" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+          <text x="260" y="276" text-anchor="middle" fill="#8493a8" font-size="11">gateways: N followers of one control plane (-control-follow) · k8s · Render · Docker</text>
+        </g>
+      </svg></div>
+    </div>
   </div>
 </div></div>
 
@@ -207,6 +494,14 @@
   <a class="s" href="#t5-k8s">Kubernetes</a>
   <a class="s" href="#t5-render">Render blueprint</a>
   <a class="s" href="#t5-observe">Observability endpoints</a>
+  <h4><a href="#track-6">6 · The project</a></h4>
+  <a class="s" href="#t6-releases">Releases &amp; assets</a>
+  <a class="s" href="#t6-ci">CI, AI review, perf gate</a>
+  <a class="s" href="#t6-dream">The Dream cycle</a>
+  <a class="s" href="#t6-perf">Performance methodology</a>
+  <a class="s" href="#t6-roadmap">Roadmap</a>
+  <a class="s" href="#t6-contributing">Contributing &amp; invariants</a>
+  <a class="s" href="#t6-design">Design docs &amp; license</a>
   <h4><a href="#not">Honesty</a></h4>
   <a class="s" href="#not">What Centauri does NOT do</a>
 </aside>
@@ -408,6 +703,24 @@ RETIRE route:api FACET config                             <span class="cm">-- re
   <article class="s" id="t2-time" data-k="time travel as of as known at bitemporal yesterday now-7d natural time timezone audit replay">
     <h3>Time travel: <code>AS OF</code> and <code>AS KNOWN AT</code><a class="anchor" href="#t2-time">#</a></h3>
     <p>Two clauses because every fact has two clocks. <code>AS OF t</code> asks what was true at <code>t</code>. <code>AS KNOWN AT t</code> asks what the database <em>believed</em> at <code>t</code> — facts learned later are invisible even if they describe earlier times. Both together is the audit query: "on March 1, what did we think March 15 would be?" Times are forgiving: <code>YESTERDAY</code>, <code>TODAY</code>, <code>NOW-7d</code>, <code>10 DAYS AGO</code>, <code>'yesterday 2pm CST'</code>, ISO dates, RFC3339, or raw UnixMicro. Aggregation, <code>SEARCH</code>, <code>CONTEXT</code>, <code>PROFILE</code> and the topology operators all accept these clauses.</p>
+
+    <div class="diag" aria-label="Two clocks: effective time on one axis, recorded time on the other; AS OF slices effective time, AS KNOWN AT slices recorded time">
+    <svg viewBox="0 0 760 266" xmlns="http://www.w3.org/2000/svg" role="img">
+      <g font-size="12" font-family="ui-monospace,Menlo,Consolas,monospace">
+        <text x="20" y="26" fill="#0594bb" font-weight="700" letter-spacing="2">EFFECTIVE TIME — when it was true</text>
+        <line x1="20" y1="60" x2="740" y2="60" stroke="#dbe5f0" stroke-width="3"/>
+        <g fill="#16243a"><circle cx="140" cy="60" r="7" fill="#fff" stroke="#0594bb" stroke-width="2"/><text x="140" y="88" text-anchor="middle">Mar 1: 500¢</text>
+        <circle cx="380" cy="60" r="7" fill="#fff" stroke="#0594bb" stroke-width="2"/><text x="380" y="88" text-anchor="middle">Mar 15: 699¢ (back-dated)</text>
+        <circle cx="620" cy="60" r="7" fill="#fff" stroke="#0594bb" stroke-width="2"/><text x="620" y="88" text-anchor="middle">Apr 1: 650¢</text></g>
+        <line x1="500" y1="40" x2="500" y2="104" stroke="#2f6fb0" stroke-width="2"/><text x="500" y="118" text-anchor="middle" fill="#2f6fb0" font-weight="700">AS OF Mar 20 → 699¢</text>
+        <text x="20" y="150" fill="#0594bb" font-weight="700" letter-spacing="2">RECORDED TIME — when the database learned it</text>
+        <line x1="20" y1="184" x2="740" y2="184" stroke="#dbe5f0" stroke-width="3"/>
+        <g fill="#16243a"><circle cx="140" cy="184" r="7" fill="#fff" stroke="#8493a8" stroke-width="2"/><text x="140" y="212" text-anchor="middle">Mar 1 learned 500¢</text>
+        <circle cx="500" cy="184" r="7" fill="#fff" stroke="#8493a8" stroke-width="2"/><text x="500" y="212" text-anchor="middle">Mar 22 learned the Mar 15 correction</text></g>
+        <line x1="300" y1="196" x2="300" y2="240" stroke="#b4690e" stroke-width="2"/><text x="300" y="256" text-anchor="middle" fill="#b4690e" font-weight="700" font-size="11.5">AS KNOWN AT Mar 10 → still 500¢</text>
+        <text x="740" y="150" text-anchor="end" fill="#8493a8" font-size="11">both clauses together = decision replay</text>
+      </g>
+    </svg></div>
     <div class="pre"><pre>FACTS OF item:100001/store:4001 AS OF '2026-03-15' AS KNOWN AT '2026-03-01'
 FACTS OF toy:robot AS OF YESTERDAY
 FACTS OF toy:robot AS OF NOW-7d
@@ -720,6 +1033,21 @@ HISTORY OF proc:duty_estimate                      <span class="cm">-- every ver
   <article class="s" id="t4-chain" data-k="hash chain integrity verify backup doctor checkpoint sha-256 tamper evident -checkpoint-every -lazy payloads">
     <h3>The hash chain: <code>verify</code>, <code>backup</code>, <code>doctor</code><a class="anchor" href="#t4-chain">#</a></h3>
     <p>The store is an append-only JSONL log with in-memory indexes (<code>internal/store</code>). On open it replays the log (shortcut by <code>centauri.checkpoint</code>); <code>-checkpoint-every N</code> seconds writes that recovery checkpoint while serving so a crash replays only seconds of tail. Every committed line is covered by a per-line SHA-256 chain (<code>integrity.go</code>). <code>centauri verify</code> recomputes it and prints the chain head — record it somewhere external; a future <code>verify</code> reproducing it proves the history is byte-for-byte intact. <code>backup</code> copies the committed log (safe while serving) and verifies the copy's chain head equals the source's. <code>-lazy</code> keeps payloads on disk so data can exceed RAM while the index still fits.</p>
+
+    <div class="diag" aria-label="The write path: durable append with hash chain, then apply to in-memory indexes, then seal into Merkle segments and tier to S3">
+    <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg" role="img">
+      <g font-size="12">
+        <rect x="14" y="30" width="130" height="64" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="79" y="55" text-anchor="middle" fill="#16243a" font-weight="700">PUT / append</text><text x="79" y="74" text-anchor="middle" fill="#54627a" font-size="11">CeQL · API · SDK</text>
+        <rect x="170" y="30" width="150" height="64" rx="10" fill="#16212e"/><text x="245" y="55" text-anchor="middle" fill="#fff" font-weight="700">1 · write bytes</text><text x="245" y="74" text-anchor="middle" fill="#9be29b" font-size="11">fsync · sha256 chain link</text>
+        <rect x="346" y="30" width="150" height="64" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="421" y="55" text-anchor="middle" fill="#16243a" font-weight="700">2 · apply()</text><text x="421" y="74" text-anchor="middle" fill="#54627a" font-size="11">in-RAM indexes · WATCH</text>
+        <rect x="522" y="30" width="110" height="64" rx="10" fill="#fff" stroke="#dbe5f0"/><text x="577" y="55" text-anchor="middle" fill="#16243a" font-weight="700">seal</text><text x="577" y="74" text-anchor="middle" fill="#54627a" font-size="11">segment + Merkle root</text>
+        <rect x="658" y="30" width="90" height="64" rx="10" fill="#fff" stroke="#00add8"/><text x="703" y="55" text-anchor="middle" fill="#16243a" font-weight="700">S3 tier</text><text x="703" y="74" text-anchor="middle" fill="#54627a" font-size="11">cold, verified</text>
+        <path d="M144 62 H170 M320 62 H346 M496 62 H522 M632 62 H658" stroke="#54627a" stroke-width="1.5" marker-end="url(#ar)"/>
+        <text x="245" y="122" text-anchor="middle" fill="#54627a" font-size="11">write-then-apply: memory changes only after bytes are durable</text>
+        <text x="577" y="122" text-anchor="middle" fill="#54627a" font-size="11">-auto-seal-mb · centauri seal · compact</text>
+        <text x="380" y="152" text-anchor="middle" fill="#8493a8" font-size="11">crash → replay from centauri.checkpoint + tail · centauri verify re-proves every link, every segment</text>
+      </g>
+    </svg></div>
     <div class="pre"><pre>centauri verify -data my.log
 centauri backup -data my.log -to backups/my-2026-10-28.log
 centauri doctor -data my.log
@@ -1185,6 +1513,87 @@ curl -s localhost:7771/v1/version</pre></div>
   </article>
 </section>
 
+<!-- ===================================================== TRACK 6 -->
+<section class="t" id="track-6" data-k="project releases roadmap contributing design docs ci performance dream">
+  <div class="kicker">Track 6</div>
+  <h2>The project — releases, roadmap, <span class="rule">contributing</span></h2>
+  <p class="lead">How Centauri is built, released and steered: the release assets, the CI and AI-assisted maintenance workflows, the benchmark discipline, the roadmap, the invariants every contribution must respect, and the design documents behind each subsystem.</p>
+
+  <article class="s" id="t6-releases" data-k="releases assets download binaries windows arm64 installer SHA256SUMS release workflow tag version checksums">
+    <h3>Releases and what's in them<a class="anchor" href="#t6-releases">#</a></h3>
+    <p>Pushing a version tag runs <code>.github/workflows/release.yml</code>, which builds six static binaries, the Windows installer, and a checksum file, then publishes a GitHub Release. Asset names are stable, so <code>/releases/latest/download/&lt;asset&gt;</code> always points at the newest release. Every component — engine, dashboards, Studio, Console, App, CeQL Book, gateway, MCP server, local-AI orchestration — is inside the one binary; there is nothing else to download.</p>
+    <div class="pre"><pre>https://github.com/aniljacobv-lab/centauri/releases/latest/download/
+  centauri-linux-amd64            centauri-linux-arm64
+  centauri-darwin-amd64           centauri-darwin-arm64     <span class="cm"># Intel / Apple Silicon</span>
+  centauri-windows-amd64.exe      centauri-windows-arm64.exe
+  centauri-windows-setup.exe      <span class="cm"># Inno Setup installer (Start Menu, launchers)</span>
+  SHA256SUMS.txt                  <span class="cm"># verify any download</span></pre></div>
+    <div class="pre"><pre>curl -LO https://github.com/aniljacobv-lab/centauri/releases/latest/download/centauri-linux-amd64
+curl -LO https://github.com/aniljacobv-lab/centauri/releases/latest/download/SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt</pre></div>
+    <p>SDKs and connectors are source in the repository (<code>sdk/python</code> via <code>pip install -e .</code>, <code>sdk/go</code> as a Go module path, <code>sdk/js/centauri.mjs</code> as an ESM file, <code>connectors/airbyte</code> as Docker builds). Publishing the Python SDK to PyPI is on the roadmap; nothing is published to PyPI or npm today.</p>
+  </article>
+
+  <article class="s" id="t6-ci" data-k="ci github actions go vet go test gofmt claude review perf benchstat regression sync embedded files workflow">
+    <h3>CI: tests, AI code review, performance gate<a class="anchor" href="#t6-ci">#</a></h3>
+    <p>Every pull request runs <code>ci.yml</code> (<code>go vet</code>, <code>go test ./...</code>, the Python SDK tests) and <code>claude-review.yml</code>, an automatic code review by Claude on non-draft PRs. <code>perf.yml</code> benchmarks the PR's base and head and compares them with <code>benchstat</code>, warning on possible regressions; it also runs weekly on <code>main</code> as a drift check. <code>sync.yml</code> keeps the two canonical→copy pairs identical on every push (<code>internal/api/ceql.html</code> → <code>docs/ceql.html</code>; <code>docs/kb.json</code> → <code>internal/assistant/kb.json</code>), so the embedded textbook and the assistant's knowledge never drift from the website.</p>
+    <div class="pre"><pre><span class="cm"># the same gate, locally</span>
+go vet ./... &amp;&amp; go test ./...
+cd sdk/python &amp;&amp; python -m unittest discover -s tests
+go test -bench . -benchmem ./internal/store/</pre></div>
+  </article>
+
+  <article class="s" id="t6-dream" data-k="dream cycle nightly ai maintained claude picks roadmap item opens pr human merges autonomous development">
+    <h3>The Dream cycle — AI-maintained development<a class="anchor" href="#t6-dream">#</a></h3>
+    <p>Three nights a week (<code>dream.yml</code>, Mon/Wed/Fri 06:00 UTC, or on demand from the Actions tab), Claude reviews the codebase, picks <em>one</em> item from <code>ROADMAP.md</code> top-to-bottom — or one real bug it finds — implements it with tests, and opens a pull request. CI gates it and a human merges, always: auto-merge is explicitly out of scope. Humans steer what gets built by editing the roadmap. Items are kept small enough for one PR, and the roadmap lists what is deliberately never dreamed about: multi-writer clustering, third-party Go dependencies, and rewrites of working subsystems without a human-filed issue.</p>
+    <div class="pre"><pre>ROADMAP.md
+  ## Now (v0.4)            <span class="cm"># prioritized, picked top to bottom</span>
+  ## Next
+  ## Always welcome        <span class="cm"># dream-sized: NL rules, catalog entries, Genesis packs, tests</span>
+  ## Explicitly out of scope</pre></div>
+  </article>
+
+  <article class="s" id="t6-perf" data-k="performance benchmark baseline append current asof ns/op lazy index cold cached methodology measure">
+    <h3>Performance: methodology, not marketing numbers<a class="anchor" href="#t6-perf">#</a></h3>
+    <p>Centauri ships a reproducible benchmark suite rather than baking numbers into the docs — run it on your own hardware and data shape. Core-path benchmarks (<code>internal/store/core_bench_test.go</code>) cover <code>Append</code>, <code>Current</code> and <code>AsOf</code>; the lazy/archive suite (<code>lazyindex_bench_test.go</code>) isolates each win in pairs: <code>HistoryCold</code> vs <code>HistoryCached</code> (segment-cache), <code>AsOfCold</code> vs <code>AsOfCached</code> (zone-map pruning), <code>SearchCold</code> vs <code>SearchResident</code>, and <code>OpenCold</code> vs <code>OpenFromCheckpoint</code> (fast restart). <code>bench/baseline.txt</code> holds a committed baseline (from <code>deploy.bat</code>) that the Perf workflow compares against; the gateway's own <code>BenchmarkPolicyOverhead</code> measures the per-request cost of a CePL policy.</p>
+    <div class="pre"><pre>go test -bench . -benchmem ./internal/store/
+go test -bench Policy -benchmem ./internal/gateway/</pre></div>
+    <div class="pre"><pre><span class="cm"># bench/baseline.txt — one developer machine (windows/arm64), for drift detection only</span>
+BenchmarkAppend-12      ~19–36 µs/op    46 allocs/op
+BenchmarkCurrent-12     ~0.4–0.8 µs/op   4 allocs/op
+BenchmarkAsOf-12        ~0.5–0.75 µs/op  4 allocs/op</pre></div>
+    <div class="honest"><b>Honest limits:</b> these measure single-process paths, not concurrent load; the lazy path has no persisted secondary index, so an arbitrary <code>WHERE</code> over cold history the zone maps can't prune is still a scan. The gateway's ~26k req/s figure is from a 2-core dev VM.</div>
+  </article>
+
+  <article class="s" id="t6-roadmap" data-k="roadmap v0.4 encryption at rest crypto-erasure hnsw ann joins step debugger code signing referential governance derived facts window frames spatial stemming pypi roles">
+    <h3>Roadmap<a class="anchor" href="#t6-roadmap">#</a></h3>
+    <p>From <a href="https://github.com/aniljacobv-lab/centauri/blob/main/ROADMAP.md">ROADMAP.md</a>, as of this page. <b>Now (v0.4):</b> encryption at rest + crypto-erasure end to end (the segment-level AES-256-GCM primitive and legal holds are shipped; per-subject keys for the live log are open); an HNSW/ANN index for <code>SIMILAR</code> beyond brute-force cosine; cross-subject joins in CeQL (<code>FACTS OF a:* JOIN b:* ON …</code>, nested-loop first); a CePL step-debugger in the dashboard; Windows/macOS code-signing docs. <b>Next:</b> referential field types in schemas (<code>parent ref(item:*)</code>); the rest of the governance pack (named roles, PII classification tags, scheduled data-quality checks); derived facts (<code>DERIVE summary:&lt;x&gt; AS FACTS … GROUP BY …</code>, incrementally maintained); window frames; spatial fields; stemming for <code>MATCHES</code>; PyPI publishing for the Python SDK.</p>
+    <p>Shipped since the list was first written (kept for honesty): sharded writes, group commit, tablespaces + S3 offload + auto-seal, the lazy index, CDC with slots, HA failover, log shipping, read-only SQL + Postgres wire, retention + legal holds, scoped tokens + masking, OIDC, admission control, backup/verify, the local-AI appliance, and the gateway.</p>
+  </article>
+
+  <article class="s" id="t6-contributing" data-k="contributing invariants nothing erased replay determinism write-then-apply hash chain zero dependencies feature checklist textbook catalog dashboard surface CLAUDE.md pull request">
+    <h3>Contributing: the invariants<a class="anchor" href="#t6-contributing">#</a></h3>
+    <p><code>CLAUDE.md</code> is the guide for every contributor, human or AI. Five invariants; violating one is a rejected PR:</p>
+    <ol>
+      <li><b>Nothing is ever erased.</b> No code path may mutate or delete committed log bytes. Update = append a superseding fact; delete = <code>RETIRE</code>.</li>
+      <li><b>Replay determinism.</b> Every replay-visible state change goes through <code>store.apply()</code>; new index state must also be checkpointed and reset.</li>
+      <li><b>Write-then-apply.</b> Memory changes only after bytes are durably written; events before their supersession markers.</li>
+      <li><b>The hash chain</b> covers every committed line identically in commit, replay and raw ingest.</li>
+      <li><b>Zero Go dependencies.</b> The empty <code>require</code> block in <code>go.mod</code> is a feature.</li>
+    </ol>
+    <p>A new CeQL capability is complete only with parser + executor + tests, a section in the CeQL Book, an entry in the autocomplete catalog (its examples must parse — the catalog test enforces this), and, if user-facing, a dashboard surface: features without one don't exist for users. Documentation honesty is policy — comparison tables state what Centauri does not do. Ideas go to <a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">issues</a> (bug and feature templates); accepted features get implemented.</p>
+    <div class="pre"><pre>go vet ./... &amp;&amp; go test ./...
+cd sdk/python &amp;&amp; python -m unittest discover -s tests
+<span class="cm"># then open a PR — Claude reviews it, the Perf gate runs, a human merges</span></pre></div>
+  </article>
+
+  <article class="s" id="t6-design" data-k="design documents positioning own your data vision design segmentation tablespaces sync object store enterprise readiness audit db-engines listing license postgresql jacoblabs">
+    <h3>Design documents, positioning and license<a class="anchor" href="#t6-design">#</a></h3>
+    <p>The <code>docs/</code> folder keeps the reasoning, not just the result. Design notes: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-own-your-data.md">own-your-data storage</a> (your data never lives on our infrastructure), <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-vision.md">vision</a>, <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-tablespaces.md">tablespaces</a>, <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-segmentation.md">segmentation &amp; Merkle proofs</a>, <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/design-sync.md">sync</a>, <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/object-store-backend.md">object-store backend</a>. Status matrices: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/enterprise-readiness.md">enterprise readiness</a> (the live ✓/partial/✗ table), plus dated review snapshots (<code>audit-updated-capabilities.md</code>, <code>enterprise-deployment-gaps.md</code>, <code>production-suggestions.md</code>, <code>product-positioning-audit.md</code>). Messaging: <a href="https://github.com/aniljacobv-lab/centauri/blob/main/docs/positioning.md">positioning.md</a> is the source of truth for how Centauri is described, and <code>db-engines-submission.md</code> is the DB-Engines listing request.</p>
+    <p><b>License:</b> the MIT License — OSI-approved, permissive, free for any use including commercial, no copyleft. Copyright JacobLabs LLC and contributors. There is no paid edition: the binary you download is everything. Related pages on this site: <a href="how-it-works.html">how it works</a>, <a href="internals-vs-oracle.html">internals vs Oracle</a>, <a href="compare-gateways.html">gateway comparison</a>, <a href="showcase.html">showcase</a>.</p>
+  </article>
+</section>
+
 <!-- ===================================================== HONESTY -->
 <section class="t" id="not" data-k="honesty what centauri does not do limits limitations not a fit">
   <div class="kicker">Honesty is policy</div>
@@ -1244,7 +1653,7 @@ curl -s localhost:7771/v1/version</pre></div>
     <div class="col"><b>Community</b><a href="https://github.com/aniljacobv-lab/centauri">GitHub</a><a href="https://github.com/aniljacobv-lab/centauri/releases">Releases</a><a href="https://github.com/aniljacobv-lab/centauri/issues/new/choose">Suggest a feature</a><a href="https://github.com/aniljacobv-lab/centauri/blob/main/LICENSE">License</a></div>
   </div>
   <div style="margin-top:28px;padding-top:18px;border-top:1px solid #243a52;color:#7e90a8;font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span>© 2026 JacobLabs LLC · free and open source under The PostgreSQL License</span>
+    <span>© 2026 JacobLabs LLC · free and open source under the MIT License</span>
     <span>Bi-temporal · causal · local · free</span>
   </div>
 </div></footer>
@@ -1291,12 +1700,21 @@ curl -s localhost:7771/v1/version</pre></div>
       h.classList.toggle('hidden', !any);
     });
     nomatch.style.display = (shown===0 && !document.querySelector('section.t:not(.hidden)')) ? 'block' : 'none';
-    count.textContent = terms.length ? (shown + ' of ' + arts.length + ' sections') : (arts.length + ' sections · 5 tracks');
+    count.textContent = terms.length ? (shown + ' of ' + arts.length + ' sections') : (arts.length + ' sections · 6 tracks');
   }
   input.addEventListener('input', apply);
   input.addEventListener('keydown', function(e){ if(e.key==='Escape'){ input.value=''; apply(); } });
   apply();
   if (location.hash && location.hash.length > 1) { try { var el = document.getElementById(location.hash.slice(1)); if (el) el.scrollIntoView(); } catch(e){} }
+
+  // --- product tabs ---
+  var ptabs = Array.prototype.slice.call(document.querySelectorAll('.ptab'));
+  function showTab(name){
+    ptabs.forEach(function(b){ var on = b.getAttribute('data-p')===name; b.classList.toggle('active', on); b.setAttribute('aria-selected', on?'true':'false'); });
+    document.querySelectorAll('.ppane').forEach(function(p){ p.classList.toggle('active', p.id==='p-'+name); });
+  }
+  ptabs.forEach(function(b){ b.addEventListener('click', function(){ showTab(b.getAttribute('data-p')); history.replaceState(null,'','#product-'+b.getAttribute('data-p')); }); });
+  if (/^#product-/.test(location.hash)) { showTab(location.hash.replace('#product-','')); var bx=document.querySelector('.box'); if(bx) setTimeout(function(){ bx.scrollIntoView(); }, 50); }
 
   // --- highlight the section in view ---
   if ('IntersectionObserver' in window) {

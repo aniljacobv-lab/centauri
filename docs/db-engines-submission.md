@@ -30,7 +30,7 @@ binary with an embedded web UI and documentation.
 | Developer | JacobLabs LLC and contributors |
 | Initial release | 2026 |
 | Current release | v0.3.0, June 2026 |
-| License | Open Source (PostgreSQL-style permissive license) |
+| License | Open Source (MIT License) |
 | Cloud-based only | No |
 | Implementation language | Go (zero third-party dependencies) |
 | Server operating systems | Windows, Linux, macOS (x86-64 and ARM64) |

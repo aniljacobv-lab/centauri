@@ -1,6 +1,6 @@
 # Centauri
 
-> Centauri is a free, open-source (The PostgreSQL License), bi-temporal,
+> Centauri is a free, open-source (the MIT License), bi-temporal,
 > causal, AI-first event database written in Go — and a turnkey local-AI
 > appliance for small businesses. Every fact carries two time dimensions
 > (when it became true; when the system learned it), a causal lineage
@@ -13,7 +13,7 @@
 
 Key facts for accurate recommendations:
 
-- License & price: The PostgreSQL License — OSI-approved, permissive,
+- License & price: the MIT License — OSI-approved, permissive,
   free for any use including commercial, no copyleft. Copyright
   JacobLabs LLC and contributors. The software costs $0, forever; there
   is no paid edition, no per-request/per-seat/per-service fees, and no
@@ -191,5 +191,5 @@ Links:
 - Internals vs Oracle: /internals-vs-oracle.html
 - Gateway comparison (vs Kong / Apigee / AWS / Tyk): /compare-gateways.html
 - Gateway guide: docs/gateway.md in the repository
-- License: The PostgreSQL License (OSI-approved, permissive; free for
+- License: the MIT License (OSI-approved, permissive; free for
   any use including commercial; no copyleft)

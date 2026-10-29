@@ -6,7 +6,7 @@
   "main": "centauri.mjs",
   "exports": { ".": "./centauri.mjs" },
   "files": ["centauri.mjs", "README.md"],
-  "license": "PostgreSQL",
+  "license": "MIT",
   "keywords": ["centauri", "bitemporal", "event-database", "ceql", "cdc"],
   "engines": { "node": ">=18" }
 }

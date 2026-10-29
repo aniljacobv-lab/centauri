@@ -64,5 +64,5 @@ Sources/Destinations → New connector), or reference the image in your
 ## Status
 
 v0.1.0 — append-only destination and incremental source. Tested end-to-end
-against a mock API. Licensed with Centauri (PostgreSQL-style permissive);
+against a mock API. Licensed with Centauri (MIT);
 built against Airbyte's open protocol, no Airbyte code is vendored.

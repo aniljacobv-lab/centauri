@@ -6,7 +6,7 @@ Centauri is your own private AI that runs on *your* computer, not in the cloud. 
 
 *Under the hood* it's a bi-temporal, causal, tamper-evident event database in one file: every fact knows its time, cause, source, and trustworthiness, and nothing is ever erased.
 
-Free and open source under a [PostgreSQL-style license](LICENSE). If you've spent years trapped in expensive database licensing — welcome home.
+Free and open source under the [MIT License](LICENSE). If you've spent years trapped in expensive database licensing — welcome home.
 
 ## For small businesses — the 5-minute private AI
 
