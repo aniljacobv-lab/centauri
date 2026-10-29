@@ -19,6 +19,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      id-token: write # claude-code-action@v1 needs an OIDC token even with an API key
     steps:
       - uses: actions/checkout@v4
         with:
