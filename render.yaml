@@ -25,6 +25,14 @@ services:
     envVars:
       - key: CENTAURI_TOKEN
         generateValue: true   # admin dashboard token; find it in the dashboard
+      # LLM routes name a provider's key by environment variable (auth_env) — the secret lives here, never in a
+      # fact. Fill the ones your route uses in the Render dashboard; an empty value just means that provider is
+      # skipped in the failover order. (A local model runtime is not something this container has: list it as a
+      # provider only where the gateway runs next to one.)
+      - key: OPENAI_API_KEY
+        sync: false           # set in the dashboard: used by providers with auth_env: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
+        sync: false           # set in the dashboard: used by providers with auth_env: GEMINI_API_KEY (OpenAI-compatible endpoint)
     disk:
       name: centauri-gateway-data
       mountPath: /data

@@ -148,6 +148,39 @@ once streaming has started, a provider failure ends the stream early —
 truncated but properly terminated, with `truncated: true` in the audit fact.
 That is the honest physics of SSE, not a gateway shortcut.
 
+### Recipe: a product's local-first chat route on Render
+
+A product that wants "ask the local model first, a small cloud model when it is
+not there" writes one route and one key through the admin API (`-admin-inline`
+serves `/v1/append` on the proxy port for any path no route matches; the
+bearer is the service's `CENTAURI_TOKEN`):
+
+```
+curl -s https://centauri-gateway-<id>.onrender.com/v1/append \
+  -H "Authorization: Bearer $CENTAURI_TOKEN" -H 'Content-Type: application/json' -d '{
+  "events": [
+    { "subject": "route:chat", "facet": "config", "type": "OBSERVED",
+      "value": { "prefix": "/v1/chat/", "llm": true, "auth": "key", "audit": "meta", "rate_per_min": 120,
+        "providers": [
+          {"endpoint": "http://127.0.0.1:11434/v1/chat/completions", "model": "qwen2.5:7b"},
+          {"endpoint": "https://api.openai.com/v1/chat/completions", "model": "gpt-5-nano", "auth_env": "OPENAI_API_KEY"},
+          {"endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "model": "gemini-2.5-flash-lite", "auth_env": "GEMINI_API_KEY"}
+        ] } },
+    { "subject": "gwkey:<sha256 hex of the caller's key>", "facet": "config", "type": "OBSERVED",
+      "value": { "name": "my-product", "routes": ["/v1/chat/"], "rate_per_min": 120 } }
+  ]}'
+```
+
+The first provider is tried first: on a host with Ollama that is the local
+model; on Render (no model runtime in the container) it is unreachable and the
+gateway fails over to the cloud entries, whose keys come from the service's
+environment (`render.yaml` declares `OPENAI_API_KEY` and `GEMINI_API_KEY` as
+dashboard-set variables). Each answer is audited with the model that served it,
+so `HISTORY OF gw:chat FACET gateway` shows how often the local model answered.
+The caller sends `Authorization: Bearer <its key>` to
+`https://…onrender.com/v1/chat/completions` with the usual OpenAI body; the
+gateway forces the provider's pinned model into it.
+
 ## OIDC-protected routes
 
 Set `auth: 'oidc'` plus `oidc_issuer` **and** `oidc_audience` (both required —
