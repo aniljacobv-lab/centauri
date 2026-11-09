@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	"github.com/aniljacobv-lab/centauri/internal/architect"
 	"github.com/aniljacobv-lab/centauri/internal/ceql"
 	"github.com/aniljacobv-lab/centauri/internal/demo"
+	"github.com/aniljacobv-lab/centauri/internal/mcp"
 	"github.com/aniljacobv-lab/centauri/internal/model"
 	"github.com/aniljacobv-lab/centauri/internal/oidc"
 	"github.com/aniljacobv-lab/centauri/internal/proc"
@@ -452,6 +454,13 @@ func (s *Server) db(r *http.Request) (*store.Store, error) {
 
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
+	// MCP over Streamable HTTP: how cloud assistants (Claude's connectors, Meta
+	// Muse's connectors) reach Centauri. Same tokens as the API: the admin token
+	// sees every tool, the read token and read-scoped SSO only the tools that
+	// cannot append. /mcp/{token} is for clients that cannot send a header.
+	mcpH := s.mcpGuard(mcp.Handler(mcp.HTTPOptions{Store: s.db, ReadOnly: s.readOnly}))
+	mux.Handle("/mcp", mcpH)
+	mux.Handle("/mcp/{token}", mcpH)
 	mux.HandleFunc("POST /v1/append", s.write(s.handleAppend))
 	mux.HandleFunc("POST /v1/activate", s.write(s.handleActivate))
 	mux.HandleFunc("POST /v1/enrich", s.write(s.handleEnrich))
@@ -563,6 +572,40 @@ func queryTokenOK(p string) bool {
 	return strings.HasPrefix(p, "/v1/assets/")
 }
 
+// mcpPathToken returns the token carried in an /mcp/<token> path.
+func mcpPathToken(p string) (string, bool) {
+	t, ok := strings.CutPrefix(p, "/mcp/")
+	if !ok || t == "" || strings.Contains(t, "/") {
+		return "", false
+	}
+	return t, true
+}
+
+// mcpGuard keeps the MCP door shut to the outside when no auth is configured:
+// a laptop's `centauri serve` with no tokens answers MCP on loopback only, so
+// putting a tokenless server behind a public URL never hands a cloud assistant
+// an open database. With any token (or SSO) configured, auth has already run.
+func (s *Server) mcpGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.opts.Token == "" && s.opts.ReadToken == "" && s.opts.OIDC == nil {
+			if _, ok := mcpPathToken(r.URL.Path); ok || !isLoopback(r.RemoteAddr) {
+				httpErr(w, http.StatusUnauthorized, "MCP over HTTP needs a token: start centauri serve with -token and -read-token (give assistants the read token)")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isLoopback(remote string) bool {
+	host, _, err := net.SplitHostPort(remote)
+	if err != nil {
+		host = remote
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	return ip != nil && ip.IsLoopback()
+}
+
 // auth enforces the bearer tokens on every route when configured: the
 // admin token grants everything, the read token grants reads only.
 func (s *Server) auth(next http.Handler) http.Handler {
@@ -571,6 +614,9 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 			if got == "" && queryTokenOK(r.URL.Path) {
 				got = r.URL.Query().Get("token") // SSE/tailing clients can't set headers
+			}
+			if t, ok := mcpPathToken(r.URL.Path); ok && got == "" {
+				got = t // an MCP connector that can only be given a URL (/mcp/<token>)
 			}
 			switch {
 			case s.opts.Token != "" &&
