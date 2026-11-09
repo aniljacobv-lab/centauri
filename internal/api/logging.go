@@ -114,11 +114,21 @@ func WithLogging(h http.Handler, logger *slog.Logger) http.Handler {
 		logger.LogAttrs(r.Context(), slog.LevelInfo, "request",
 			slog.String("id", rid),
 			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
+			slog.String("path", redactPath(r.URL.Path)),
 			slog.Int("status", rec.status),
 			slog.Int("bytes", rec.bytes),
 			slog.Int64("dur_ms", time.Since(start).Milliseconds()),
 			slog.String("remote", r.RemoteAddr),
 		)
 	})
+}
+
+// redactPath keeps an MCP connector's token out of the request log: an
+// assistant that cannot send headers reaches /mcp/<token>, and that path is
+// logged as /mcp/[redacted].
+func redactPath(p string) string {
+	if _, ok := mcpPathToken(p); ok {
+		return "/mcp/[redacted]"
+	}
+	return p
 }

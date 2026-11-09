@@ -78,9 +78,9 @@ Python: see [`sdk/python`](sdk/python) — zero dependencies, three lines to you
 
 ```
 centauri desktop       local app: profile data, opens the dashboard, manages Ollama
-centauri serve         HTTP/JSON API + dashboard (+ -token, -read-token)
+centauri serve         HTTP/JSON API + dashboard (+ -token, -read-token); MCP over HTTPS at /mcp
 centauri setup vision  install/start local AI prerequisites (Ollama + PDF renderer)
-centauri mcp           Model Context Protocol server for AI agents
+centauri mcp           Model Context Protocol server for AI agents (stdio)
 centauri follow        live read-only replica of a primary
 centauri sync          bidirectional, echo-safe sync between writable replicas
 centauri demo          seed | clear a curated multi-domain example database
@@ -88,6 +88,10 @@ centauri backup        consistent snapshot, chain-verified
 centauri verify        prove history is byte-for-byte intact
 centauri seed          synthetic retail demo data
 ```
+
+Cloud assistants (Claude, including Claude Duet, and Meta Muse) connect to a
+served Centauri over MCP at `/mcp`, read-only with the read token. See
+[docs/connect-assistants.md](docs/connect-assistants.md).
 
 ## Contributing — humans and AI together
 

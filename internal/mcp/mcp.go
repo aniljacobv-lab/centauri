@@ -1,5 +1,6 @@
 // Package mcp exposes Centauri to AI agents over the Model Context
-// Protocol (stdio transport, newline-delimited JSON-RPC 2.0). Every
+// Protocol: stdio (newline-delimited JSON-RPC 2.0, `centauri mcp`) and
+// Streamable HTTP (http.go, served at /mcp by `centauri serve`). Every
 // signature query — current, as-of, context assembly, causal trace,
 // wedge scan, similarity search — becomes a tool an agent can call
 // directly. Dependency-free, like the rest of v0.2.
@@ -23,12 +24,45 @@ import (
 
 const protocolVersion = "2024-11-05"
 
+// supportedVersions are the MCP revisions this server speaks, newest first.
+// Cloud assistants (Claude, Muse) ask for the newer ones over HTTP; the tool
+// surface is the same in each.
+var supportedVersions = []string{"2025-06-18", "2025-03-26", protocolVersion}
+
+// negotiate answers a client's requested protocol revision with that revision
+// when supported, otherwise the newest this server speaks (the spec's rule).
+func negotiate(requested string) string {
+	for _, v := range supportedVersions {
+		if v == requested {
+			return v
+		}
+	}
+	return supportedVersions[0]
+}
+
 // Server speaks MCP over in/out (normally stdin/stdout).
 type Server struct {
 	st  *store.Store
 	in  io.Reader
 	out io.Writer
+	// readOnly hides and refuses every tool that can change the log (see
+	// writeTools): the mode a cloud assistant reaching Centauri over HTTP with
+	// a read token gets. Nothing it calls can append, define or apply.
+	readOnly bool
 }
+
+// ReadOnly returns the server in read-only mode (see Server.readOnly).
+func (s *Server) ReadOnly() *Server { s.readOnly = true; return s }
+
+// writeTools are the tools that can append to the log. Procedures count as
+// writes: a CePL procedure may PUT, so a read-only caller may not run one.
+var writeTools = map[string]bool{
+	"centauri_append": true, "centauri_activate": true, "centauri_enrich": true,
+	"centauri_put_schema": true, "centauri_define_procedure": true, "centauri_run_procedure": true,
+}
+
+// isWriteTool reports whether calling name could append to the log.
+func isWriteTool(name string) bool { return writeTools[name] || strings.HasPrefix(name, "proc_") }
 
 func New(st *store.Store, in io.Reader, out io.Writer) *Server {
 	return &Server{st: st, in: in, out: out}
@@ -88,15 +122,24 @@ func (s *Server) reply(resp rpcResponse) {
 func (s *Server) handle(req *rpcRequest) rpcResponse {
 	switch req.Method {
 	case "initialize":
+		var params struct {
+			ProtocolVersion string `json:"protocolVersion"`
+		}
+		_ = json.Unmarshal(req.Params, &params)
+		instructions := "Centauri is a bi-temporal, causal event database: every fact knows when it was true, when it was learned, what caused it and where it came from. Start with centauri_subjects or centauri_context; use centauri_asof for what was true at a moment and centauri_trace for why."
+		if s.readOnly {
+			instructions += " This connection is read-only: it can read and query Centauri but not change it."
+		}
 		return rpcResponse{ID: req.ID, Result: map[string]any{
-			"protocolVersion": protocolVersion,
+			"protocolVersion": negotiate(params.ProtocolVersion),
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "centauri", "version": "0.2.0"},
+			"instructions":    instructions,
 		}}
 	case "ping":
 		return rpcResponse{ID: req.ID, Result: map[string]any{}}
 	case "tools/list":
-		return rpcResponse{ID: req.ID, Result: map[string]any{"tools": append(toolDefs(), s.procedureTools()...)}}
+		return rpcResponse{ID: req.ID, Result: map[string]any{"tools": s.tools()}}
 	case "tools/call":
 		var params struct {
 			Name      string         `json:"name"`
@@ -105,7 +148,7 @@ func (s *Server) handle(req *rpcRequest) rpcResponse {
 		if err := json.Unmarshal(req.Params, &params); err != nil {
 			return rpcResponse{ID: req.ID, Error: &rpcError{Code: -32602, Message: "invalid params"}}
 		}
-		text, err := s.callTool(params.Name, params.Arguments)
+		text, err := s.guardedCall(params.Name, params.Arguments)
 		if err != nil {
 			return rpcResponse{ID: req.ID, Result: map[string]any{
 				"content": []map[string]any{{"type": "text", "text": err.Error()}},
@@ -118,6 +161,43 @@ func (s *Server) handle(req *rpcRequest) rpcResponse {
 	default:
 		return rpcResponse{ID: req.ID, Error: &rpcError{Code: -32601, Message: "method not found: " + req.Method}}
 	}
+}
+
+// tools lists what this caller may use: everything, or in read-only mode only
+// the tools that cannot append (procedures are hidden too).
+func (s *Server) tools() []map[string]any {
+	all := append(toolDefs(), s.procedureTools()...)
+	if !s.readOnly {
+		return all
+	}
+	out := make([]map[string]any, 0, len(all))
+	for _, t := range all {
+		if name, _ := t["name"].(string); !isWriteTool(name) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// guardedCall refuses, in read-only mode, every call that could append: the
+// write tools, a CeQL write statement (PUT/CORRECT/RETIRE/DEFINE/RUN/…), and a
+// Genesis blueprint asked to apply itself. Reads run as usual.
+func (s *Server) guardedCall(name string, args map[string]any) (string, error) {
+	if s.readOnly {
+		const ro = "read-only access: this connection may read Centauri but not change it"
+		if isWriteTool(name) {
+			return "", fmt.Errorf("%s (%s writes)", ro, name)
+		}
+		if name == "centauri_ceql" {
+			if q, err := ceql.Parse(strArg(args, "q"), time.Now().UnixMicro()); err == nil && q.IsWrite() {
+				return "", fmt.Errorf("%s (that CeQL statement writes)", ro)
+			}
+		}
+		if apply, _ := args["apply"].(bool); name == "centauri_genesis" && apply {
+			return "", fmt.Errorf("%s (Genesis may design a database here, not build it)", ro)
+		}
+	}
+	return s.callTool(name, args)
 }
 
 // ---- tool definitions ----

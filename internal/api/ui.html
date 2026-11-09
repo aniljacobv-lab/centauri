@@ -514,6 +514,11 @@ await db.query("FACTS OF toy:robot WHY");</pre>
   <pre style="white-space:pre-wrap">curl -s URL/v1/query -H 'Authorization: Bearer …' -d '{"q":"FACTS OF toy:robot WHY"}'</pre>
   <h3 style="margin:14px 0 4px">MCP — agents (zero code)</h3>
   <pre style="white-space:pre-wrap">{ "mcpServers": { "centauri": { "command":"centauri", "args":["mcp"] } } }</pre>
+  <h3 style="margin:14px 0 4px">Cloud assistants — Claude (Duet), Meta Muse <span class="mini">· MCP over HTTPS</span></h3>
+  <p class="mini">This server answers MCP at <b>/mcp</b>. Add it as a <b>custom connector</b> by URL. Give assistants the <b>read token</b>: they then see only the tools that read, and cannot change anything. With no tokens set, /mcp answers this computer only.</p>
+  <pre style="white-space:pre-wrap">URL (header auth):   ${esc(location.origin)}/mcp      Authorization: Bearer &lt;read-token&gt;
+URL (connector that only takes a URL):   ${esc(location.origin)}/mcp/&lt;read-token&gt;</pre>
+  <p class="mini"><b>Claude:</b> Settings → Connectors → Add custom connector → paste the URL. <b>Meta Muse:</b> Settings → Connectors → Add custom connector → paste the URL. Both need this server on a public <b>https://</b> address. Anything an assistant reads leaves this machine for that assistant's cloud: share a database that holds only what you mean to share.</p>
   <h3 style="margin:14px 0 4px">Procedures (CePL)</h3>
   <p class="mini"><b>CePL is not Python</b> — a tiny in-database procedure language, run by name with a full step trace.</p>
   <pre style="white-space:pre-wrap">PROCEDURE reprice(item, pct)
