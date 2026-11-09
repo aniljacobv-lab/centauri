@@ -9,6 +9,8 @@ services:
     envVars:
       - key: CENTAURI_TOKEN
         generateValue: true   # Render creates a strong token; find it in the dashboard
+      - key: CENTAURI_READ_TOKEN
+        generateValue: true   # read-only token: the one to give cloud assistants (Claude, Muse) at /mcp
     disk:
       name: centauri-data
       mountPath: /data
