@@ -519,9 +519,19 @@ func (s *Server) Routes() http.Handler {
 	root := http.NewServeMux()
 	root.Handle("/", s.auth(mux))
 	root.HandleFunc("GET /v1/version", s.handleVersion) // deploy stamp, no auth
-	root.HandleFunc("GET /livez", s.handleLivez)        // k8s liveness, no data
-	root.HandleFunc("GET /readyz", s.handleReadyz)      // k8s readiness, no data
-	root.HandleFunc("GET /metrics", s.handleMetrics)    // prometheus, no fact data
+	// OAuth discovery (RFC 9728 / RFC 8414): an MCP client such as Claude's
+	// connector check asks these before connecting. Centauri runs no OAuth
+	// authorization server, so the honest answer is 404, without auth: a 401 here
+	// reads as "sign in with OAuth" and the client gives up on a server that only
+	// wants a bearer token (or a token in the /mcp/<token> path).
+	root.HandleFunc("/.well-known/oauth-protected-resource", s.handleNoOAuth)
+	root.HandleFunc("/.well-known/oauth-protected-resource/", s.handleNoOAuth)
+	root.HandleFunc("/.well-known/oauth-authorization-server", s.handleNoOAuth)
+	root.HandleFunc("/.well-known/oauth-authorization-server/", s.handleNoOAuth)
+	root.HandleFunc("/.well-known/openid-configuration", s.handleNoOAuth)
+	root.HandleFunc("GET /livez", s.handleLivez)     // k8s liveness, no data
+	root.HandleFunc("GET /readyz", s.handleReadyz)   // k8s readiness, no data
+	root.HandleFunc("GET /metrics", s.handleMetrics) // prometheus, no fact data
 	if s.opts.HAStatus != nil {
 		root.HandleFunc("GET /v1/ha", s.handleHA) // failover role/epoch/leader, no fact data
 	}
@@ -570,6 +580,12 @@ func queryTokenOK(p string) bool {
 	// Asset downloads are fetched via direct <img>/<a> links, which cannot
 	// set an Authorization header either.
 	return strings.HasPrefix(p, "/v1/assets/")
+}
+
+// handleNoOAuth answers OAuth discovery with 404: Centauri authenticates with
+// bearer tokens (and validates SSO JWTs) but is not an OAuth authorization server.
+func (s *Server) handleNoOAuth(w http.ResponseWriter, r *http.Request) {
+	httpErr(w, http.StatusNotFound, "no OAuth here: Centauri takes a bearer token, or the token in an /mcp/<token> URL")
 }
 
 // mcpPathToken returns the token carried in an /mcp/<token> path.

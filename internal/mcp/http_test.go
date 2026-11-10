@@ -186,8 +186,14 @@ func TestHTTPMethodOriginAndVersion(t *testing.T) {
 	if r, _ := post(t, ts, ping, map[string]string{"Origin": ts.URL}); r.StatusCode != 200 {
 		t.Fatalf("same origin status %d", r.StatusCode)
 	}
-	if r, _ := post(t, ts, ping, map[string]string{"MCP-Protocol-Version": "2099-01-01"}); r.StatusCode != http.StatusBadRequest {
-		t.Fatalf("bad version status %d", r.StatusCode)
+	// a revision newer than this server knows is not refused: initialize settles the revision
+	if r, _ := post(t, ts, ping, map[string]string{"MCP-Protocol-Version": "2099-01-01"}); r.StatusCode != 200 {
+		t.Fatalf("newer version header status %d", r.StatusCode)
+	}
+	// what Claude's connector check sends (Nov 2026): header and initialize on 2025-11-25
+	r, out := post(t, ts, `{"jsonrpc":"2.0","id":9,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"claude-ai","version":"1"}}}`, map[string]string{"MCP-Protocol-Version": "2025-11-25"})
+	if r.StatusCode != 200 || out["result"].(map[string]any)["protocolVersion"] != "2025-11-25" {
+		t.Fatalf("2025-11-25 initialize: %d %v", r.StatusCode, out)
 	}
 	if r, _ := post(t, ts, ping, map[string]string{"MCP-Protocol-Version": "2025-03-26"}); r.StatusCode != 200 {
 		t.Fatalf("good version status %d", r.StatusCode)

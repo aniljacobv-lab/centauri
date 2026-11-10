@@ -27,7 +27,7 @@ const protocolVersion = "2024-11-05"
 // supportedVersions are the MCP revisions this server speaks, newest first.
 // Cloud assistants (Claude, Muse) ask for the newer ones over HTTP; the tool
 // surface is the same in each.
-var supportedVersions = []string{"2025-06-18", "2025-03-26", protocolVersion}
+var supportedVersions = []string{"2025-11-25", "2025-06-18", "2025-03-26", protocolVersion}
 
 // negotiate answers a client's requested protocol revision with that revision
 // when supported, otherwise the newest this server speaks (the spec's rule).

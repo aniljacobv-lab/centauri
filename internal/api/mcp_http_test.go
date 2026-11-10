@@ -89,3 +89,22 @@ func TestMCPPathTokenRedactedInLogs(t *testing.T) {
 		}
 	}
 }
+
+// OAuth discovery answers 404 without a token, so an MCP client does not take
+// Centauri for an OAuth server and give up; /mcp still needs its token.
+func TestOAuthDiscoveryAnswersNoOAuth(t *testing.T) {
+	_, ts := newTestServer(t, Options{Token: "admin", ReadToken: "read"})
+	for _, p := range []string{"/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp/read", "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"} {
+		resp, err := http.Get(ts.URL + p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("%s: %d, want 404", p, resp.StatusCode)
+		}
+	}
+	if code, _ := mcpPost(t, ts.URL+"/mcp", "", mcpList); code != http.StatusUnauthorized {
+		t.Fatalf("/mcp without a token: %d", code)
+	}
+}

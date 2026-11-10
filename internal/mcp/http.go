@@ -46,10 +46,11 @@ func Handler(opts HTTPOptions) http.Handler {
 			jsonErr(w, http.StatusMethodNotAllowed, "this MCP endpoint is stateless: POST JSON-RPC messages; no SSE stream is offered")
 			return
 		}
-		if v := r.Header.Get("MCP-Protocol-Version"); v != "" && negotiate(v) != v {
-			jsonErr(w, http.StatusBadRequest, "unsupported MCP-Protocol-Version "+v)
-			return
-		}
+		// MCP-Protocol-Version is not refused when it names a revision newer than
+		// this server knows: Claude's connector check sent 2025-11-25 before this
+		// server listed it, and a 400 there kept the connector from being added.
+		// The revision both sides use is settled by initialize (negotiate); the
+		// tool surface is the same in every revision this server speaks.
 		st, err := opts.Store(r)
 		if err != nil {
 			jsonErr(w, http.StatusNotFound, err.Error())
