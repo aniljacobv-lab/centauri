@@ -582,6 +582,26 @@ func queryTokenOK(p string) bool {
 	return strings.HasPrefix(p, "/v1/assets/")
 }
 
+// requestToken reads the credential a request carries: "Authorization: Bearer
+// <token>" with the scheme in any case and any spacing (RFC 9110 makes the
+// scheme case-insensitive; "bearer x" and "Bearer  x" were refused), a bare
+// "Authorization: <token>", or X-API-Key / X-Centauri-Token for clients whose
+// connector settings reserve Authorization for their own sign-in (custom MCP
+// connectors in assistants). Empty when none is present.
+func requestToken(r *http.Request) string {
+	h := strings.TrimSpace(r.Header.Get("Authorization"))
+	if scheme, rest, ok := strings.Cut(h, " "); ok && strings.EqualFold(scheme, "Bearer") {
+		h = strings.TrimSpace(rest)
+	}
+	if h == "" {
+		h = strings.TrimSpace(r.Header.Get("X-API-Key"))
+	}
+	if h == "" {
+		h = strings.TrimSpace(r.Header.Get("X-Centauri-Token"))
+	}
+	return h
+}
+
 // handleNoOAuth answers OAuth discovery with 404: Centauri authenticates with
 // bearer tokens (and validates SSO JWTs) but is not an OAuth authorization server.
 func (s *Server) handleNoOAuth(w http.ResponseWriter, r *http.Request) {
@@ -627,7 +647,7 @@ func isLoopback(remote string) bool {
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.opts.Token != "" || s.opts.ReadToken != "" || s.opts.OIDC != nil {
-			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			got := requestToken(r)
 			if got == "" && queryTokenOK(r.URL.Path) {
 				got = r.URL.Query().Get("token") // SSE/tailing clients can't set headers
 			}
