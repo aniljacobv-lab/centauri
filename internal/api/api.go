@@ -582,22 +582,22 @@ func queryTokenOK(p string) bool {
 	return strings.HasPrefix(p, "/v1/assets/")
 }
 
-// requestToken reads the credential a request carries: "Authorization: Bearer
-// <token>" with the scheme in any case and any spacing (RFC 9110 makes the
-// scheme case-insensitive; "bearer x" and "Bearer  x" were refused), a bare
-// "Authorization: <token>", or X-API-Key / X-Centauri-Token for clients whose
-// connector settings reserve Authorization for their own sign-in (custom MCP
-// connectors in assistants). Empty when none is present.
+// requestToken reads the credential a request carries. Centauri's own headers
+// come first, X-Centauri-Token then X-API-Key: a header named for Centauri
+// carries a token meant for Centauri, and an assistant connector may send its
+// own Authorization alongside it (its sign-in) while the API key is ours.
+// Otherwise "Authorization: Bearer <token>", the scheme in any case and with any
+// spacing (RFC 9110 makes the scheme case-insensitive), or a bare
+// "Authorization: <token>". Empty when none is present.
 func requestToken(r *http.Request) string {
+	for _, name := range []string{"X-Centauri-Token", "X-API-Key"} {
+		if v := strings.TrimSpace(r.Header.Get(name)); v != "" {
+			return v
+		}
+	}
 	h := strings.TrimSpace(r.Header.Get("Authorization"))
 	if scheme, rest, ok := strings.Cut(h, " "); ok && strings.EqualFold(scheme, "Bearer") {
 		h = strings.TrimSpace(rest)
-	}
-	if h == "" {
-		h = strings.TrimSpace(r.Header.Get("X-API-Key"))
-	}
-	if h == "" {
-		h = strings.TrimSpace(r.Header.Get("X-Centauri-Token"))
 	}
 	return h
 }
