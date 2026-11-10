@@ -137,3 +137,31 @@ func TestTokenHeaderForms(t *testing.T) {
 		}
 	}
 }
+
+// A connector that sends its own Authorization (its sign-in) beside X-API-Key
+// is admitted on the API key; the dedicated headers win over Authorization.
+func TestAPIKeyWinsOverAConnectorsAuthorization(t *testing.T) {
+	_, ts := newTestServer(t, Options{Token: "admin", ReadToken: "read"})
+	try := func(h map[string]string) int {
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/mcp", strings.NewReader(mcpList))
+		req.Header.Set("Content-Type", "application/json")
+		for k, v := range h {
+			req.Header.Set(k, v)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	if code := try(map[string]string{"Authorization": "Bearer claude-session-xyz", "X-API-Key": "read"}); code != 200 {
+		t.Fatalf("Authorization + X-API-Key: %d", code)
+	}
+	if code := try(map[string]string{"Authorization": "Bearer claude-session-xyz", "X-Centauri-Token": "read", "X-API-Key": "other"}); code != 200 {
+		t.Fatalf("X-Centauri-Token should win: %d", code)
+	}
+	if code := try(map[string]string{"Authorization": "Bearer read", "X-API-Key": "wrong"}); code != http.StatusUnauthorized {
+		t.Fatalf("a wrong X-API-Key is not rescued by Authorization: %d", code)
+	}
+}
