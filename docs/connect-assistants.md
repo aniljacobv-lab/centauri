@@ -52,11 +52,14 @@ treat that URL as a secret).
 
 | Form | URL |
 |---|---|
-| Header auth | `https://YOUR-HOST/mcp` with `Authorization: Bearer <read-token>` |
+| Header auth | `https://YOUR-HOST/mcp` with `Authorization: Bearer <read-token>`, or `X-API-Key: <read-token>` |
 | URL only | `https://YOUR-HOST/mcp/<read-token>` |
 
 **Claude (including Claude Duet):** Settings → Connectors → Add custom
-connector → name it Centauri and paste the URL. Claude Duet uses the same
+connector → name it Centauri and paste `https://YOUR-HOST/mcp`, choose **No
+sign-in**, and under Request headers add `X-API-Key` with the read token as its
+value (Claude may keep `Authorization` for its own sign-in). The URL-only form
+works too. Claude Duet uses the same
 connectors as Claude, and asks before any sensitive action.
 
 **Meta Muse:** Settings → Connectors → Add custom connector → paste the URL.

@@ -108,3 +108,32 @@ func TestOAuthDiscoveryAnswersNoOAuth(t *testing.T) {
 		t.Fatalf("/mcp without a token: %d", code)
 	}
 }
+
+// The token is read however a client sends it: any-case Bearer scheme, extra
+// spacing, a bare token, or X-API-Key / X-Centauri-Token (assistant connectors
+// that reserve Authorization). A wrong token in any of them is still refused.
+func TestTokenHeaderForms(t *testing.T) {
+	_, ts := newTestServer(t, Options{Token: "admin", ReadToken: "read"})
+	try := func(name, value string) int {
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/mcp", strings.NewReader(mcpList))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set(name, value)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	for _, c := range [][2]string{{"Authorization", "Bearer read"}, {"Authorization", "bearer read"}, {"Authorization", "BEARER  read"},
+		{"Authorization", " Bearer read "}, {"Authorization", "read"}, {"X-API-Key", "read"}, {"X-Centauri-Token", " read "}} {
+		if code := try(c[0], c[1]); code != 200 {
+			t.Fatalf("%s: %q -> %d", c[0], c[1], code)
+		}
+	}
+	for _, c := range [][2]string{{"Authorization", "Bearer nope"}, {"X-API-Key", "nope"}, {"Authorization", "Basic read"}} {
+		if code := try(c[0], c[1]); code != http.StatusUnauthorized {
+			t.Fatalf("%s: %q -> %d, want 401", c[0], c[1], code)
+		}
+	}
+}
